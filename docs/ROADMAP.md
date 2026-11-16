@@ -134,8 +134,25 @@ a tela da Q-Cumber Factory, depois parava em `ExtAudioFileGetProperty('#frm')`
 (tamanho do som em quadros; os 65 sons do jogo são MP3, decodificados para PCM pelo
 touchHLE). Corrigido: `kExtAudioFileProperty_FileLengthFrames`, `ClientDataFormat`
 e `AudioFile` em `ExtAudioFileGetProperty`, `ExtAudioFileSeek/Tell`, e propriedades
-desconhecidas devolvem erro em vez de fechar o app. O ambiente de desenvolvimento
-não permite executar o código do app, então cada etapa é validada no aparelho.
+desconhecidas devolvem erro em vez de fechar o app.
+
+Depois, rodando o jogo no servidor (touchHLE para Linux com Xvfb, capturas de tela
+e toques simulados; script de teste em `android/hle/README.md`), apareceram e foram
+corrigidos:
+
+| Sintoma | Causa | Correção no patch |
+|---|---|---|
+| Lógica errada (divisões dando 0) | `__divsi3`, `__moddi3`, `__fixdfdi`… vêm da `libgcc_s`, que o touchHLE só carregava se o app a declarasse; no iOS 5 a `libSystem` já as exporta | carregar a `libgcc_s` junto com a `libSystem` |
+| Fundo verde nos sprites e no título | as imagens são PNG de paleta com cor-chave verde; o jogo só remove a cor-chave de imagens **sem alfa**, e `CGImageGetAlphaInfo` sempre dizia "com alfa" | `CGImageGetAlphaInfo` segue o arquivo (sem alfa → `NoneSkipLast`) |
+| Tela deslocada 88 px, logo e menu cortados | `MainWindow.nib` é de iPhone 5 (320×568); o iOS ajusta a janela à tela ("Full Screen at Launch") e a view acompanha pelo autoresizing | `UIResizesToFullScreen` e autoresizing de `UIView` |
+| Resolução 0×0 | `[UIScreen currentMode]` não existia | `UIScreenMode` (`currentMode`, `preferredMode`, `availableModes`) |
+| Textos japoneses | `initWithCString:encoding:` recusava Shift-JIS | Shift-JIS aceito; Latin-1 e MacRoman de verdade |
+| Som `HEAL1.mp3` | é um WAV com MP3 dentro (formato 0x55) | extrai e decodifica o MP3 |
+| Ref de áudio inválida derrubava | o jogo usa o `ExtAudioFileRef` mesmo depois de falhar ao abrir | devolve erro (`-50`) |
+
+Resultado no servidor: título, seleção de fase e partida (corrida, moedas, inimigos,
+combo, pontuação) sem erros no log. O modo tolerante passou a dizer em qual função
+(ou `[Classe método]`) cada erro recuperado aconteceu.
 
 ## Próximas tarefas da ferramenta
 

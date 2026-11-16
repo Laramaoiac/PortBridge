@@ -80,6 +80,24 @@ montado sem este template.
 Só `arm64-v8a`: o dynarmic gera código para ARM64 e x86_64, e o x86_64 só serviria
 para emuladores.
 
+## Rodar um IPA no computador (testes)
+
+O touchHLE do patch também compila para Linux (`cargo build --release` em
+`third_party/touchHLE`, com `PORTBRIDGE_BUILD=1`). Com Xvfb, ImageMagick e xdotool dá
+para rodar um jogo sem tela, tirar capturas e simular toques:
+
+```bash
+Xvfb :91 -screen 0 1024x768x24 &
+cd pasta_de_teste   # com links para touchHLE_dylibs, touchHLE_fonts e touchHLE_default_options.txt
+DISPLAY=:91 SDL_AUDIODRIVER=dummy ALSOFT_DRIVERS=null \
+    ../third_party/touchHLE/target/release/touchHLE Jogo.ipa --lenient --no-error-popup &
+DISPLAY=:91 import -window root captura.png
+DISPLAY=:91 xdotool mousemove --window "$(DISPLAY=:91 xdotool search --name touchHLE)" 240 205 click 1
+```
+
+O log fica em `touchHLE_log.txt` na pasta de teste. No modo tolerante, cada erro
+recuperado vem com a função (ou `[Classe método]`) onde aconteceu.
+
 ## Checar um IPA antes
 
 ```bash

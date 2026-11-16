@@ -15,11 +15,99 @@ index 9297a5f..072b7e6 100644
      --ignore-gl-errors
          Ignore host OpenGL errors as queried by glGetError function.
          This only affects return value of glGetError as seen by the guest
+diff --git a/src/audio.rs b/src/audio.rs
+index fd8b35c..3c08b92 100644
+--- a/src/audio.rs
++++ b/src/audio.rs
+@@ -48,6 +48,30 @@ pub struct AudioDescription {
+     pub bits_per_channel: u32,
+ }
+ 
++/// PortBridge: returns the `data` chunk of a RIFF/WAVE file whose `fmt ` chunk
++/// says MPEG (0x50) or MPEG Layer 3 (0x55).
++fn mp3_inside_wave(bytes: &[u8]) -> Option<Vec<u8>> {
++    if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
++        return None;
++    }
++    let mut pos = 12;
++    let mut is_mpeg = false;
++    while pos + 8 <= bytes.len() {
++        let id = &bytes[pos..pos + 4];
++        let size = u32::from_le_bytes(bytes[pos + 4..pos + 8].try_into().ok()?) as usize;
++        let body = pos + 8;
++        let end = body.checked_add(size)?.min(bytes.len());
++        if id == b"fmt " && end >= body + 2 {
++            let tag = u16::from_le_bytes([bytes[body], bytes[body + 1]]);
++            is_mpeg = tag == 0x55 || tag == 0x50;
++        } else if id == b"data" {
++            return if is_mpeg { Some(bytes[body..end].to_vec()) } else { None };
++        }
++        pos = body + size + (size & 1);
++    }
++    None
++}
++
+ pub struct AudioFile(AudioFileInner);
+ enum AudioFileInner {
+     Wave(hound::WavReader<Cursor<Vec<u8>>>),
+@@ -89,6 +113,13 @@ impl AudioFile {
+         // are immediately decoding the entire file to PCM and acting as if
+         // it's a PCM file, simply because because this is easier. Full MP3
+         // support would require a lot of changes in Audio Toolbox.
++        } else if let Some(mp3) = mp3_inside_wave(&bytes) {
++            // PortBridge: RIFF/WAVE container with an MPEG Layer 3 payload
++            // (format tag 0x55), which neither hound nor symphonia's WAVE reader
++            // accept; decode the payload as a plain MP3 stream.
++            symphonia_formats::decode_symphonia_to_pcm(Cursor::new(mp3))
++                .map(|pcm| AudioFile(AudioFileInner::Symphonia(pcm)))
++                .map_err(|_| AudioFileOpenError::FileDecodeError)
+         } else if let Ok(pcm) = symphonia_formats::decode_symphonia_to_pcm(Cursor::new(bytes)) {
+             Ok(AudioFile(AudioFileInner::Symphonia(pcm)))
+         } else {
 diff --git a/src/dyld.rs b/src/dyld.rs
-index 71b8d00..c79b9ee 100644
+index 71b8d00..f02c7b1 100644
 --- a/src/dyld.rs
 +++ b/src/dyld.rs
-@@ -808,6 +808,26 @@ impl Dyld {
+@@ -228,6 +228,8 @@ pub struct Dyld {
+     /// The `&'static str` part here is purely for debugging and could be
+     /// removed in release builds if it's ever necessary.
+     linked_host_functions: Vec<(&'static str, HostFunction)>,
++    /// PortBridge: name of the host function being called (diagnostics).
++    pub last_host_symbol: &'static str,
+     return_to_host_routine: Option<GuestFunction>,
+     thread_exit_routine: Option<GuestFunction>,
+     constants_to_link_later: Vec<(MutPtr<ConstVoidPtr>, &'static HostConstant)>,
+@@ -257,6 +259,7 @@ impl Dyld {
+     pub fn new() -> Dyld {
+         Dyld {
+             linked_host_functions: Vec::new(),
++            last_host_symbol: "",
+             return_to_host_routine: None,
+             thread_exit_routine: None,
+             constants_to_link_later: Vec::new(),
+@@ -641,7 +644,12 @@ impl Dyld {
+     ) -> Option<HostFunction> {
+         match svc {
+             Self::SVC_LAZY_LINK | Self::SVC_LAZY_LINK_RET_FLAG => {
+-                self.do_lazy_link(bins, mem, cpu, svc_pc)
++                let before = self.linked_host_functions.len();
++                let f = self.do_lazy_link(bins, mem, cpu, svc_pc);
++                if self.linked_host_functions.len() > before {
++                    self.last_host_symbol = self.linked_host_functions.last().unwrap().0;
++                }
++                f
+             }
+             Self::SVC_THREAD_EXIT | Self::SVC_RETURN_TO_HOST => unreachable!(), // don't handle here
+             Self::SVC_LINKED_FUNCTIONS_BASE.. => {
+@@ -653,6 +661,7 @@ impl Dyld {
+                     panic!("Unexpected SVC #{svc} at {svc_pc:#x}");
+                 };
+                 log_dbg!("Call to host function, already linked: {}", symbol);
++                self.last_host_symbol = symbol;
+                 Some(f)
+             }
+         }
+@@ -808,6 +817,26 @@ impl Dyld {
              }
          }
  
@@ -47,10 +135,35 @@ index 71b8d00..c79b9ee 100644
      }
  
 diff --git a/src/environment.rs b/src/environment.rs
-index 131c45d..aabf270 100644
+index 131c45d..0d3e185 100644
 --- a/src/environment.rs
 +++ b/src/environment.rs
-@@ -1608,7 +1608,21 @@ impl Environment {
+@@ -497,6 +497,24 @@ impl Environment {
+             }
+         }
+ 
++        // PortBridge: on iOS 5, libSystem re-exports the compiler support
++        // routines (__divsi3, __moddi3, __fixdfdi...). touchHLE only loads the
++        // bundled libgcc_s when the app links it directly, so apps built with
++        // newer SDKs (which link only libSystem) got 0 back from those calls.
++        let gcc_path = fs::GuestPath::new("/usr/lib/libgcc_s.1.dylib");
++        if !dylibs.iter().any(|d: &mach_o::MachO| d.name.starts_with("libgcc_s"))
++            && executable
++                .dynamic_libraries
++                .iter()
++                .any(|d| d.starts_with("/usr/lib/libSystem"))
++            && fs.is_file(gcc_path)
++        {
++            let gcc = mach_o::MachO::load_from_file(gcc_path, &fs, &mut mem, 0x30000000)
++                .map_err(|e| format!("Could not load bundled dylib: {e}"))?;
++            log!("PortBridge: loaded libgcc_s.1.dylib for the compiler support routines");
++            dylibs.push(gcc);
++        }
++
+         let entry_point_addr = executable
+             .entry_point_pc
+             .ok_or_else(|| {
+@@ -1608,7 +1626,38 @@ impl Environment {
                              svc_pc,
                              svc,
                          ) {
@@ -62,6 +175,23 @@ index 131c45d..aabf270 100644
 +                                let saved_regs = *self.cpu.regs();
 +                                let saved_cpsr = self.cpu.cpsr();
 +                                if crate::objc::run_guarded(|| f.call_from_guest(self)).is_err() {
++                                    let symbol = self.dyld.last_host_symbol;
++                                    let message = if symbol.starts_with("objc_msgSend") {
++                                        crate::objc::last_host_message().map(|(class, sel)| {
++                                            format!(
++                                                " [{} {}]",
++                                                self.objc.try_get_class_name(class).unwrap_or("?"),
++                                                sel.as_str(&self.mem)
++                                            )
++                                        })
++                                    } else {
++                                        None
++                                    };
++                                    log!(
++                                        "PortBridge (lenient): the error above was in {}{}",
++                                        symbol,
++                                        message.unwrap_or_default()
++                                    );
 +                                    self.cpu.regs_mut().copy_from_slice(&saved_regs);
 +                                    self.cpu.set_cpsr(saved_cpsr);
 +                                    self.cpu.regs_mut()[0] = 0;
@@ -74,10 +204,10 @@ index 131c45d..aabf270 100644
                                  log_once!("Applying zeroing of stack after guest to host call.");
                                  let start = self.cpu.regs()[cpu::Cpu::SP] - len;
 diff --git a/src/frameworks/audio_toolbox/extended_audio_file.rs b/src/frameworks/audio_toolbox/extended_audio_file.rs
-index f973abf..88e1d90 100644
+index f973abf..0ae3cdc 100644
 --- a/src/frameworks/audio_toolbox/extended_audio_file.rs
 +++ b/src/frameworks/audio_toolbox/extended_audio_file.rs
-@@ -55,6 +55,52 @@ type ExtAudioFileRef = MutPtr<OpaqueExtAudioFile>;
+@@ -55,6 +55,63 @@ type ExtAudioFileRef = MutPtr<OpaqueExtAudioFile>;
  type ExtAudioFilePropertyID = u32;
  const kExtAudioFileProperty_FileDataFormat: ExtAudioFilePropertyID = fourcc(b"ffmt");
  const kExtAudioFileProperty_ClientDataFormat: ExtAudioFilePropertyID = fourcc(b"cfmt");
@@ -85,6 +215,17 @@ index f973abf..88e1d90 100644
 +const kExtAudioFileProperty_FileLengthFrames: ExtAudioFilePropertyID = fourcc(b"#frm");
 +const kExtAudioFileProperty_AudioFile: ExtAudioFilePropertyID = fourcc(b"afil");
 +const kExtAudioFileError_InvalidProperty: OSStatus = -66561;
++const kAudio_ParamError: OSStatus = -50;
++
++/// PortBridge: apps sometimes keep using a ref after ExtAudioFileOpenURL
++/// failed (uninitialised variable); answer with an error instead of aborting.
++fn is_open(env: &Environment, ext: ExtAudioFileRef) -> bool {
++    env.framework_state
++        .audio_toolbox
++        .extended_audio_file
++        .extended_audio_files
++        .contains_key(&ext)
++}
 +
 +/// PortBridge: the file's data format, as touchHLE exposes it (always linear
 +/// PCM: compressed formats are decoded when the file is opened).
@@ -130,10 +271,15 @@ index f973abf..88e1d90 100644
  
  fn ExtAudioFileOpenURL(
      env: &mut Environment,
-@@ -111,12 +157,67 @@ fn ExtAudioFileGetProperty(
+@@ -110,13 +167,72 @@ fn ExtAudioFileGetProperty(
+     out_property_data: MutVoidPtr,
  ) -> OSStatus {
      return_if_null!(in_ext_audio_file);
- 
++    if !is_open(env, in_ext_audio_file) {
++        log!("Warning: {} called with an ExtAudioFileRef that is not open", "ExtAudioFileGetProperty");
++        return kAudio_ParamError;
++    }
++
 +    // PortBridge: properties answered directly.
 +    match in_property_id {
 +        kExtAudioFileProperty_FileLengthFrames => {
@@ -185,7 +331,7 @@ index f973abf..88e1d90 100644
 +        }
 +        _ => (),
 +    }
-+
+ 
      let audio_file_property_id = match in_property_id {
          kExtAudioFileProperty_FileDataFormat => kAudioFilePropertyDataFormat,
 -        _ => unimplemented!(
@@ -202,9 +348,14 @@ index f973abf..88e1d90 100644
      };
  
      let required_size = property_size(audio_file_property_id);
-@@ -151,7 +252,13 @@ fn ExtAudioFileSetProperty(
+@@ -150,8 +266,18 @@ fn ExtAudioFileSetProperty(
+     in_property_data: ConstVoidPtr,
  ) -> OSStatus {
      return_if_null!(in_ext_audio_file);
++    if !is_open(env, in_ext_audio_file) {
++        log!("Warning: {} called with an ExtAudioFileRef that is not open", "ExtAudioFileSetProperty");
++        return kAudio_ParamError;
++    }
  
 -    assert_eq!(in_property_id, kExtAudioFileProperty_ClientDataFormat);
 +    if in_property_id != kExtAudioFileProperty_ClientDataFormat {
@@ -217,7 +368,7 @@ index f973abf..88e1d90 100644
      assert_eq!(
          in_property_data_size,
          guest_size_of::<AudioStreamBasicDescription>()
-@@ -171,7 +278,7 @@ fn ExtAudioFileSetProperty(
+@@ -171,7 +297,7 @@ fn ExtAudioFileSetProperty(
          .extended_audio_files
          .get_mut(&in_ext_audio_file)
          .unwrap();
@@ -226,7 +377,7 @@ index f973abf..88e1d90 100644
      host_object.client_data_format = Some(client_audio_desc);
  
      let host_object = env
-@@ -192,7 +299,18 @@ fn ExtAudioFileSetProperty(
+@@ -192,7 +318,18 @@ fn ExtAudioFileSetProperty(
          other_host_object.audio_file.audio_description(),
      );
      // TODO: support audio format conversions
@@ -246,7 +397,15 @@ index f973abf..88e1d90 100644
  
      0 // success
  }
-@@ -208,6 +326,7 @@ fn ExtAudioFileRead(
+@@ -204,10 +341,15 @@ fn ExtAudioFileRead(
+     io_data: MutPtr<AudioBufferList<1>>,
+ ) -> OSStatus {
+     return_if_null!(in_ext_audio_file);
++    if !is_open(env, in_ext_audio_file) {
++        log!("Warning: {} called with an ExtAudioFileRef that is not open", "ExtAudioFileRead");
++        return kAudio_ParamError;
++    }
+ 
      let mut audio_buffer_list = env.mem.read(io_data);
      let num_buffers = audio_buffer_list.number_buffers;
      assert_eq!(num_buffers, 1);
@@ -254,7 +413,7 @@ index f973abf..88e1d90 100644
  
      let host_object = env
          .framework_state
-@@ -218,10 +337,10 @@ fn ExtAudioFileRead(
+@@ -218,10 +360,10 @@ fn ExtAudioFileRead(
          .unwrap();
  
      audio_buffer_list.buffers[0].number_channels =
@@ -267,13 +426,17 @@ index f973abf..88e1d90 100644
      let number_of_bytes = number_frames.checked_mul(bytes_per_frame).unwrap();
      let number_of_bytes_ptr = env.mem.alloc_and_write(number_of_bytes);
      let res = AudioFileReadBytes(
-@@ -268,6 +387,45 @@ fn ExtAudioFileRead(
+@@ -268,8 +410,59 @@ fn ExtAudioFileRead(
      0 // success
  }
  
 +/// PortBridge: position in sample frames of the client format.
 +fn ExtAudioFileSeek(env: &mut Environment, in_ext_audio_file: ExtAudioFileRef, in_frame_offset: i64) -> OSStatus {
 +    return_if_null!(in_ext_audio_file);
++    if !is_open(env, in_ext_audio_file) {
++        log!("Warning: {} called with an ExtAudioFileRef that is not open", "ExtAudioFileSeek");
++        return kAudio_ParamError;
++    }
 +    let file_format = file_data_format(env, in_ext_audio_file);
 +    let host_object = env
 +        .framework_state
@@ -292,6 +455,10 @@ index f973abf..88e1d90 100644
 +
 +fn ExtAudioFileTell(env: &mut Environment, in_ext_audio_file: ExtAudioFileRef, out_frame_offset: MutPtr<i64>) -> OSStatus {
 +    return_if_null!(in_ext_audio_file);
++    if !is_open(env, in_ext_audio_file) {
++        log!("Warning: {} called with an ExtAudioFileRef that is not open", "ExtAudioFileTell");
++        return kAudio_ParamError;
++    }
 +    let file_format = file_data_format(env, in_ext_audio_file);
 +    let host_object = env
 +        .framework_state
@@ -312,8 +479,14 @@ index f973abf..88e1d90 100644
 +
  fn ExtAudioFileDispose(env: &mut Environment, in_ext_audio_file: ExtAudioFileRef) -> OSStatus {
      return_if_null!(in_ext_audio_file);
++    if !is_open(env, in_ext_audio_file) {
++        log!("Warning: {} called with an ExtAudioFileRef that is not open", "ExtAudioFileDispose");
++        return kAudio_ParamError;
++    }
  
-@@ -299,5 +457,7 @@ pub const FUNCTIONS: FunctionExports = &[
+     let host_object = env
+         .framework_state
+@@ -299,5 +492,7 @@ pub const FUNCTIONS: FunctionExports = &[
      export_c_func!(ExtAudioFileGetProperty(_, _, _, _)),
      export_c_func!(ExtAudioFileSetProperty(_, _, _, _)),
      export_c_func!(ExtAudioFileRead(_, _, _)),
@@ -321,6 +494,32 @@ index f973abf..88e1d90 100644
 +    export_c_func!(ExtAudioFileTell(_, _)),
      export_c_func!(ExtAudioFileDispose(_)),
  ];
+diff --git a/src/frameworks/core_graphics/cg_image.rs b/src/frameworks/core_graphics/cg_image.rs
+index a6b936a..02aa003 100644
+--- a/src/frameworks/core_graphics/cg_image.rs
++++ b/src/frameworks/core_graphics/cg_image.rs
+@@ -205,11 +205,19 @@ fn CGImageCreateWithJPEGDataProvider(
+     from_image(env, image)
+ }
+ 
+-fn CGImageGetAlphaInfo(_env: &mut Environment, _image: CGImageRef) -> CGImageAlphaInfo {
++fn CGImageGetAlphaInfo(env: &mut Environment, image: CGImageRef) -> CGImageAlphaInfo {
+     // our Image type always returns premultiplied RGBA
+     // (the premultiplied part must match what the real UIImage does, but
+     // considering CgBI's design, maybe the order doesn't?)
+-    kCGImageAlphaPremultipliedLast
++    // PortBridge: images whose file had no alpha channel (RGB or palette PNG
++    // without transparency, JPEG) report no alpha, like iOS. Texture loaders
++    // branch on this; e.g. games that use a color key (pure green) only remove
++    // it for images without alpha.
++    if image != nil && !borrow_image(&env.objc, image).has_alpha() {
++        kCGImageAlphaNoneSkipLast
++    } else {
++        kCGImageAlphaPremultipliedLast
++    }
+ }
+ 
+ fn CGImageGetColorSpace(env: &mut Environment, _image: CGImageRef) -> CGColorSpaceRef {
 diff --git a/src/frameworks/foundation.rs b/src/frameworks/foundation.rs
 index 441c507..d112ca7 100644
 --- a/src/frameworks/foundation.rs
@@ -665,6 +864,264 @@ index f473e09..e8a3ecd 100644
  // TODO: more accessors
  
  - (id) retain { this }
+diff --git a/src/frameworks/foundation/ns_string.rs b/src/frameworks/foundation/ns_string.rs
+index 99906b0..bcbb17f 100644
+--- a/src/frameworks/foundation/ns_string.rs
++++ b/src/frameworks/foundation/ns_string.rs
+@@ -62,6 +62,8 @@ const C_STRING_FRIENDLY_ENCODINGS: &[NSStringEncoding] = &[
+     NSWindowsCP1252StringEncoding,
+     NSMacOSRomanStringEncoding,
+     NSISOLatin1StringEncoding,
++    // PortBridge: multibyte encodings without zero bytes (Japanese apps)
++    NSShiftJISStringEncoding,
+ ];
+ 
+ pub const NSMaximumStringLength: NSUInteger = (i32::MAX - 1) as _;
+@@ -111,13 +113,15 @@ impl StringHostObject {
+                 let string = unsafe { String::from_utf8_unchecked(bytes.into_owned()) };
+                 StringHostObject::Utf8(Cow::Owned(string))
+             }
+-            NSMacOSRomanStringEncoding | NSISOLatin1StringEncoding => {
+-                // TODO: support non ASCII symbols
+-                assert!(bytes.iter().all(|byte| byte.is_ascii()));
+-                // Safety: guaranteed by above assertion
+-                let string = unsafe { String::from_utf8_unchecked(bytes.into_owned()) };
++            NSISOLatin1StringEncoding => {
++                // PortBridge: ISO 8859-1 maps each byte to the same code point
++                let string: String = bytes.iter().map(|&b| char::from(b)).collect();
+                 StringHostObject::Utf8(Cow::Owned(string))
+             }
++            NSMacOSRomanStringEncoding => {
++                let (cow, _, _) = encoding_rs::MACINTOSH.decode(&bytes);
++                StringHostObject::Utf8(Cow::Owned(cow.into_owned()))
++            }
+             NSUTF8StringEncoding => {
+                 let string = String::from_utf8(bytes.into_owned()).unwrap();
+                 StringHostObject::Utf8(Cow::Owned(string))
+@@ -129,9 +133,11 @@ impl StringHostObject {
+                 StringHostObject::Utf8(Cow::Owned(cow.into_owned()))
+             }
+             NSShiftJISStringEncoding => {
+-                let (cow, encoding_used, had_errors) = SHIFT_JIS.decode(&bytes);
+-                assert_eq!(encoding_used, SHIFT_JIS);
+-                assert!(!had_errors);
++                // PortBridge: invalid sequences become U+FFFD instead of aborting
++                let (cow, _encoding_used, had_errors) = SHIFT_JIS.decode(&bytes);
++                if had_errors {
++                    log!("Warning: invalid Shift-JIS bytes in string, replaced");
++                }
+                 log_dbg!("ShiftJIS decoded {:?}", cow);
+                 StringHostObject::Utf8(Cow::Owned(cow.to_string()))
+             }
+diff --git a/src/frameworks/uikit/ui_screen.rs b/src/frameworks/uikit/ui_screen.rs
+index 840d763..d11c51a 100644
+--- a/src/frameworks/uikit/ui_screen.rs
++++ b/src/frameworks/uikit/ui_screen.rs
+@@ -11,6 +11,8 @@ use crate::objc::{id, msg, msg_class, objc_classes, ClassExports, TrivialHostObj
+ #[derive(Default)]
+ pub struct State {
+     main_screen: Option<id>,
++    /// PortBridge: the single UIScreenMode (current = preferred = only mode)
++    main_mode: Option<id>,
+ }
+ 
+ pub const CLASSES: ClassExports = objc_classes! {
+@@ -74,6 +76,48 @@ pub const CLASSES: ClassExports = objc_classes! {
+     1.0
+ }
+ 
++// PortBridge: iOS 3.2+ screen modes. Apps use [[UIScreen mainScreen]
++// currentMode].size to find the resolution in pixels; nil gave them 0x0.
++- (id)currentMode {
++    if let Some(mode) = env.framework_state.uikit.ui_screen.main_mode {
++        mode
++    } else {
++        let class = env.objc.get_known_class("UIScreenMode", &mut env.mem);
++        let new = env.objc.alloc_static_object(
++            class,
++            Box::new(TrivialHostObject),
++            &mut env.mem
++        );
++        env.framework_state.uikit.ui_screen.main_mode = Some(new);
++        new
++    }
++}
++- (id)preferredMode {
++    msg![env; this currentMode]
++}
++- (id)availableModes {
++    let mode: id = msg![env; this currentMode];
++    msg_class![env; NSArray arrayWithObject:mode]
++}
++
++@end
++
++@implementation UIScreenMode: NSObject
++
++- (id)retain { this }
++- (())release {}
++- (id)autorelease { this }
++
++- (CGSize)size {
++    let screen: id = msg_class![env; UIScreen mainScreen];
++    let bounds: CGRect = msg![env; screen bounds];
++    let scale: CGFloat = msg![env; screen scale];
++    CGSize { width: bounds.size.width * scale, height: bounds.size.height * scale }
++}
++- (CGFloat)pixelAspectRatio {
++    1.0
++}
++
+ @end
+ 
+ };
+diff --git a/src/frameworks/uikit/ui_view.rs b/src/frameworks/uikit/ui_view.rs
+index b4dc3af..4de6cad 100644
+--- a/src/frameworks/uikit/ui_view.rs
++++ b/src/frameworks/uikit/ui_view.rs
+@@ -87,6 +87,9 @@ pub(super) struct UIViewHostObject {
+     clears_context_before_drawing: bool,
+     user_interaction_enabled: bool,
+     multiple_touch_enabled: bool,
++    /// PortBridge: UIViewAutoresizing mask and autoresizesSubviews.
++    autoresizing_mask: NSUInteger,
++    autoresizes_subviews: bool,
+ }
+ impl HostObject for UIViewHostObject {}
+ impl Default for UIViewHostObject {
+@@ -102,10 +105,61 @@ impl Default for UIViewHostObject {
+             clears_context_before_drawing: true,
+             user_interaction_enabled: true,
+             multiple_touch_enabled: false,
++            autoresizing_mask: 0,
++            autoresizes_subviews: true,
+         }
+     }
+ }
+ 
++/// PortBridge: UIView autoresizing. When a view's size changes, each subview's
++/// flexible parts (left margin / width / right margin, and the vertical
++/// equivalents) share the difference in proportion to their current sizes.
++fn autoresize_subviews(env: &mut Environment, view: id, old: CGSize, new: CGSize) {
++    let (dw, dh) = (new.width - old.width, new.height - old.height);
++    if dw == 0.0 && dh == 0.0 {
++        return;
++    }
++    let host = env.objc.borrow::<UIViewHostObject>(view);
++    if !host.autoresizes_subviews {
++        return;
++    }
++    let subviews = host.subviews.clone();
++    fn share(delta: f32, parts: [(bool, f32); 3]) -> [f32; 3] {
++        let flexible: Vec<usize> = (0..3).filter(|&i| parts[i].0).collect();
++        let mut out = [0.0; 3];
++        if flexible.is_empty() {
++            return out;
++        }
++        let total: f32 = flexible.iter().map(|&i| parts[i].1.max(0.0)).sum();
++        for &i in &flexible {
++            out[i] = if total > 0.0 {
++                delta * parts[i].1.max(0.0) / total
++            } else {
++                delta / flexible.len() as f32
++            };
++        }
++        out
++    }
++    for sub in subviews {
++        let mask = env.objc.borrow::<UIViewHostObject>(sub).autoresizing_mask;
++        if mask == 0 {
++            continue;
++        }
++        let mut f: CGRect = msg![env; sub frame];
++        let right = old.width - f.origin.x - f.size.width;
++        let bottom = old.height - f.origin.y - f.size.height;
++        // UIViewAutoresizingFlexible{LeftMargin, Width, RightMargin} = 1, 2, 4
++        let h = share(dw, [(mask & 1 != 0, f.origin.x), (mask & 2 != 0, f.size.width), (mask & 4 != 0, right)]);
++        // UIViewAutoresizingFlexible{TopMargin, Height, BottomMargin} = 8, 16, 32
++        let v = share(dh, [(mask & 8 != 0, f.origin.y), (mask & 16 != 0, f.size.height), (mask & 32 != 0, bottom)]);
++        f.origin.x += h[0];
++        f.size.width += h[1];
++        f.origin.y += v[0];
++        f.size.height += v[1];
++        () = msg![env; sub setFrame:f];
++    }
++}
++
+ #[derive(Default)]
+ struct UIViewAnimationDelegateHostObject {
+     animation_id: id, // NSString*
+@@ -393,6 +447,19 @@ pub const CLASSES: ClassExports = objc_classes! {
+     () = msg![env; this setTag:tag];
+     () = msg![env; this setMultipleTouchEnabled:multi_touch_enabled];
+ 
++    // PortBridge: autoresizing, so views from nibs follow their window when it
++    // is resized to the screen (UIResizesToFullScreen).
++    let key_ns_string = get_static_str(env, "UIAutoresizingMask");
++    let mask: NSInteger = msg![env; coder decodeIntegerForKey:key_ns_string];
++    let key_ns_string = get_static_str(env, "UIAutoresizeSubviews");
++    let has_key: bool = msg![env; coder containsValueForKey:key_ns_string];
++    let autoresizes: bool = !has_key || msg![env; coder decodeBoolForKey:key_ns_string];
++    {
++        let host = env.objc.borrow_mut::<UIViewHostObject>(this);
++        host.autoresizing_mask = mask as NSUInteger;
++        host.autoresizes_subviews = autoresizes;
++    }
++
+     for i in 0..subview_count {
+         let subview: id = msg![env; subviews objectAtIndex:i];
+         () = msg![env; this addSubview:subview];
+@@ -625,6 +692,8 @@ pub const CLASSES: ClassExports = objc_classes! {
+         clears_context_before_drawing: _,
+         user_interaction_enabled: _,
+         multiple_touch_enabled: _,
++        autoresizing_mask: _,
++        autoresizes_subviews: _,
+     } = std::mem::take(env.objc.borrow_mut(this));
+ 
+     release(env, layer);
+@@ -724,7 +793,9 @@ pub const CLASSES: ClassExports = objc_classes! {
+ }
+ - (())setBounds:(CGRect)bounds {
+     let layer = env.objc.borrow::<UIViewHostObject>(this).layer;
+-    msg![env; layer setBounds:bounds]
++    let old: CGRect = msg![env; layer bounds];
++    () = msg![env; layer setBounds:bounds];
++    autoresize_subviews(env, this, old.size, bounds.size);
+ }
+ - (CGPoint)center {
+     // FIXME: what happens if [layer anchorPoint] isn't (0.5, 0.5)?
+@@ -741,7 +812,10 @@ pub const CLASSES: ClassExports = objc_classes! {
+ }
+ - (())setFrame:(CGRect)frame {
+     let layer = env.objc.borrow::<UIViewHostObject>(this).layer;
+-    msg![env; layer setFrame:frame]
++    let old: CGRect = msg![env; layer bounds];
++    () = msg![env; layer setFrame:frame];
++    let new: CGRect = msg![env; layer bounds];
++    autoresize_subviews(env, this, old.size, new.size);
+ }
+ - (CGAffineTransform)transform {
+     let layer = env.objc.borrow::<UIViewHostObject>(this).layer;
+@@ -893,10 +967,16 @@ pub const CLASSES: ClassExports = objc_classes! {
+ }
+ 
+ - (())setAutoresizingMask:(NSUInteger)mask {
+-    todo_objc_setter!(this, mask);
++    env.objc.borrow_mut::<UIViewHostObject>(this).autoresizing_mask = mask;
++}
++- (NSUInteger)autoresizingMask {
++    env.objc.borrow::<UIViewHostObject>(this).autoresizing_mask
+ }
+ - (())setAutoresizesSubviews:(bool)enabled {
+-    todo_objc_setter!(this, enabled);
++    env.objc.borrow_mut::<UIViewHostObject>(this).autoresizes_subviews = enabled;
++}
++- (bool)autoresizesSubviews {
++    env.objc.borrow::<UIViewHostObject>(this).autoresizes_subviews
+ }
+ 
+ - (CGSize)sizeThatFits:(CGSize)size {
 diff --git a/src/frameworks/uikit/ui_view/ui_alert_view.rs b/src/frameworks/uikit/ui_view/ui_alert_view.rs
 index 7dc2539..d894dc1 100644
 --- a/src/frameworks/uikit/ui_view/ui_alert_view.rs
@@ -689,6 +1146,27 @@ index 7dc2539..d894dc1 100644
  - (())show {
      log!("TODO: [(UIAlertView*){:?} show]", this);
  }
+diff --git a/src/frameworks/uikit/ui_view/ui_window.rs b/src/frameworks/uikit/ui_view/ui_window.rs
+index 1998df4..93073fa 100644
+--- a/src/frameworks/uikit/ui_view/ui_window.rs
++++ b/src/frameworks/uikit/ui_view/ui_window.rs
+@@ -64,6 +64,16 @@ pub const CLASSES: ClassExports = objc_classes! {
+ // NSCoding implementation
+ - (id)initWithCoder:(id)coder {
+     let this = msg_super![env; this initWithCoder:coder];
++    // PortBridge: "Full Screen at Launch" in Interface Builder. A window made
++    // for another screen size (e.g. 320x568 for the iPhone 5) is resized to the
++    // screen, and its subviews follow their autoresizing masks.
++    let key_ns_string = ns_string::get_static_str(env, "UIResizesToFullScreen");
++    let full_screen: bool = msg![env; coder decodeBoolForKey:key_ns_string];
++    if full_screen {
++        let screen: id = msg_class![env; UIScreen mainScreen];
++        let bounds: CGRect = msg![env; screen bounds];
++        () = msg![env; this setFrame:bounds];
++    }
+     // Undocumented: windows seem to be hidden by default on iOS, unlike views.
+     // Super call to bypass the overriden setter on this class, which would post
+     // a notification.
 diff --git a/src/frameworks/uikit/ui_view_controller.rs b/src/frameworks/uikit/ui_view_controller.rs
 index d0a73bc..e7c803a 100644
 --- a/src/frameworks/uikit/ui_view_controller.rs
@@ -713,6 +1191,66 @@ index d0a73bc..e7c803a 100644
  - (())dismissModalViewControllerAnimated:(bool)animated {
      log!("TODO: [(UIViewController*){:?} dismissModalViewControllerAnimated:{}]", this, animated); // TODO
  }
+diff --git a/src/image.rs b/src/image.rs
+index 3afe2c2..360a3d6 100644
+--- a/src/image.rs
++++ b/src/image.rs
+@@ -25,6 +25,9 @@ use touchHLE_stb_image_wrapper::*;
+ pub struct Image {
+     pixels: PixelStore,
+     dimensions: (u32, u32),
++    /// PortBridge: whether the source file had an alpha channel (RGBA/gray+alpha
++    /// or a palette with transparency). Decoded pixels are always RGBA.
++    has_alpha: bool,
+ }
+ 
+ enum PixelStore {
+@@ -40,7 +43,7 @@ impl Image {
+ 
+         let mut x: c_int = 0;
+         let mut y: c_int = 0;
+-        let mut _channels_in_file: c_int = 0;
++        let mut channels_in_file: c_int = 0;
+ 
+         // TODO: we're currently assuming this is sRGB, can we check somehow?
+ 
+@@ -59,7 +62,7 @@ impl Image {
+                 len,
+                 &mut x,
+                 &mut y,
+-                &mut _channels_in_file,
++                &mut channels_in_file,
+                 4,
+             )
+         };
+@@ -88,6 +91,7 @@ impl Image {
+         Ok(Image {
+             pixels: PixelStore::StbImage(pixels),
+             dimensions: (width, height),
++            has_alpha: channels_in_file == 2 || channels_in_file == 4,
+         })
+     }
+ 
+@@ -98,6 +102,7 @@ impl Image {
+         Image {
+             pixels: PixelStore::Vec(pixels),
+             dimensions,
++            has_alpha: true,
+         }
+     }
+ 
+@@ -105,6 +110,11 @@ impl Image {
+         self.dimensions
+     }
+ 
++    /// PortBridge: see [Image::has_alpha].
++    pub fn has_alpha(&self) -> bool {
++        self.has_alpha
++    }
++
+     /// Get image data as bytes (8 bits per channel sRGB RGBA with premultiplied
+     /// alpha). Rows are in top-to-bottom order.
+     pub fn pixels(&self) -> &[u8] {
 diff --git a/src/lib.rs b/src/lib.rs
 index fcfec3f..061fe41 100644
 --- a/src/lib.rs
@@ -754,7 +1292,7 @@ index fcfec3f..061fe41 100644
      let env = match res {
          Ok(ret) => match ret {
 diff --git a/src/objc.rs b/src/objc.rs
-index 065cd62..e7826ad 100644
+index 065cd62..83e3dec 100644
 --- a/src/objc.rs
 +++ b/src/objc.rs
 @@ -27,6 +27,7 @@ mod classes;
@@ -765,7 +1303,7 @@ index 065cd62..e7826ad 100644
  mod properties;
  mod selectors;
  mod synchronization;
-@@ -42,9 +43,11 @@ pub use objects::{
+@@ -42,14 +43,16 @@ pub use objects::{
  };
  pub use properties::todo_objc_setter;
  pub use selectors::{selector, SEL};
@@ -779,6 +1317,12 @@ index 065cd62..e7826ad 100644
  use classes::{
      class_getInstanceSize, class_getMethodImplementation, class_getProperty, class_getSuperclass,
      class_replaceMethod, objc_getClass, ClassHostObject, FakeClass, UnimplementedClass,
+ };
+-pub(crate) use messages::objc_msgSend;
++pub(crate) use messages::{last_host_message, objc_msgSend};
+ use messages::{objc_msgSendSuper2, objc_msgSend_stret, MsgSendSignature, MsgSendSuperSignature};
+ use methods::method_list_t;
+ use objects::{objc_object, object_getClass, HostObjectEntry};
 @@ -106,9 +109,9 @@ impl ObjC {
  pub const DYLIB: HostDylib = HostDylib {
      path: "/usr/lib/libobjc.A.dylib",
@@ -821,7 +1365,7 @@ index 065cd62..e7826ad 100644
 -    export_c_func!(_Block_object_dispose(_, _)),
  ];
 diff --git a/src/objc/messages.rs b/src/objc/messages.rs
-index 03a6f99..b499606 100644
+index 03a6f99..b503001 100644
 --- a/src/objc/messages.rs
 +++ b/src/objc/messages.rs
 @@ -35,7 +35,11 @@ pub(super) struct ThreadInitializer {
@@ -855,7 +1399,15 @@ index 03a6f99..b499606 100644
              panic!(
                  "{} {:?} ({}class \"{}\", {:?}){} does not respond to selector \"{}\"!",
                  if is_metaclass { "Class" } else { "Object" },
-@@ -289,6 +304,16 @@ Type mismatch when sending message {} to {:?}!
+@@ -247,6 +262,7 @@ fn objc_msgSend_inner(
+                 log_dbg!("Found method on: {}", name);
+                 match imp {
+                     IMP::Host(host_imp) => {
++                        LAST_HOST_MESSAGE.with(|m| m.set(Some((class, selector))));
+                         // TODO: do type checks when calling GuestIMPs too.
+                         // That requires using Objective-C type strings,
+                         // rather than Rust types, and should probably
+@@ -289,6 +305,16 @@ Type mismatch when sending message {} to {:?}!
              is_metaclass,
          }) = host_object.as_any().downcast_ref()
          {
@@ -872,6 +1424,23 @@ index 03a6f99..b499606 100644
              panic!(
                  "Class \"{}\" ({:?}) is unimplemented. Call to {} method \"{}\".",
                  name,
+@@ -318,6 +344,16 @@ Type mismatch when sending message {} to {:?}!
+     }
+ }
+ 
++thread_local! {
++    /// PortBridge: last message dispatched to a host method (diagnostics).
++    static LAST_HOST_MESSAGE: std::cell::Cell<Option<(Class, SEL)>> = const { std::cell::Cell::new(None) };
++}
++
++/// PortBridge: class and selector of the last message handled by touchHLE.
++pub(crate) fn last_host_message() -> Option<(Class, SEL)> {
++    LAST_HOST_MESSAGE.with(|m| m.get())
++}
++
+ /// Standard variant of `objc_msgSend`. See [objc_msgSend_inner].
+ #[allow(non_snake_case)]
+ pub(crate) fn objc_msgSend(env: &mut Environment, receiver: id, selector: SEL) {
 diff --git a/src/objc/portbridge_compat.rs b/src/objc/portbridge_compat.rs
 new file mode 100644
 index 0000000..85bc17c
