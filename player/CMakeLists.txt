@@ -45,11 +45,11 @@ if(PB_BUILD_PLAYER)
     set(PB_RUNTIME_SOURCES
         src/runtime/audio.cpp src/runtime/runtime.cpp src/runtime/events.cpp
         src/runtime/expressions.cpp src/runtime/movements.cpp src/runtime/render.cpp
-        src/runtime/extensions.cpp src/main.cpp)
+        src/runtime/extensions.cpp src/runtime/diag.cpp src/main.cpp)
 
     if(ANDROID)
         # O SDLActivity carrega libmain.so
-        add_library(main SHARED ${PB_RUNTIME_SOURCES} src/platform/android_jni.cpp)
+        add_library(main SHARED ${PB_RUNTIME_SOURCES})
         set(PB_PLAYER_TARGET main)
         target_link_libraries(main PRIVATE android log)
         # páginas de 16 KB (Android 15+): explícito, além do padrão do NDK r28

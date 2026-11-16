@@ -82,8 +82,11 @@ bool read_bplist_strings(const std::vector<uint8_t>& d,
 }
 
 PackageInfo open_package(const std::string& path) {
+    return open_package_data(read_file(path), path);
+}
+
+PackageInfo open_package_data(std::vector<uint8_t> file, const std::string& path) {
     PackageInfo info;
-    std::vector<uint8_t> file = read_file(path);
     if (file.size() >= 4 && (std::memcmp(file.data(), "PAME", 4) == 0 ||
                              std::memcmp(file.data(), "PAMU", 4) == 0)) {
         info.kind = "cci";

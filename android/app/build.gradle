@@ -2,51 +2,38 @@ plugins {
     id 'com.android.application'
 }
 
-// Código C++ do player e o SDL ficam em ../../player (o mesmo usado em Linux/Windows/macOS).
-def playerDir = file('../../player')
+// PortBridge (conversor): escolhe um IPA e gera um APK independente para o jogo.
+// O runtime de cada APK gerado é o template compilado pelo módulo :runtime.
+def templatesDir = layout.buildDirectory.dir('generated/pbtemplates')
+
+tasks.register('copyTemplates', Copy) {
+    dependsOn ':runtime:assembleRelease'
+    from(project(':runtime').layout.buildDirectory.file('outputs/apk/release/runtime-release-unsigned.apk'))
+    into(templatesDir.map { it.dir('templates') })
+    rename { 'clickteam.apk' }
+}
 
 android {
     namespace 'com.portbridge.app'
     compileSdk 35
-    ndkVersion '28.2.13676358'
 
     defaultConfig {
         applicationId 'com.portbridge.app'
-        minSdk 21
+        minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '0.1.0'
-        externalNativeBuild {
-            cmake {
-                arguments '-DANDROID_STL=c++_shared', '-DPB_BUILD_TOOLS=OFF',
-                          '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
-            }
-        }
-        ndk {
-            // 64 bits primeiro (exigido pelo Google Play); armeabi-v7a para aparelhos antigos,
-            // x86_64 para o emulador.
-            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path "${playerDir}/CMakeLists.txt"
-            version '3.22.1'
-        }
+        versionCode 2
+        versionName '0.2.0'
     }
 
     sourceSets {
         main {
-            java.srcDirs = ['src/main/java',
-                            "${playerDir}/third_party/SDL/android-project/app/src/main/java"]
+            assets.srcDirs += templatesDir
         }
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            // Para uso próprio: assina com a chave de debug. Troque por uma chave sua para publicar.
             signingConfig signingConfigs.debug
         }
     }
@@ -57,8 +44,14 @@ android {
     }
 
     packaging {
-        jniLibs {
-            useLegacyPackaging false  // .so alinhados e sem compressão (16 KB)
+        resources {
+            excludes += ['META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA']
         }
     }
 }
+
+dependencies {
+    implementation project(':converter')
+}
+
+tasks.named('preBuild') { dependsOn 'copyTemplates' }

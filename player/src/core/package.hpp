@@ -19,6 +19,8 @@ struct PackageInfo {
 
 // Lança std::runtime_error com mensagem em português se não achar um jogo suportado.
 PackageInfo open_package(const std::string& path);
+// Mesmo que open_package, a partir do conteúdo do arquivo (ex.: lido dos assets do APK).
+PackageInfo open_package_data(std::vector<uint8_t> file, const std::string& name);
 
 // Dicionário de nível superior de um plist binário (só valores string).
 bool read_bplist_strings(const std::vector<uint8_t>& data,

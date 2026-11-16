@@ -194,7 +194,10 @@ public:
     bool resumed_flag = false;
     int frame_rate = 60;
     std::map<std::string, int> unimplemented;   // "Active.Foo" -> vezes (para relatório)
-    void note_unimplemented(const std::string& what) { ++unimplemented[what]; }
+    void note_unimplemented(const std::string& what) {
+        if (++unimplemented[what] == 1) SDL_Log("não implementado: %s", what.c_str());
+    }
+    void reset_textures();
 
 private:
     std::unique_ptr<Game> game_;

@@ -17,12 +17,13 @@
 #include "core/package.hpp"
 #include "miniz.h"
 #include "runtime/audio.hpp"
+#include "runtime/diag.hpp"
 #include "runtime/runtime.hpp"
 
 namespace {
 
 struct Options {
-    std::string path, screenshot, save_dir;
+    std::string path, screenshot, save_dir, log, device;
     bool headless = false, mute = false;
     int frames = 0, scale = 2;
     std::vector<std::pair<int, std::pair<int, int>>> clicks;  // (frame, (x, y))
@@ -39,11 +40,13 @@ bool parse_args(int argc, char** argv, Options& o) {
         else if (a == "--scale") o.scale = std::max(1, std::atoi(next().c_str()));
         else if (a == "--screenshot") o.screenshot = next();
         else if (a == "--save-dir") o.save_dir = next();
+        else if (a == "--log") o.log = next();
+        else if (a == "--device") o.device = next();
         else if (a == "--shot-at") o.shots.push_back(std::atoi(next().c_str()));
         else if (a == "--click") {
             int x = 0, y = 0, f = 0;
             if (std::sscanf(next().c_str(), "%d,%d@%d", &x, &y, &f) == 3) o.clicks.push_back({f, {x, y}});
-        } else if (!a.empty() && a[0] != '-') o.path = a;
+        } else if (!a.empty() && a[0] != '-' && o.path.empty()) o.path = a;
     }
     return !o.path.empty();
 }
@@ -81,13 +84,34 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    pb::diag_open(opt.log, opt.device);
+    pb::g_diag.stage = "carregando o jogo";
     pb::PackageInfo pkg;
     std::unique_ptr<pb::Game> game;
     try {
-        pkg = pb::open_package(opt.path);
+        if (opt.path.rfind("asset:", 0) == 0) {
+            // APK gerado pelo PortBridge: o jogo está em assets/ (o SDL lê direto do APK)
+            std::string name = opt.path.substr(6);
+            SDL_RWops* rw = SDL_RWFromFile(name.c_str(), "rb");
+            if (!rw) throw std::runtime_error("jogo não encontrado no APK: " + name + " (" + SDL_GetError() + ")");
+            Sint64 size = SDL_RWsize(rw);
+            std::vector<uint8_t> data(size > 0 ? size_t(size) : 0);
+            size_t got = data.empty() ? 0 : SDL_RWread(rw, data.data(), 1, data.size());
+            SDL_RWclose(rw);
+            if (got != data.size()) throw std::runtime_error("falha ao ler " + name + " do APK");
+            SDL_Log("jogo embutido: %s (%zu bytes)", name.c_str(), data.size());
+            pkg = pb::open_package_data(std::move(data), name);
+        } else {
+            pkg = pb::open_package(opt.path);
+        }
         game = pb::load_game(std::move(pkg.game_data));
+        SDL_Log("jogo: %s %s (%s) %dx%d %d fps, %zu frames, %zu objetos, %zu avisos",
+                pkg.display_name.c_str(), pkg.version.c_str(), pkg.bundle_id.c_str(), game->width,
+                game->height, game->frame_rate, game->frames.size(), game->objects.size(),
+                game->warnings.size());
+        for (size_t i = 0; i < game->warnings.size() && i < 20; ++i) SDL_Log("aviso: %s", game->warnings[i].c_str());
     } catch (const std::exception& e) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "PortBridge", e.what(), nullptr);
+        pb::diag_fatal(std::string("Não foi possível abrir o jogo: ") + e.what());
         std::fprintf(stderr, "erro: %s\n", e.what());
         return 1;
     }
@@ -105,17 +129,25 @@ int main(int argc, char** argv) {
     SDL_Window* win = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        gw * scale, gh * scale, wflags);
     if (!win) {
-        std::fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
+        pb::diag_fatal(std::string("Falha ao criar a janela: ") + SDL_GetError());
         return 1;
     }
     Uint32 rflags = opt.headless ? SDL_RENDERER_SOFTWARE : (SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_Renderer* ren = SDL_CreateRenderer(win, -1, rflags);
     if (!ren) ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
     if (!ren) {
-        std::fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError());
+        pb::diag_fatal(std::string("Falha ao iniciar os gráficos: ") + SDL_GetError());
         return 1;
     }
     SDL_RenderSetLogicalSize(ren, gw, gh);
+    {
+        SDL_RendererInfo ri{};
+        SDL_GetRendererInfo(ren, &ri);
+        int ow = 0, oh = 0;
+        SDL_GetRendererOutputSize(ren, &ow, &oh);
+        SDL_Log("vídeo: %s, renderizador %s, saída %dx%d, lógico %dx%d", SDL_GetCurrentVideoDriver(),
+                ri.name ? ri.name : "?", ow, oh, gw, gh);
+    }
 
     std::string save = opt.save_dir;
     if (save.empty()) {
@@ -133,6 +165,15 @@ int main(int argc, char** argv) {
     audio.set_muted(opt.mute || opt.headless);
     pb::App app(std::move(game), ren, &audio, save);
 
+    auto step = [&]() -> bool {
+        try {
+            app.step();
+            return true;
+        } catch (const std::exception& e) {
+            pb::diag_fatal(std::string("Erro ao executar o jogo: ") + e.what());
+            return false;
+        }
+    };
     const double tick_ms = 1000.0 / std::max(1, app.frame_rate);
     double acc = 0;
     Uint64 last = SDL_GetPerformanceCounter();
@@ -162,6 +203,11 @@ int main(int argc, char** argv) {
                     break;
                 case SDL_APP_WILLENTERBACKGROUND: audio.pause_all(true); break;
                 case SDL_APP_DIDENTERFOREGROUND: audio.pause_all(false); app.resumed_flag = true; break;
+                case SDL_RENDER_DEVICE_RESET:
+                case SDL_RENDER_TARGETS_RESET:
+                    SDL_Log("contexto gráfico recriado: recarregando texturas");
+                    app.reset_textures();
+                    break;
                 default: break;
             }
         }
@@ -176,7 +222,7 @@ int main(int argc, char** argv) {
                     app.input.down[0] = false;
                 }
             }
-            app.step();
+            if (!step()) { running = false; break; }
             ++loops;
             for (int s : opt.shots) {
                 if (s == loops) {
@@ -197,7 +243,7 @@ int main(int argc, char** argv) {
         if (acc > 250) acc = 250;
         int steps = 0;
         while (acc >= tick_ms && steps < 4) {
-            app.step();
+            if (!step()) { running = false; break; }
             for (int b = 0; b < 3; ++b) app.input.clicked[b] = app.input.dbl[b] = false;
             acc -= tick_ms;
             ++steps;
@@ -217,6 +263,7 @@ int main(int argc, char** argv) {
         std::printf("não implementados (%zu):\n", app.unimplemented.size());
         for (auto& [k, v] : app.unimplemented) std::printf("  %-40s %d\n", k.c_str(), v);
     }
+    pb::diag_close();
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
     SDL_Quit();

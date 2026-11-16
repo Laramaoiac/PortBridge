@@ -9,6 +9,7 @@
 
 #include "core/names.hpp"
 #include "runtime/audio.hpp"
+#include "runtime/diag.hpp"
 #include "runtime/runtime.hpp"
 
 namespace pb {
@@ -767,6 +768,7 @@ bool traced(int gi) {
 void eval_group(Frame& f, int gi) {
     const EventGroup& g = f.def.events.groups[size_t(gi)];
     const bool trace = traced(gi);
+    g_diag.group = gi;
     // Blocos separados por "OU" (lógico ou filtrado).
     std::vector<std::pair<size_t, size_t>> blocks;
     size_t start = 0;

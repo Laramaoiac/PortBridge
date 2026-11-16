@@ -1,0 +1,3260 @@
+The target system is: Android - 1 - x86_64
+The host system is: Linux - 6.18.44-fc-v470 - x86_64
+Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+Compiler: /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang 
+Build flags: -g;-DANDROID;-fdata-sections;-ffunction-sections;-funwind-tables;-fstack-protector-strong;-no-canonical-prefixes;-D_FORTIFY_SOURCE=2;-Wformat;-Werror=format-security;
+Id flags: -c;--target=x86_64-none-linux-android21 
+
+The output was:
+0
+
+
+Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "CMakeCCompilerId.o"
+
+The C compiler identification is Clang, found in "/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/3.22.1-g37088a8/CompilerIdC/CMakeCCompilerId.o"
+
+Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+Compiler: /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ 
+Build flags: -g;-DANDROID;-fdata-sections;-ffunction-sections;-funwind-tables;-fstack-protector-strong;-no-canonical-prefixes;-D_FORTIFY_SOURCE=2;-Wformat;-Werror=format-security;;
+Id flags: -c;--target=x86_64-none-linux-android21 
+
+The output was:
+0
+
+
+Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CMakeCXXCompilerId.o"
+
+The CXX compiler identification is Clang, found in "/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/3.22.1-g37088a8/CompilerIdCXX/CMakeCXXCompilerId.o"
+
+Detecting C compiler ABI info compiled with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1418b && [1/2] Building C object CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o
+Android (13624864, +pgo, +bolt, +lto, +mlgo, based on r530567e) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project 97a699bf4812a18fb657c2779f5296a4ab2694d2)
+Target: x86_64-none-linux-android21
+Thread model: posix
+InstalledDir: /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin
+ (in-process)
+ "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" -cc1 -triple x86_64-none-linux-android21 -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=non-leaf -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -target-feature +sse4.2 -target-feature +popcnt -target-feature +cx16 -tune-cpu generic -debug-info-kind=constructor -dwarf-version=4 -debugger-tuning=gdb -fdebug-compilation-dir=/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp -v -ffunction-sections -fdata-sections -fcoverage-compilation-dir=/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp -resource-dir /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19 -dependency-file CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o.d -MT CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o -sys-header-deps -D ANDROID -D _FORTIFY_SOURCE=2 -isysroot /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot -internal-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include -internal-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/local/include -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/include -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include -Wformat -ferror-limit 19 -femulated-tls -stack-protector 2 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o -x c /opt/android-sdk/cmake/3.22.1/share/cmake-3.22/Modules/CMakeCCompilerABI.c
+clang -cc1 version 19.0.1 based upon LLVM 19.0.1 default target x86_64-unknown-linux-gnu
+ignoring nonexistent directory "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/local/include"
+ignoring nonexistent directory "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/include"
+#include "..." search starts here:
+#include <...> search starts here:
+ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include
+ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android
+ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include
+End of search list.
+[2/2] Linking C executable cmTC_1418b
+Android (13624864, +pgo, +bolt, +lto, +mlgo, based on r530567e) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project 97a699bf4812a18fb657c2779f5296a4ab2694d2)
+Target: x86_64-none-linux-android21
+Thread model: posix
+InstalledDir: /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin
+ "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/ld.lld" --sysroot=/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot -z now -z relro -z max-page-size=16384 --hash-style=both --eh-frame-hdr -m elf_x86_64 -pie -dynamic-linker /system/bin/linker64 -o cmTC_1418b /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtbegin_dynamic.o -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64 -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21 -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib --build-id=sha1 --no-rosegment --no-undefined-version --fatal-warnings --no-undefined CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a -l:libunwind.a -ldl -lc /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a -l:libunwind.a -ldl /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtend_android.o
+
+
+
+Parsed C implicit include dir info from above output: rv=done
+  found start of include info
+  found start of implicit include info
+    add: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include]
+    add: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android]
+    add: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include]
+  end of search list found
+  collapse include dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include]
+  collapse include dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android]
+  collapse include dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include]
+  implicit include dirs: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include]
+
+
+Parsed C implicit link information from above output:
+  link line regex: [^( *|.*[/\])(ld\.lld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\]+-)?ld|collect2)[^/\]*( |$)]
+  ignore line: [Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp]
+  ignore line: []
+  ignore line: [Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1418b && [1/2] Building C object CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o]
+  ignore line: [Android (13624864  +pgo  +bolt  +lto  +mlgo  based on r530567e) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project 97a699bf4812a18fb657c2779f5296a4ab2694d2)]
+  ignore line: [Target: x86_64-none-linux-android21]
+  ignore line: [Thread model: posix]
+  ignore line: [InstalledDir: /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin]
+  ignore line: [ (in-process)]
+  ignore line: [ "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" -cc1 -triple x86_64-none-linux-android21 -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=non-leaf -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -target-feature +sse4.2 -target-feature +popcnt -target-feature +cx16 -tune-cpu generic -debug-info-kind=constructor -dwarf-version=4 -debugger-tuning=gdb -fdebug-compilation-dir=/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp -v -ffunction-sections -fdata-sections -fcoverage-compilation-dir=/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp -resource-dir /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19 -dependency-file CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o.d -MT CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o -sys-header-deps -D ANDROID -D _FORTIFY_SOURCE=2 -isysroot /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot -internal-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include -internal-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/local/include -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/include -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include -Wformat -ferror-limit 19 -femulated-tls -stack-protector 2 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o -x c /opt/android-sdk/cmake/3.22.1/share/cmake-3.22/Modules/CMakeCCompilerABI.c]
+  ignore line: [clang -cc1 version 19.0.1 based upon LLVM 19.0.1 default target x86_64-unknown-linux-gnu]
+  ignore line: [ignoring nonexistent directory "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/local/include"]
+  ignore line: [ignoring nonexistent directory "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/include"]
+  ignore line: [#include "..." search starts here:]
+  ignore line: [#include <...> search starts here:]
+  ignore line: [ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include]
+  ignore line: [ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android]
+  ignore line: [ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include]
+  ignore line: [End of search list.]
+  ignore line: [[2/2] Linking C executable cmTC_1418b]
+  ignore line: [Android (13624864  +pgo  +bolt  +lto  +mlgo  based on r530567e) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project 97a699bf4812a18fb657c2779f5296a4ab2694d2)]
+  ignore line: [Target: x86_64-none-linux-android21]
+  ignore line: [Thread model: posix]
+  ignore line: [InstalledDir: /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin]
+  link line: [ "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/ld.lld" --sysroot=/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot -z now -z relro -z max-page-size=16384 --hash-style=both --eh-frame-hdr -m elf_x86_64 -pie -dynamic-linker /system/bin/linker64 -o cmTC_1418b /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtbegin_dynamic.o -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64 -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21 -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib --build-id=sha1 --no-rosegment --no-undefined-version --fatal-warnings --no-undefined CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a -l:libunwind.a -ldl -lc /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a -l:libunwind.a -ldl /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtend_android.o]
+    arg [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/ld.lld] ==> ignore
+    arg [--sysroot=/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot] ==> ignore
+    arg [-znow] ==> ignore
+    arg [-zrelro] ==> ignore
+    arg [-zmax-page-size=16384] ==> ignore
+    arg [--hash-style=both] ==> ignore
+    arg [--eh-frame-hdr] ==> ignore
+    arg [-m] ==> ignore
+    arg [elf_x86_64] ==> ignore
+    arg [-pie] ==> ignore
+    arg [-dynamic-linker] ==> ignore
+    arg [/system/bin/linker64] ==> ignore
+    arg [-o] ==> ignore
+    arg [cmTC_1418b] ==> ignore
+    arg [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtbegin_dynamic.o] ==> obj [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtbegin_dynamic.o]
+    arg [-L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64] ==> dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64]
+    arg [-L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21] ==> dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21]
+    arg [-L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android] ==> dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android]
+    arg [-L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib] ==> dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib]
+    arg [--build-id=sha1] ==> ignore
+    arg [--no-rosegment] ==> ignore
+    arg [--no-undefined-version] ==> ignore
+    arg [--fatal-warnings] ==> ignore
+    arg [--no-undefined] ==> ignore
+    arg [CMakeFiles/cmTC_1418b.dir/CMakeCCompilerABI.c.o] ==> ignore
+    arg [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a] ==> lib [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a]
+    arg [-l:libunwind.a] ==> lib [-l:libunwind.a]
+    arg [-ldl] ==> lib [dl]
+    arg [-lc] ==> lib [c]
+    arg [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a] ==> lib [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a]
+    arg [-l:libunwind.a] ==> lib [-l:libunwind.a]
+    arg [-ldl] ==> lib [dl]
+    arg [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtend_android.o] ==> obj [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtend_android.o]
+  remove lib [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a]
+  remove lib [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a]
+  collapse library dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64]
+  collapse library dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21]
+  collapse library dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android]
+  collapse library dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib]
+  implicit libs: [-l:libunwind.a;dl;c;-l:libunwind.a;dl]
+  implicit objs: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtbegin_dynamic.o;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtend_android.o]
+  implicit dirs: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib]
+  implicit fwks: []
+
+
+Detecting CXX compiler ABI info compiled with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_83672 && [1/2] Building CXX object CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o
+Android (13624864, +pgo, +bolt, +lto, +mlgo, based on r530567e) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project 97a699bf4812a18fb657c2779f5296a4ab2694d2)
+Target: x86_64-none-linux-android21
+Thread model: posix
+InstalledDir: /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin
+ (in-process)
+ "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++" -cc1 -triple x86_64-none-linux-android21 -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=non-leaf -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -target-feature +sse4.2 -target-feature +popcnt -target-feature +cx16 -tune-cpu generic -debug-info-kind=constructor -dwarf-version=4 -debugger-tuning=gdb -fdebug-compilation-dir=/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp -v -ffunction-sections -fdata-sections -fcoverage-compilation-dir=/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp -resource-dir /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19 -dependency-file CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o.d -MT CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -D ANDROID -D _FORTIFY_SOURCE=2 -isysroot /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot -internal-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1 -internal-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include -internal-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/local/include -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/include -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include -Wformat -fdeprecated-macro -ferror-limit 19 -femulated-tls -stack-protector 2 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o -x c++ /opt/android-sdk/cmake/3.22.1/share/cmake-3.22/Modules/CMakeCXXCompilerABI.cpp
+clang -cc1 version 19.0.1 based upon LLVM 19.0.1 default target x86_64-unknown-linux-gnu
+ignoring nonexistent directory "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/local/include"
+ignoring nonexistent directory "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/include"
+#include "..." search starts here:
+#include <...> search starts here:
+ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1
+ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include
+ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android
+ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include
+End of search list.
+[2/2] Linking CXX executable cmTC_83672
+Android (13624864, +pgo, +bolt, +lto, +mlgo, based on r530567e) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project 97a699bf4812a18fb657c2779f5296a4ab2694d2)
+Target: x86_64-none-linux-android21
+Thread model: posix
+InstalledDir: /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin
+ "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/ld.lld" --sysroot=/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot -z now -z relro -z max-page-size=16384 --hash-style=both --eh-frame-hdr -m elf_x86_64 -pie -dynamic-linker /system/bin/linker64 -o cmTC_83672 /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtbegin_dynamic.o -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64 -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21 -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib --build-id=sha1 --no-rosegment --no-undefined-version --fatal-warnings --no-undefined CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o -lc++ -lm /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a -l:libunwind.a -ldl -lc /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a -l:libunwind.a -ldl /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtend_android.o
+
+
+
+Parsed CXX implicit include dir info from above output: rv=done
+  found start of include info
+  found start of implicit include info
+    add: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1]
+    add: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include]
+    add: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android]
+    add: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include]
+  end of search list found
+  collapse include dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1]
+  collapse include dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include]
+  collapse include dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android]
+  collapse include dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include]
+  implicit include dirs: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include]
+
+
+Parsed CXX implicit link information from above output:
+  link line regex: [^( *|.*[/\])(ld\.lld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\]+-)?ld|collect2)[^/\]*( |$)]
+  ignore line: [Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp]
+  ignore line: []
+  ignore line: [Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_83672 && [1/2] Building CXX object CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o]
+  ignore line: [Android (13624864  +pgo  +bolt  +lto  +mlgo  based on r530567e) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project 97a699bf4812a18fb657c2779f5296a4ab2694d2)]
+  ignore line: [Target: x86_64-none-linux-android21]
+  ignore line: [Thread model: posix]
+  ignore line: [InstalledDir: /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin]
+  ignore line: [ (in-process)]
+  ignore line: [ "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++" -cc1 -triple x86_64-none-linux-android21 -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=non-leaf -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -target-feature +sse4.2 -target-feature +popcnt -target-feature +cx16 -tune-cpu generic -debug-info-kind=constructor -dwarf-version=4 -debugger-tuning=gdb -fdebug-compilation-dir=/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp -v -ffunction-sections -fdata-sections -fcoverage-compilation-dir=/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp -resource-dir /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19 -dependency-file CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o.d -MT CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -D ANDROID -D _FORTIFY_SOURCE=2 -isysroot /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot -internal-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1 -internal-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include -internal-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/local/include -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/include -internal-externc-isystem /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include -Wformat -fdeprecated-macro -ferror-limit 19 -femulated-tls -stack-protector 2 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o -x c++ /opt/android-sdk/cmake/3.22.1/share/cmake-3.22/Modules/CMakeCXXCompilerABI.cpp]
+  ignore line: [clang -cc1 version 19.0.1 based upon LLVM 19.0.1 default target x86_64-unknown-linux-gnu]
+  ignore line: [ignoring nonexistent directory "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/local/include"]
+  ignore line: [ignoring nonexistent directory "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/include"]
+  ignore line: [#include "..." search starts here:]
+  ignore line: [#include <...> search starts here:]
+  ignore line: [ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1]
+  ignore line: [ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include]
+  ignore line: [ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/x86_64-linux-android]
+  ignore line: [ /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include]
+  ignore line: [End of search list.]
+  ignore line: [[2/2] Linking CXX executable cmTC_83672]
+  ignore line: [Android (13624864  +pgo  +bolt  +lto  +mlgo  based on r530567e) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project 97a699bf4812a18fb657c2779f5296a4ab2694d2)]
+  ignore line: [Target: x86_64-none-linux-android21]
+  ignore line: [Thread model: posix]
+  ignore line: [InstalledDir: /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin]
+  link line: [ "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/ld.lld" --sysroot=/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot -z now -z relro -z max-page-size=16384 --hash-style=both --eh-frame-hdr -m elf_x86_64 -pie -dynamic-linker /system/bin/linker64 -o cmTC_83672 /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtbegin_dynamic.o -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64 -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21 -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android -L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib --build-id=sha1 --no-rosegment --no-undefined-version --fatal-warnings --no-undefined CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o -lc++ -lm /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a -l:libunwind.a -ldl -lc /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a -l:libunwind.a -ldl /opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtend_android.o]
+    arg [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/ld.lld] ==> ignore
+    arg [--sysroot=/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot] ==> ignore
+    arg [-znow] ==> ignore
+    arg [-zrelro] ==> ignore
+    arg [-zmax-page-size=16384] ==> ignore
+    arg [--hash-style=both] ==> ignore
+    arg [--eh-frame-hdr] ==> ignore
+    arg [-m] ==> ignore
+    arg [elf_x86_64] ==> ignore
+    arg [-pie] ==> ignore
+    arg [-dynamic-linker] ==> ignore
+    arg [/system/bin/linker64] ==> ignore
+    arg [-o] ==> ignore
+    arg [cmTC_83672] ==> ignore
+    arg [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtbegin_dynamic.o] ==> obj [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtbegin_dynamic.o]
+    arg [-L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64] ==> dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64]
+    arg [-L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21] ==> dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21]
+    arg [-L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android] ==> dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android]
+    arg [-L/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib] ==> dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib]
+    arg [--build-id=sha1] ==> ignore
+    arg [--no-rosegment] ==> ignore
+    arg [--no-undefined-version] ==> ignore
+    arg [--fatal-warnings] ==> ignore
+    arg [--no-undefined] ==> ignore
+    arg [CMakeFiles/cmTC_83672.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
+    arg [-lc++] ==> lib [c++]
+    arg [-lm] ==> lib [m]
+    arg [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a] ==> lib [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a]
+    arg [-l:libunwind.a] ==> lib [-l:libunwind.a]
+    arg [-ldl] ==> lib [dl]
+    arg [-lc] ==> lib [c]
+    arg [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a] ==> lib [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a]
+    arg [-l:libunwind.a] ==> lib [-l:libunwind.a]
+    arg [-ldl] ==> lib [dl]
+    arg [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtend_android.o] ==> obj [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtend_android.o]
+  remove lib [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a]
+  remove lib [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-x86_64-android.a]
+  collapse library dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64]
+  collapse library dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21]
+  collapse library dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android]
+  collapse library dir [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib] ==> [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib]
+  implicit libs: [c++;m;-l:libunwind.a;dl;c;-l:libunwind.a;dl]
+  implicit objs: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtbegin_dynamic.o;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21/crtend_android.o]
+  implicit dirs: [/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/x86_64;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/21;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android;/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib]
+  implicit fwks: []
+
+
+Performing C SOURCE FILE Test CHECK_CPU_ARCHITECTURE_X64 succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_e0922 && [1/2] Building C object CMakeFiles/cmTC_e0922.dir/src.c.o
+[2/2] Linking C executable cmTC_e0922
+
+
+Source file was:
+
+int main(int argc, char *argv[]) {
+#if (defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64) || defined(_M_X64) || defined(_M_AMD64)) && !defined(_M_ARM64EC)
+  return 0;
+#else
+  choke
+#endif
+}
+
+Performing C SOURCE FILE Test HAVE_GCC_WALL succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_bebdb && [1/2] Building C object CMakeFiles/cmTC_bebdb.dir/src.c.o
+[2/2] Linking C executable cmTC_bebdb
+
+
+Source file was:
+int main(void) { return 0; }
+Performing C SOURCE FILE Test HAVE_GCC_WUNDEF succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_15d69 && [1/2] Building C object CMakeFiles/cmTC_15d69.dir/src.c.o
+[2/2] Linking C executable cmTC_15d69
+
+
+Source file was:
+int main(void) { return 0; }
+Performing C SOURCE FILE Test HAVE_GCC_NO_STRICT_ALIASING succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_5acda && [1/2] Building C object CMakeFiles/cmTC_5acda.dir/src.c.o
+[2/2] Linking C executable cmTC_5acda
+
+
+Source file was:
+int main(void) { return 0; }
+Performing C SOURCE FILE Test HAVE_GCC_WDOCUMENTATION succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_dbe7b && [1/2] Building C object CMakeFiles/cmTC_dbe7b.dir/src.c.o
+[2/2] Linking C executable cmTC_dbe7b
+
+
+Source file was:
+int main(void) { return 0; }
+Performing C SOURCE FILE Test HAVE_GCC_WDOCUMENTATION_UNKNOWN_COMMAND succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_cb7c9 && [1/2] Building C object CMakeFiles/cmTC_cb7c9.dir/src.c.o
+[2/2] Linking C executable cmTC_cb7c9
+
+
+Source file was:
+int main(void) { return 0; }
+Performing C SOURCE FILE Test HAVE_GCC_COMMENT_BLOCK_COMMANDS succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_ff87c && [1/2] Building C object CMakeFiles/cmTC_ff87c.dir/src.c.o
+[2/2] Linking C executable cmTC_ff87c
+
+
+Source file was:
+int main(void) { return 0; }
+Performing C SOURCE FILE Test HAVE_GCC_WDECLARATION_AFTER_STATEMENT succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_c586c && [1/2] Building C object CMakeFiles/cmTC_c586c.dir/src.c.o
+[2/2] Linking C executable cmTC_c586c
+
+
+Source file was:
+int main(void) { return 0; }
+Performing C SOURCE FILE Test HAVE_GCC_ATOMICS succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_d5da8 && [1/2] Building C object CMakeFiles/cmTC_d5da8.dir/src.c.o
+[2/2] Linking C executable cmTC_d5da8
+
+
+Source file was:
+int main(int argc, char **argv) {
+        int a;
+        void *x, *y, *z;
+        __sync_lock_test_and_set(&a, 4);
+        __sync_lock_test_and_set(&x, y);
+        __sync_fetch_and_add(&a, 1);
+        __sync_bool_compare_and_swap(&a, 5, 10);
+        __sync_bool_compare_and_swap(&x, y, z);
+        return 0; }
+Performing C SOURCE FILE Test HAVE_GCC_FVISIBILITY succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_71abf && [1/2] Building C object CMakeFiles/cmTC_71abf.dir/src.c.o
+[2/2] Linking C executable cmTC_71abf
+
+
+Source file was:
+
+      #if !defined(__GNUC__) || __GNUC__ < 4
+      #error SDL only uses visibility attributes in GCC 4 or newer
+      #endif
+      int main(int argc, char **argv) { return 0; }
+Performing C SOURCE FILE Test HAVE_GCC_WSHADOW succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_c3faf && [1/2] Building C object CMakeFiles/cmTC_c3faf.dir/src.c.o
+[2/2] Linking C executable cmTC_c3faf
+
+
+Source file was:
+int main(void) { return 0; }
+Performing C SOURCE FILE Test HAVE_GCC_WUNUSED_LOCAL_TYPEDEFS succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_75425 && [1/2] Building C object CMakeFiles/cmTC_75425.dir/src.c.o
+[2/2] Linking C executable cmTC_75425
+
+
+Source file was:
+int main(void) { return 0; }
+Performing C SOURCE FILE Test HAVE_NO_UNDEFINED succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_0ede4 && [1/2] Building C object CMakeFiles/cmTC_0ede4.dir/src.c.o
+clang: warning: -Wl,--no-undefined: 'linker' input unused [-Wunused-command-line-argument]
+[2/2] Linking C executable cmTC_0ede4
+
+
+Source file was:
+int main(void) { return 0; }
+Performing C SOURCE FILE Test HAVE_MMX succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_efc12 && [1/2] Building C object CMakeFiles/cmTC_efc12.dir/src.c.o
+[2/2] Linking C executable cmTC_efc12
+
+
+Source file was:
+
+          #ifdef __MINGW32__
+          #include <_mingw.h>
+          #ifdef __MINGW64_VERSION_MAJOR
+          #include <intrin.h>
+          #else
+          #include <mmintrin.h>
+          #endif
+          #else
+          #include <mmintrin.h>
+          #endif
+          #ifndef __MMX__
+          #error Assembler CPP flag not enabled
+          #endif
+          int main(int argc, char **argv) { return 0; }
+Performing C SOURCE FILE Test HAVE_SSE succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_c3b2e && [1/2] Building C object CMakeFiles/cmTC_c3b2e.dir/src.c.o
+[2/2] Linking C executable cmTC_c3b2e
+
+
+Source file was:
+
+          #ifdef __MINGW32__
+          #include <_mingw.h>
+          #ifdef __MINGW64_VERSION_MAJOR
+          #include <intrin.h>
+          #else
+          #include <xmmintrin.h>
+          #endif
+          #else
+          #include <xmmintrin.h>
+          #endif
+          #ifndef __SSE__
+          #error Assembler CPP flag not enabled
+          #endif
+          int main(int argc, char **argv) { return 0; }
+Performing C SOURCE FILE Test CPU_SUPPORTS_SSE2 succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_38c75 && [1/2] Building C object CMakeFiles/cmTC_38c75.dir/src.c.o
+[2/2] Linking C executable cmTC_38c75
+
+
+Source file was:
+
+          #ifdef __MINGW32__
+          #include <_mingw.h>
+          #ifdef __MINGW64_VERSION_MAJOR
+          #include <intrin.h>
+          #else
+          #include <emmintrin.h>
+          #endif
+          #else
+          #include <emmintrin.h>
+          #endif
+          #ifndef __SSE2__
+          #error Assembler CPP flag not enabled
+          #endif
+          int main(int argc, char **argv) { return 0; }
+Performing C SOURCE FILE Test CPU_SUPPORTS_SSE3 succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_8a03a && [1/2] Building C object CMakeFiles/cmTC_8a03a.dir/src.c.o
+[2/2] Linking C executable cmTC_8a03a
+
+
+Source file was:
+
+          #ifdef __MINGW32__
+          #include <_mingw.h>
+          #ifdef __MINGW64_VERSION_MAJOR
+          #include <intrin.h>
+          #else
+          #include <pmmintrin.h>
+          #endif
+          #else
+          #include <pmmintrin.h>
+          #endif
+          #ifndef __SSE3__
+          #error Assembler CPP flag not enabled
+          #endif
+          int main(int argc, char **argv) { return 0; }
+Determining if the include file immintrin.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_bd44b && [1/2] Building C object CMakeFiles/cmTC_bd44b.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_bd44b
+
+
+
+Determining if the include file ctype.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_0ec86 && [1/2] Building C object CMakeFiles/cmTC_0ec86.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_0ec86
+
+
+
+Determining if the include file float.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_85ee8 && [1/2] Building C object CMakeFiles/cmTC_85ee8.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_85ee8
+
+
+
+Determining if the include file iconv.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1b7b9 && [1/2] Building C object CMakeFiles/cmTC_1b7b9.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_1b7b9
+
+
+
+Determining if the include file inttypes.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_09baf && [1/2] Building C object CMakeFiles/cmTC_09baf.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_09baf
+
+
+
+Determining if the include file limits.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_a96f9 && [1/2] Building C object CMakeFiles/cmTC_a96f9.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_a96f9
+
+
+
+Determining if the include file malloc.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_4573d && [1/2] Building C object CMakeFiles/cmTC_4573d.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_4573d
+
+
+
+Determining if the include file math.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_a302f && [1/2] Building C object CMakeFiles/cmTC_a302f.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_a302f
+
+
+
+Determining if the include file memory.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_f9aab && [1/2] Building C object CMakeFiles/cmTC_f9aab.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_f9aab
+
+
+
+Determining if the include file signal.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_54074 && [1/2] Building C object CMakeFiles/cmTC_54074.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_54074
+
+
+
+Determining if the include file stdarg.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_8d06e && [1/2] Building C object CMakeFiles/cmTC_8d06e.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_8d06e
+
+
+
+Determining if the include file stddef.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_e8538 && [1/2] Building C object CMakeFiles/cmTC_e8538.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_e8538
+
+
+
+Determining if the include file stdint.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_f4512 && [1/2] Building C object CMakeFiles/cmTC_f4512.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_f4512
+
+
+
+Determining if the include file stdio.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_efa9b && [1/2] Building C object CMakeFiles/cmTC_efa9b.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_efa9b
+
+
+
+Determining if the include file stdlib.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_28afa && [1/2] Building C object CMakeFiles/cmTC_28afa.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_28afa
+
+
+
+Determining if the include file string.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_ccb7c && [1/2] Building C object CMakeFiles/cmTC_ccb7c.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_ccb7c
+
+
+
+Determining if the include file strings.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_b5060 && [1/2] Building C object CMakeFiles/cmTC_b5060.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_b5060
+
+
+
+Determining if the include file sys/types.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_37c40 && [1/2] Building C object CMakeFiles/cmTC_37c40.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_37c40
+
+
+
+Determining if the include file wchar.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_996f3 && [1/2] Building C object CMakeFiles/cmTC_996f3.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_996f3
+
+
+
+Determining if files stddef.h;stdarg.h;stdlib.h;string.h;stdio.h;wchar.h;float.h exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1272a && [1/2] Building C object CMakeFiles/cmTC_1272a.dir/STDC_HEADERS.c.o
+[2/2] Linking C executable cmTC_1272a
+
+
+
+Determining if the M_PI exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_2ff95 && [1/2] Building C object CMakeFiles/cmTC_2ff95.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_2ff95
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef M_PI
+  return ((int*)(&M_PI))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Performing C SOURCE FILE Test HAVE_MPROTECT succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_5ecd6 && [1/2] Building C object CMakeFiles/cmTC_5ecd6.dir/src.c.o
+[2/2] Linking C executable cmTC_5ecd6
+
+
+Source file was:
+#include <sys/types.h>
+                             #include <sys/mman.h>
+                             int main(void) { return 0; }
+Determining if the strtod exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_b69ae && [1/2] Building C object CMakeFiles/cmTC_b69ae.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_b69ae
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strtod
+  return ((int*)(&strtod))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the malloc exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_852d9 && [1/2] Building C object CMakeFiles/cmTC_852d9.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_852d9
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef malloc
+  return ((int*)(&malloc))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the calloc exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_4c0f6 && [1/2] Building C object CMakeFiles/cmTC_4c0f6.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_4c0f6
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef calloc
+  return ((int*)(&calloc))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the realloc exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_7b9b1 && [1/2] Building C object CMakeFiles/cmTC_7b9b1.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_7b9b1
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef realloc
+  return ((int*)(&realloc))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the free exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1965b && [1/2] Building C object CMakeFiles/cmTC_1965b.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_1965b
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef free
+  return ((int*)(&free))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the getenv exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_ae723 && [1/2] Building C object CMakeFiles/cmTC_ae723.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_ae723
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef getenv
+  return ((int*)(&getenv))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the setenv exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_6969f && [1/2] Building C object CMakeFiles/cmTC_6969f.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_6969f
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef setenv
+  return ((int*)(&setenv))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the putenv exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_19cd4 && [1/2] Building C object CMakeFiles/cmTC_19cd4.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_19cd4
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef putenv
+  return ((int*)(&putenv))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the unsetenv exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_f466c && [1/2] Building C object CMakeFiles/cmTC_f466c.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_f466c
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef unsetenv
+  return ((int*)(&unsetenv))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the bsearch exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_29e15 && [1/2] Building C object CMakeFiles/cmTC_29e15.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_29e15
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef bsearch
+  return ((int*)(&bsearch))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the qsort exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_853fc && [1/2] Building C object CMakeFiles/cmTC_853fc.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_853fc
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef qsort
+  return ((int*)(&qsort))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the abs exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_121aa && [1/2] Building C object CMakeFiles/cmTC_121aa.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_121aa
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef abs
+  return ((int*)(&abs))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the bcopy exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_7fe26 && [1/2] Building C object CMakeFiles/cmTC_7fe26.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_7fe26
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef bcopy
+  return ((int*)(&bcopy))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the memset exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_0e148 && [1/2] Building C object CMakeFiles/cmTC_0e148.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_0e148
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef memset
+  return ((int*)(&memset))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the memcpy exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_5cbec && [1/2] Building C object CMakeFiles/cmTC_5cbec.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_5cbec
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef memcpy
+  return ((int*)(&memcpy))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the memmove exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_73ec9 && [1/2] Building C object CMakeFiles/cmTC_73ec9.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_73ec9
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef memmove
+  return ((int*)(&memmove))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the memcmp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1e57e && [1/2] Building C object CMakeFiles/cmTC_1e57e.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_1e57e
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef memcmp
+  return ((int*)(&memcmp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strlen exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_f2f27 && [1/2] Building C object CMakeFiles/cmTC_f2f27.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_f2f27
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strlen
+  return ((int*)(&strlen))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strlcpy exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_9c342 && [1/2] Building C object CMakeFiles/cmTC_9c342.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_9c342
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strlcpy
+  return ((int*)(&strlcpy))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strlcat exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_be9ea && [1/2] Building C object CMakeFiles/cmTC_be9ea.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_be9ea
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strlcat
+  return ((int*)(&strlcat))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strchr exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_59acf && [1/2] Building C object CMakeFiles/cmTC_59acf.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_59acf
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strchr
+  return ((int*)(&strchr))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strrchr exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_61d02 && [1/2] Building C object CMakeFiles/cmTC_61d02.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_61d02
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strrchr
+  return ((int*)(&strrchr))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strstr exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_053df && [1/2] Building C object CMakeFiles/cmTC_053df.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_053df
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strstr
+  return ((int*)(&strstr))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strtok_r exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_a4e81 && [1/2] Building C object CMakeFiles/cmTC_a4e81.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_a4e81
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strtok_r
+  return ((int*)(&strtok_r))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strtol exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_fd140 && [1/2] Building C object CMakeFiles/cmTC_fd140.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_fd140
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strtol
+  return ((int*)(&strtol))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strtoul exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_83354 && [1/2] Building C object CMakeFiles/cmTC_83354.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_83354
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strtoul
+  return ((int*)(&strtoul))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strtoll exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1d867 && [1/2] Building C object CMakeFiles/cmTC_1d867.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_1d867
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strtoll
+  return ((int*)(&strtoll))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strtoull exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_12a8c && [1/2] Building C object CMakeFiles/cmTC_12a8c.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_12a8c
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strtoull
+  return ((int*)(&strtoull))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the atoi exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_0f1ec && [1/2] Building C object CMakeFiles/cmTC_0f1ec.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_0f1ec
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef atoi
+  return ((int*)(&atoi))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the atof exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_742f0 && [1/2] Building C object CMakeFiles/cmTC_742f0.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_742f0
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef atof
+  return ((int*)(&atof))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strcmp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_cf6b1 && [1/2] Building C object CMakeFiles/cmTC_cf6b1.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_cf6b1
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strcmp
+  return ((int*)(&strcmp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strncmp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_50e1a && [1/2] Building C object CMakeFiles/cmTC_50e1a.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_50e1a
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strncmp
+  return ((int*)(&strncmp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strcasecmp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_94339 && [1/2] Building C object CMakeFiles/cmTC_94339.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_94339
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strcasecmp
+  return ((int*)(&strcasecmp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strncasecmp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_3622c && [1/2] Building C object CMakeFiles/cmTC_3622c.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_3622c
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strncasecmp
+  return ((int*)(&strncasecmp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the strcasestr exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_5a3bf && [1/2] Building C object CMakeFiles/cmTC_5a3bf.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_5a3bf
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef strcasestr
+  return ((int*)(&strcasestr))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the wcscmp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_152fd && [1/2] Building C object CMakeFiles/cmTC_152fd.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_152fd
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef wcscmp
+  return ((int*)(&wcscmp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the wcsdup exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_90696 && [1/2] Building C object CMakeFiles/cmTC_90696.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_90696
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef wcsdup
+  return ((int*)(&wcsdup))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the wcslcat exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_98b2a && [1/2] Building C object CMakeFiles/cmTC_98b2a.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_98b2a
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef wcslcat
+  return ((int*)(&wcslcat))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the wcslcpy exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_06a08 && [1/2] Building C object CMakeFiles/cmTC_06a08.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_06a08
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef wcslcpy
+  return ((int*)(&wcslcpy))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the wcslen exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_d31c0 && [1/2] Building C object CMakeFiles/cmTC_d31c0.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_d31c0
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef wcslen
+  return ((int*)(&wcslen))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the wcsncmp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_cf79d && [1/2] Building C object CMakeFiles/cmTC_cf79d.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_cf79d
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef wcsncmp
+  return ((int*)(&wcsncmp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the wcsstr exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_22b51 && [1/2] Building C object CMakeFiles/cmTC_22b51.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_22b51
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef wcsstr
+  return ((int*)(&wcsstr))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the wcscasecmp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_2f854 && [1/2] Building C object CMakeFiles/cmTC_2f854.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_2f854
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef wcscasecmp
+  return ((int*)(&wcscasecmp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the wcsncasecmp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1b943 && [1/2] Building C object CMakeFiles/cmTC_1b943.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_1b943
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef wcsncasecmp
+  return ((int*)(&wcsncasecmp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the sscanf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1ae58 && [1/2] Building C object CMakeFiles/cmTC_1ae58.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_1ae58
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef sscanf
+  return ((int*)(&sscanf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the vsscanf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_4d990 && [1/2] Building C object CMakeFiles/cmTC_4d990.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_4d990
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef vsscanf
+  return ((int*)(&vsscanf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the vsnprintf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_e550b && [1/2] Building C object CMakeFiles/cmTC_e550b.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_e550b
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef vsnprintf
+  return ((int*)(&vsnprintf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the fseeko exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_0717c && [1/2] Building C object CMakeFiles/cmTC_0717c.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_0717c
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef fseeko
+  return ((int*)(&fseeko))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the _Exit exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_73059 && [1/2] Building C object CMakeFiles/cmTC_73059.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_73059
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <wchar.h>
+#include <float.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef _Exit
+  return ((int*)(&_Exit))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the sigaction exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_9b950 && [1/2] Building C object CMakeFiles/cmTC_9b950.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_9b950
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <signal.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef sigaction
+  return ((int*)(&sigaction))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the setjmp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_60995 && [1/2] Building C object CMakeFiles/cmTC_60995.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_60995
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <setjmp.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef setjmp
+  return ((int*)(&setjmp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the nanosleep exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_afd2d && [1/2] Building C object CMakeFiles/cmTC_afd2d.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_afd2d
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <time.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef nanosleep
+  return ((int*)(&nanosleep))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the sysconf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_d245e && [1/2] Building C object CMakeFiles/cmTC_d245e.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_d245e
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <unistd.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef sysconf
+  return ((int*)(&sysconf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the getauxval exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_a5e45 && [1/2] Building C object CMakeFiles/cmTC_a5e45.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_a5e45
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <sys/auxv.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef getauxval
+  return ((int*)(&getauxval))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the poll exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_8866c && [1/2] Building C object CMakeFiles/cmTC_8866c.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_8866c
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <poll.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef poll
+  return ((int*)(&poll))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the posix_fallocate exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_3ccb0 && [1/2] Building C object CMakeFiles/cmTC_3ccb0.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_3ccb0
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <fcntl.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef posix_fallocate
+  return ((int*)(&posix_fallocate))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the function pow exists in the m passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_af0a2 && [1/2] Building C object CMakeFiles/cmTC_af0a2.dir/CheckFunctionExists.c.o
+/opt/android-sdk/cmake/3.22.1/share/cmake-3.22/Modules/CheckFunctionExists.c:7:3: warning: incompatible redeclaration of library function 'pow' [-Wincompatible-library-redeclaration]
+    7 |   CHECK_FUNCTION_EXISTS(void);
+      |   ^
+<command line>:3:31: note: expanded from macro 'CHECK_FUNCTION_EXISTS'
+    3 | #define CHECK_FUNCTION_EXISTS pow
+      |                               ^
+/opt/android-sdk/cmake/3.22.1/share/cmake-3.22/Modules/CheckFunctionExists.c:7:3: note: 'pow' is a builtin with type 'double (double, double)'
+<command line>:3:31: note: expanded from macro 'CHECK_FUNCTION_EXISTS'
+    3 | #define CHECK_FUNCTION_EXISTS pow
+      |                               ^
+1 warning generated.
+[2/2] Linking C executable cmTC_af0a2
+
+
+
+Determining if the atan exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_affb3 && [1/2] Building C object CMakeFiles/cmTC_affb3.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_affb3
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef atan
+  return ((int*)(&atan))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the atan2 exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_5f729 && [1/2] Building C object CMakeFiles/cmTC_5f729.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_5f729
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef atan2
+  return ((int*)(&atan2))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the atanf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_891b3 && [1/2] Building C object CMakeFiles/cmTC_891b3.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_891b3
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef atanf
+  return ((int*)(&atanf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the atan2f exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_9ccf5 && [1/2] Building C object CMakeFiles/cmTC_9ccf5.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_9ccf5
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef atan2f
+  return ((int*)(&atan2f))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the ceil exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_77e78 && [1/2] Building C object CMakeFiles/cmTC_77e78.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_77e78
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef ceil
+  return ((int*)(&ceil))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the ceilf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_70f15 && [1/2] Building C object CMakeFiles/cmTC_70f15.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_70f15
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef ceilf
+  return ((int*)(&ceilf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the copysign exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_104ac && [1/2] Building C object CMakeFiles/cmTC_104ac.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_104ac
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef copysign
+  return ((int*)(&copysign))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the copysignf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_639a5 && [1/2] Building C object CMakeFiles/cmTC_639a5.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_639a5
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef copysignf
+  return ((int*)(&copysignf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the cos exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_d471e && [1/2] Building C object CMakeFiles/cmTC_d471e.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_d471e
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef cos
+  return ((int*)(&cos))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the cosf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_22ece && [1/2] Building C object CMakeFiles/cmTC_22ece.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_22ece
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef cosf
+  return ((int*)(&cosf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the exp exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_f9020 && [1/2] Building C object CMakeFiles/cmTC_f9020.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_f9020
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef exp
+  return ((int*)(&exp))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the expf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_81cad && [1/2] Building C object CMakeFiles/cmTC_81cad.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_81cad
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef expf
+  return ((int*)(&expf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the fabs exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_9db0e && [1/2] Building C object CMakeFiles/cmTC_9db0e.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_9db0e
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef fabs
+  return ((int*)(&fabs))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the fabsf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_0661f && [1/2] Building C object CMakeFiles/cmTC_0661f.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_0661f
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef fabsf
+  return ((int*)(&fabsf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the floor exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_97a3f && [1/2] Building C object CMakeFiles/cmTC_97a3f.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_97a3f
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef floor
+  return ((int*)(&floor))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the floorf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_94a06 && [1/2] Building C object CMakeFiles/cmTC_94a06.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_94a06
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef floorf
+  return ((int*)(&floorf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the fmod exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_27c77 && [1/2] Building C object CMakeFiles/cmTC_27c77.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_27c77
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef fmod
+  return ((int*)(&fmod))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the fmodf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1c13f && [1/2] Building C object CMakeFiles/cmTC_1c13f.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_1c13f
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef fmodf
+  return ((int*)(&fmodf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the log exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_6f3ec && [1/2] Building C object CMakeFiles/cmTC_6f3ec.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_6f3ec
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef log
+  return ((int*)(&log))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the logf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_788da && [1/2] Building C object CMakeFiles/cmTC_788da.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_788da
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef logf
+  return ((int*)(&logf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the log10 exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_3d68d && [1/2] Building C object CMakeFiles/cmTC_3d68d.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_3d68d
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef log10
+  return ((int*)(&log10))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the log10f exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_95b70 && [1/2] Building C object CMakeFiles/cmTC_95b70.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_95b70
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef log10f
+  return ((int*)(&log10f))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the lround exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_64a17 && [1/2] Building C object CMakeFiles/cmTC_64a17.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_64a17
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef lround
+  return ((int*)(&lround))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the lroundf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_aeecf && [1/2] Building C object CMakeFiles/cmTC_aeecf.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_aeecf
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef lroundf
+  return ((int*)(&lroundf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the pow exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_72194 && [1/2] Building C object CMakeFiles/cmTC_72194.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_72194
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef pow
+  return ((int*)(&pow))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the powf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_49514 && [1/2] Building C object CMakeFiles/cmTC_49514.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_49514
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef powf
+  return ((int*)(&powf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the round exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_5038d && [1/2] Building C object CMakeFiles/cmTC_5038d.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_5038d
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef round
+  return ((int*)(&round))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the roundf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_4dc31 && [1/2] Building C object CMakeFiles/cmTC_4dc31.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_4dc31
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef roundf
+  return ((int*)(&roundf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the scalbn exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_0611d && [1/2] Building C object CMakeFiles/cmTC_0611d.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_0611d
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef scalbn
+  return ((int*)(&scalbn))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the scalbnf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_698b3 && [1/2] Building C object CMakeFiles/cmTC_698b3.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_698b3
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef scalbnf
+  return ((int*)(&scalbnf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the sin exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_6b63b && [1/2] Building C object CMakeFiles/cmTC_6b63b.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_6b63b
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef sin
+  return ((int*)(&sin))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the sinf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_ccc1d && [1/2] Building C object CMakeFiles/cmTC_ccc1d.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_ccc1d
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef sinf
+  return ((int*)(&sinf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the sqrt exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_c357c && [1/2] Building C object CMakeFiles/cmTC_c357c.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_c357c
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef sqrt
+  return ((int*)(&sqrt))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the sqrtf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_ccdd4 && [1/2] Building C object CMakeFiles/cmTC_ccdd4.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_ccdd4
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef sqrtf
+  return ((int*)(&sqrtf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the tan exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_b9b5d && [1/2] Building C object CMakeFiles/cmTC_b9b5d.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_b9b5d
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef tan
+  return ((int*)(&tan))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the tanf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_9163f && [1/2] Building C object CMakeFiles/cmTC_9163f.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_9163f
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef tanf
+  return ((int*)(&tanf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the acos exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_d65df && [1/2] Building C object CMakeFiles/cmTC_d65df.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_d65df
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef acos
+  return ((int*)(&acos))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the acosf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_1355e && [1/2] Building C object CMakeFiles/cmTC_1355e.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_1355e
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef acosf
+  return ((int*)(&acosf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the asin exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_94793 && [1/2] Building C object CMakeFiles/cmTC_94793.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_94793
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef asin
+  return ((int*)(&asin))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the asinf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_47071 && [1/2] Building C object CMakeFiles/cmTC_47071.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_47071
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef asinf
+  return ((int*)(&asinf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the trunc exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_56b2f && [1/2] Building C object CMakeFiles/cmTC_56b2f.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_56b2f
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef trunc
+  return ((int*)(&trunc))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the truncf exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_cabd1 && [1/2] Building C object CMakeFiles/cmTC_cabd1.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_cabd1
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <math.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef truncf
+  return ((int*)(&truncf))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the include file alloca.h exists passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_68ee3 && [1/2] Building C object CMakeFiles/cmTC_68ee3.dir/CheckIncludeFile.c.o
+[2/2] Linking C executable cmTC_68ee3
+
+
+
+Determining if the alloca exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_a0318 && [1/2] Building C object CMakeFiles/cmTC_a0318.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_a0318
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <alloca.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef alloca
+  return ((int*)(&alloca))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Determining if the alloca exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_4a013 && [1/2] Building C object CMakeFiles/cmTC_4a013.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_4a013
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <stdlib.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef alloca
+  return ((int*)(&alloca))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Performing C SOURCE FILE Test HAVE_SA_SIGACTION succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_e2dfb && [1/2] Building C object CMakeFiles/cmTC_e2dfb.dir/src.c.o
+[2/2] Linking C executable cmTC_e2dfb
+
+
+Source file was:
+
+#include <signal.h>
+
+int main()
+{
+  (void)sizeof(((struct sigaction *)0)->sa_sigaction);
+  return 0;
+}
+
+Determining if the dlopen exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_6c73e && [1/2] Building C object CMakeFiles/cmTC_6c73e.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_6c73e
+
+
+File /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <dlfcn.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef dlopen
+  return ((int*)(&dlopen))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+Performing C SOURCE FILE Test HAVE_O_CLOEXEC succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_41929 && [1/2] Building C object CMakeFiles/cmTC_41929.dir/src.c.o
+[2/2] Linking C executable cmTC_41929
+
+
+Source file was:
+
+    #include <fcntl.h>
+    int flag = O_CLOEXEC;
+    int main(int argc, char **argv) { return 0; }
+Performing C SOURCE FILE Test VULKAN_PASSED_ANDROID_CHECKS succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_605a3 && [1/2] Building C object CMakeFiles/cmTC_605a3.dir/src.c.o
+[2/2] Linking C executable cmTC_605a3
+
+
+Source file was:
+
+      #if defined(__ARM_ARCH) && __ARM_ARCH < 7
+      #error Vulkan doesn't work on this configuration
+      #endif
+      int main(int argc, char **argv) { return 0; }
+      
+Performing C SOURCE FILE Test HAVE_PTHREADS succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_4d898 && [1/2] Building C object CMakeFiles/cmTC_4d898.dir/src.c.o
+[2/2] Linking C executable cmTC_4d898
+
+
+Source file was:
+
+      #include <pthread.h>
+      int main(int argc, char** argv) {
+        pthread_attr_t type;
+        pthread_attr_init(&type);
+        return 0;
+      }
+Performing C SOURCE FILE Test HAVE_RECURSIVE_MUTEXES succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_feaca && [1/2] Building C object CMakeFiles/cmTC_feaca.dir/src.c.o
+[2/2] Linking C executable cmTC_feaca
+
+
+Source file was:
+
+        #include <pthread.h>
+        int main(int argc, char **argv) {
+          pthread_mutexattr_t attr;
+          pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+          return 0;
+        }
+Performing C SOURCE FILE Test HAVE_PTHREADS_SEM succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_218fc && [1/2] Building C object CMakeFiles/cmTC_218fc.dir/src.c.o
+[2/2] Linking C executable cmTC_218fc
+
+
+Source file was:
+#include <pthread.h>
+                                 #include <semaphore.h>
+                                 int main(int argc, char **argv) { return 0; }
+Performing C SOURCE FILE Test HAVE_SEM_TIMEDWAIT succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_e125f && [1/2] Building C object CMakeFiles/cmTC_e125f.dir/src.c.o
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/src.c:5:33: warning: null passed to a callee that requires a non-null argument [-Wnonnull]
+    5 |                   sem_timedwait(NULL, NULL);
+      |                                 ^~~~
+/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include/__stddef_null.h:26:14: note: expanded from macro 'NULL'
+   26 | #define NULL ((void*)0)
+      |              ^~~~~~~~~~
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp/src.c:5:39: warning: null passed to a callee that requires a non-null argument [-Wnonnull]
+    5 |                   sem_timedwait(NULL, NULL);
+      |                                       ^~~~
+/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/include/__stddef_null.h:26:14: note: expanded from macro 'NULL'
+   26 | #define NULL ((void*)0)
+      |              ^~~~~~~~~~
+2 warnings generated.
+[2/2] Linking C executable cmTC_e125f
+
+
+Source file was:
+
+              #include <pthread.h>
+              #include <semaphore.h>
+              int main(int argc, char **argv) {
+                  sem_timedwait(NULL, NULL);
+                  return 0;
+              }
+Determining if files pthread.h exist passed with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_2e4dd && [1/2] Building C object CMakeFiles/cmTC_2e4dd.dir/HAVE_PTHREAD_H.c.o
+[2/2] Linking C executable cmTC_2e4dd
+
+
+
+Performing C SOURCE FILE Test HAVE_PTHREAD_SETNAME_NP succeeded with the following output:
+Change Dir: /home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/opt/android-sdk/cmake/3.22.1/bin/ninja cmTC_60b0d && [1/2] Building C object CMakeFiles/cmTC_60b0d.dir/src.c.o
+[2/2] Linking C executable cmTC_60b0d
+
+
+Source file was:
+
+            #include <pthread.h>
+            int main(int argc, char **argv) {
+              #ifdef __APPLE__
+              pthread_setname_np("");
+              #else
+              pthread_setname_np(pthread_self(),"");
+              #endif
+              return 0;
+            }

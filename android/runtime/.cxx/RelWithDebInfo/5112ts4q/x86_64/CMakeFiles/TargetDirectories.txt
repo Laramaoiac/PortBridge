@@ -1,0 +1,11 @@
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/pb_miniz.dir
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/pb_core.dir
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/main.dir
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/edit_cache.dir
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/CMakeFiles/rebuild_cache.dir
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/SDL/CMakeFiles/sdl_headers_copy.dir
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/SDL/CMakeFiles/SDL2main.dir
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/SDL/CMakeFiles/SDL2.dir
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/SDL/CMakeFiles/uninstall.dir
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/SDL/CMakeFiles/edit_cache.dir
+/home/user/PortBridge/android/runtime/.cxx/RelWithDebInfo/5112ts4q/x86_64/SDL/CMakeFiles/rebuild_cache.dir

@@ -1,4 +1,5 @@
 #include "runtime/runtime.hpp"
+#include "runtime/diag.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -31,6 +32,12 @@ App::~App() {
     frame_.reset();
     for (auto& [h, t] : textures_)
         if (t) SDL_DestroyTexture(t);
+}
+
+void App::reset_textures() {
+    for (auto& [h, t] : textures_)
+        if (t) SDL_DestroyTexture(t);
+    textures_.clear();
 }
 
 const ImageInfo* App::image(int handle) const {
@@ -80,6 +87,8 @@ void App::step() {
             return;
         }
         frame_.reset();
+        g_diag.stage = "iniciando frame";
+        g_diag.frame = idx;
         frame_ = std::make_unique<Frame>(*this, idx);
         frame_->start();
         SDL_Log("PortBridge: frame %d '%s'", idx, game_->frames[size_t(idx)].name.c_str());
@@ -253,9 +262,14 @@ void Frame::step() {
     timer_acc += 1000.0 / std::max(1, app.frame_rate);
     timer_ms = uint32_t(timer_acc);
     ++loop;
+    g_diag.loop = long(loop);
+    g_diag.stage = "movimentos e animações";
     update_objects();
+    g_diag.stage = "eventos";
     run_events(*this);
+    g_diag.stage = "limpeza";
     cleanup();
+    g_diag.stage = "desenho";
 }
 
 // ================================================================== animação

@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "PortBridge"
-include ':app'
+include ':app', ':runtime', ':converter'

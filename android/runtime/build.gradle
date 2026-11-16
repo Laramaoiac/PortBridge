@@ -1,0 +1,68 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Template dos APKs gerados: o runtime do PortBridge (player C++) sem jogo.
+// O conversor troca pacote, nome, versão e ícone, embute o IPA e assina.
+def playerDir = file('../../player')
+
+android {
+    namespace 'com.portbridge.runtime'
+    compileSdk 35
+    ndkVersion '28.2.13676358'
+
+    defaultConfig {
+        applicationId 'com.portbridge.rtplaceholder'   // Converter.PLACEHOLDER_PACKAGE
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName '@@PB_VERSION@@'                    // Converter.PLACEHOLDER_VERSION
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared', '-DPB_BUILD_TOOLS=OFF',
+                          '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+            }
+        }
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "${playerDir}/CMakeLists.txt"
+            version '3.22.1'
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java',
+                            "${playerDir}/third_party/SDL/android-project/app/src/main/java"]
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig null   // o conversor assina cada APK gerado
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging false
+        }
+    }
+
+    androidResources {
+        // o jogo vai em assets/game.ipa sem compressão (já é zip)
+        noCompress += ['ipa']
+    }
+}
