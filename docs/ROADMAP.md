@@ -83,7 +83,8 @@ então não é um bom alvo para essa via.
 
 ## Próximas tarefas da ferramenta
 
-- [ ] Decodificar movimentos (`off_movimentos`) e listar os tipos usados por objeto
+- [x] Decodificar movimentos (`off_movimentos`) e listar os tipos usados por objeto
+- [ ] Calibrar a velocidade do Simple Ellipse e identificar seus campos 5, 6 e 8
 - [ ] Nomear cada condição/ação/expressão do sistema no inventário
 - [ ] Decodificar máscaras de colisão e ink effects por objeto
 - [ ] Suporte a `.ccn` de Windows e ao formato Android (para comparar e converter)

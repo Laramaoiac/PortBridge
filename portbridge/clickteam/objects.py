@@ -20,18 +20,17 @@ Dir(u8 vel_min, u8 vel_max, u16 repetir, u16 quadro_repetir, u16 n, u16 imagens[
 
 from __future__ import annotations
 
-import re
 import struct
 from dataclasses import dataclass, field
 
 from .chunks import Reader, cstr, iter_chunks
 from .events import OBJECT_TYPES
+from .movements import Movement, MovementError, parse_movements
 
 # Nomes padrão das primeiras animações de um Active.
 ANIMATION_NAMES = ["Stopped", "Walking", "Running", "Appearing", "Disappearing",
                    "Bouncing", "Shoot", "Jumping", "Falling", "Climbing",
                    "Crouch", "Stand up", "User 1", "User 2", "User 3", "User 4"]
-MVX_RE = re.compile(rb"([\w\-]+\.mvx)\x00")
 
 
 @dataclass
@@ -66,6 +65,7 @@ class ObjectInfo:
     identifier: str = ""
     animations: list[Animation] = field(default_factory=list)
     counter_frames: list[int] = field(default_factory=list)
+    movements: list[Movement] = field(default_factory=list)
     movement_extensions: list[str] = field(default_factory=list)
     properties_size: int = 0
     parse_warning: str = ""
@@ -92,6 +92,8 @@ class ObjectInfo:
                 for a in self.animations]
         if self.counter_frames:
             d["counter_frames"] = self.counter_frames
+        if self.movements:
+            d["movements"] = [m.to_dict() for m in self.movements]
         if self.movement_extensions:
             d["movement_extensions"] = self.movement_extensions
         if self.parse_warning:
@@ -129,7 +131,7 @@ def parse_bank(data: bytes, unicode: bool = False) -> list[ObjectInfo]:
 def _parse_common(obj: ObjectInfo, b: bytes) -> None:
     r = Reader(b)
     _size = r.i32()
-    _o_mov, o_anim, _ver, o_counter, o_data = (r.u16() for _ in range(5))
+    o_mov, o_anim, _ver, o_counter, o_data = (r.u16() for _ in range(5))
     r.p = 0x2E
     obj.identifier = b[0x2E:0x32].decode("ascii", "replace").strip("\0")
     if o_anim:
@@ -141,7 +143,13 @@ def _parse_common(obj: ObjectInfo, b: bytes) -> None:
         if display in (1, 4):              # números ou animação
             n = r.i16()
             obj.counter_frames = [r.u16() for _ in range(n)]
-    obj.movement_extensions = sorted({m.decode() for m in MVX_RE.findall(b)})
+    if o_mov:
+        try:
+            obj.movements = parse_movements(b, o_mov)
+        except (MovementError, struct.error, IndexError, ValueError) as e:
+            obj.parse_warning = f"movimentos não decodificados: {e}"
+    obj.movement_extensions = sorted({m.module + ".mvx" for m in obj.movements
+                                      if m.module})
 
 
 def _parse_animations(b: bytes, base: int) -> list[Animation]:

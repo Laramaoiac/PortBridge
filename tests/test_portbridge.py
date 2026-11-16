@@ -89,6 +89,36 @@ class ClickteamTests(unittest.TestCase):
         self.assertEqual(hero.image_handles(), [7])
         self.assertEqual(hero.animations[0].name, "Stopped")
 
+    def test_movements(self):
+        hero = self.game.object_by_handle()[1]
+        self.assertEqual(hero.parse_warning, "")
+        names = [m.name for m in hero.movements]
+        self.assertEqual(names, ["Path", "clickteam-vector", "pinball",
+                                 "clickteam-simple_ellipse"])
+        path, vector, pinball, ellipse = hero.movements
+        self.assertEqual(path.directions_at_start, [8])
+        self.assertEqual(path.params["steps"][0]["dy"], -100)
+        self.assertTrue(path.params["loop"])
+        self.assertEqual((vector.params["speed"], vector.params["angle"],
+                          vector.params["gravity_angle"]), (10, 90, 270))
+        self.assertTrue(vector.params["handle_direction"])
+        self.assertEqual(pinball.params["directions_at_start"], [0, 2])
+        p = ellipse.params
+        self.assertEqual((p["center_x"], p["center_y"], p["radius_x"], p["radius_y"],
+                          p["speed"]), (192, 280, 0, 6, 300))
+        self.assertEqual(hero.movement_extensions,
+                         ["clickteam-simple_ellipse.mvx", "clickteam-vector.mvx", "pinball.mvx"])
+        summary = self.game.manifest()["movements_summary"]
+        self.assertEqual(summary["Path"], {"definitions": 1, "objects": 1})
+
+    def test_unknown_extension_movement_kept_raw(self):
+        from portbridge.clickteam.movements import parse_movements
+        blob = fixtures.movements_block().replace(b"pinball.mvx", b"pinbaXX.mvx")
+        mv = parse_movements(blob, 0)
+        self.assertEqual(mv[2].name, "pinbaXX")
+        self.assertTrue(mv[2].raw)
+        self.assertEqual(mv[2].params, {})
+
     def test_frame_and_events(self):
         fr = self.game.frames[0]
         self.assertEqual(fr.name, "fase 1")

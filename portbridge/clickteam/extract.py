@@ -85,6 +85,14 @@ def extract(game: CCNFile, out: str, images: bool = True, sounds: bool = True,
     return manifest
 
 
+def _movement_label(o) -> str:
+    names = [m.name for m in o.movements if m.name != "Static"]
+    if not names:
+        return ""
+    uniq = list(dict.fromkeys(names))
+    return " · movimento: " + html.escape(", ".join(uniq))
+
+
 def write_gallery(game: CCNFile, path: str) -> None:
     """Página estática para navegar pelos objetos e suas animações."""
     ext = game.extension_names
@@ -126,7 +134,7 @@ def write_gallery(game: CCNFile, path: str) -> None:
             body.append(f"<div class=row>{imgs}</div>")
         parts.append(f"<div class=o data-n='{html.escape(o.name.lower())}'>"
                      f"<h2>{html.escape(o.name)}</h2><div class=meta>{o.type_name(ext)}"
-                     f" · handle {o.handle}</div>{''.join(body)}</div>")
+                     f" · handle {o.handle}{_movement_label(o)}</div>{''.join(body)}</div>")
     parts.append("<script>q.oninput=()=>{const v=q.value.toLowerCase();"
                  "document.querySelectorAll('.o').forEach(e=>e.style.display="
                  "e.dataset.n.includes(v)?'':'none')}</script>")

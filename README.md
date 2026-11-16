@@ -33,7 +33,7 @@ saida/
   analysis.json              a mesma análise em JSON
   bundle/                    ícones, telas de abertura, shaders do app iOS
   clickteam/                 (só para jogos Clickteam)
-    manifest.json            frames, objetos, animações, instâncias, inventário de eventos
+    manifest.json            frames, objetos, animações, movimentos, instâncias, eventos
     images/NNNN.png          todas as imagens, pelo handle
     images/index.json        quais objetos/animações usam cada imagem
     sounds/NNN_nome.wav|mp3  sons e músicas originais
@@ -83,6 +83,7 @@ portbridge/
     chunks.py       leitor de chunks
     ccn.py          arquivo de jogo: cabeçalho, extensões, frames, sons, fontes
     objects.py      banco de objetos e animações
+    movements.py    movimentos (nativos e extensões vector/pinball/ellipse)
     events.py       eventos: grupos, condições, ações, expressões
     images.py       banco de imagens iOS (5 formatos de pixel) → PNG
     extract.py      exportação para arquivos + galeria

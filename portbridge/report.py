@@ -65,6 +65,8 @@ def analyze(pkg: IpaPackage) -> tuple[dict, object | None]:
             "format": m["format"],
             "application": m["application"],
             "objects_summary": m["objects_summary"],
+            "movements": [{"name": k, **v, "status": _movement_status(k)}
+                          for k, v in m["movements_summary"].items()],
             "frames": [{k: f[k] for k in ("index", "name", "size", "instance_count",
                                           "event_groups", "events_error")}
                        for f in m["frames"]],
@@ -88,6 +90,16 @@ def analyze(pkg: IpaPackage) -> tuple[dict, object | None]:
         }
     analysis["architecture"] = architecture_verdict(analysis, engine)
     return analysis, game
+
+
+BUILTIN_MOVEMENTS = {"Static", "Mouse", "Race", "EightDirections", "Ball", "Path",
+                     "Platform", "Bullet"}
+
+
+def _movement_status(name: str) -> str:
+    if name in BUILTIN_MOVEMENTS:
+        return "nativo"
+    return compat.extension_status(name + ".mvx")[0]
 
 
 def _count(it) -> dict:
@@ -184,6 +196,14 @@ def to_markdown(a: dict) -> str:
             ev = f["event_groups"] if not f["events_error"] else f"erro: {f['events_error']}"
             L.append(f"| {f['index']} | {f['name']} | {f['size'][0]}×{f['size'][1]} | "
                      f"{f['instance_count']} | {ev} |")
+        if c.get("movements"):
+            L += ["", "### Movimentos", "",
+                  "| Movimento | Definições | Objetos | Situação |", "|---|---|---|---|"]
+            mtag = {"nativo": "nativo dos runtimes Clickteam", "portavel": "✅ extensão portável",
+                    "substituir": "🔁 substituir", "desconhecido": "❓ verificar"}
+            for mv in c["movements"]:
+                L.append(f"| {mv['name']} | {mv['definitions']} | {mv['objects']} | "
+                         f"{mtag.get(mv['status'], mv['status'])} |")
         L += ["", "### Extensões e compatibilidade Android", "",
               "| Extensão | Situação | Usos nos eventos | Android |", "|---|---|---|---|"]
         tag = {"portavel": "✅ portável", "substituir": "🔁 substituir",

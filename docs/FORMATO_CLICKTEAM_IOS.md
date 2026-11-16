@@ -92,6 +92,85 @@ Contadores/Score/Lives em `off_dados`:
 i16 fonte`, e se `tipo_exibição` ∈ {1 números, 4 animação}: `i16 n · u16 imagens[n]`
 (dígitos 0–9, `-`, `+`, `.`, `e`; `0xFFFF` = sem imagem).
 
+#### Movimentos (em `off_movimentos`)
+
+Offsets relativos ao início do bloco de movimentos:
+
+```
+u32 n
+n x { i32 off_nome · i32 id · i32 off_dados · i32 tam_dados }   tabela, 16 bytes cada
+cstr nomes dos módulos de extensão ("pinball.mvx"), apontados por off_nome
+blocos de dados, apontados por off_dados
+```
+
+Cada bloco de dados (`tam_dados` **inclui** estes 12 bytes):
+
+| Offset | Tipo | Campo |
+|---|---|---|
+| 0x00 | u16 | jogador (controle) |
+| 0x02 | u16 | tipo (tabela abaixo) |
+| 0x04 | u8 | mover no início (0/1) |
+| 0x05 | 3 bytes | livres |
+| 0x08 | u32 | direções iniciais: máscara de 32 bits (bit *n* = direção *n*) |
+| 0x0C | … | parâmetros do tipo |
+
+| Tipo | Nome | Parâmetros (i16 salvo indicação) |
+|---|---|---|
+| 0 | Estático | — |
+| 1 | Mouse | x1, x2, y1, y2, flags |
+| 2 | Corrida | velocidade, aceleração, desaceleração, vel. de rotação, quique, ângulos, ré |
+| 3 | 8 direções | velocidade, aceleração, desaceleração, quique, `u32` máscara de direções |
+| 4 | Bola | velocidade, aleatoriedade, ângulos, segurança, desaceleração |
+| 5 | Trajetória | `i16 n_passos`, vel. mín., vel. máx., `u8` repetir, `u8` reposicionar, `u8` inverter, 1 livre; passos: `u8 -`, `u8 tamanho`, `u8 vel.`, `u8 direção`, dx, dy, cos×16384, sen×16384, comprimento, pausa, `cstr` nome |
+| 9 | Plataforma | velocidade, aceleração, desaceleração, controle, gravidade, força do pulo |
+| 14 | Extensão (`.mvx`) | 14 bytes reservados + dados da extensão |
+
+Dados de extensão: os runtimes **pulam 1 byte** e leem inteiros de 32 bits
+little-endian. A prova está no `pinball` do Zorbié: o 4º inteiro (direções) é idêntico
+à máscara do cabeçalho comum.
+
+| Módulo | Inteiros após o byte pulado | Confiança |
+|---|---|---|
+| `pinball` | velocidade, desaceleração, gravidade, direções (máscara), flags | lido assim pelo Chowdren |
+| `clickteam-vector` | flags (bit0 = em movimento, bit1 = gira com a direção), velocidade, ângulo, gravidade, ângulo da gravidade | lido assim pelo Chowdren |
+| `clickteam-simple_ellipse` | centro X, centro Y, raio X, raio Y, ângulo inicial?, ?, velocidade, ? | inferido dos dados (abaixo) |
+
+##### Simple Ellipse: o que os dados do Zorbié mostram
+
+Bloco real (`hud_title01`, 59 bytes = 12 de cabeçalho + 14 reservados + 33 da extensão):
+
+```
+00 00 0e 00 01 00 00 00 00 00 00 00   jogador 0 · tipo 14 · mover no início 1 · direções 0
+00 × 14                                reservados
+00                                     byte pulado
+c0 00 00 00  c0 00 00 00  00 00 00 00  04 00 00 00   192, 192, 0, 4
+00 00 00 00  01 00 00 00  64 00 00 00  00 00 00 00   0, 1, 100, 0
+```
+
+| Objeto | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| `hud_title01` | 192 | 192 | 0 | 4 | 0 | 1 | 100 | 0 |
+| `hud_title_hand` | 192 | 280 | 0 | 6 | 0 | 1 | 300 | 0 |
+| `cutscene_gordolex00` | 192 | 200 | 0 | 20 | 0 | 1 | 100 | 0 |
+
+- **1–2 = centro absoluto no frame.** 192 é metade da largura do frame (384 px), e as
+  instâncias estão em (0, 0) no editor: quem as posiciona é o movimento.
+- **3–4 = raios X/Y.** Raio X = 0 com raio Y pequeno dá a flutuação vertical do título,
+  da mão e do Gordolex.
+- **7 = velocidade.** A mão, que balança mais rápido, tem 300.
+- **5, 6, 8 incertos.** O 5 provavelmente é o ângulo inicial. O 6 vale sempre 1 e o 8
+  sempre 0 nos 6 objetos do jogo, então não afetam o comportamento do Zorbié.
+- A unidade da velocidade (quanto o ângulo avança por frame) ainda precisa ser
+  calibrada contra o jogo original. O Zorbié roda a 60 fps.
+
+Uma descrição que circula por aí deste formato não bate com os bytes reais:
+- não há `mvSize` nem `mvOpt` no bloco; o tamanho fica na tabela;
+- o tipo é `u16` precedido pelo `u16` do jogador;
+- o nome do módulo não fica logo após o cabeçalho e inclui `.mvx`;
+- os dados não têm 36 bytes começando por `version` e `moveAtStart`: são 1 byte + 8 inteiros;
+- a ordem "ângulo inicial, velocidade angular, rotação" para os 3 últimos campos daria
+  velocidade 1 e rotação 100/300, incompatível com o que se vê no jogo.
+
 ### 0x3333 Frame
 
 Sub-chunks:

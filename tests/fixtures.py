@@ -76,17 +76,56 @@ def _extension_list(names: list[str]) -> bytes:
     return out
 
 
+ELLIPSE_VALUES = (192, 280, 0, 6, 0, 1, 300, 0)
+
+
+def _movement_header(mtype: int, move_at_start: int = 1, dirs: int = 0) -> bytes:
+    return struct.pack("<HHB3xI", 0, mtype, move_at_start, dirs)
+
+
+def _extension_movement(ints) -> bytes:
+    # cabeçalho + 14 reservados + 1 byte pulado pelos runtimes + int32s
+    return _movement_header(14) + b"\0" * 14 + b"\0" + struct.pack(f"<{len(ints)}i", *ints)
+
+
+def movements_block() -> bytes:
+    """Bloco de movimentos: trajetória, vector, pinball e simple_ellipse."""
+    step = struct.pack("<BBhhhhhh", 50, 8, 0, -100, 0, 16384, 100, 0) + b"\0"
+    path = _movement_header(5, 1, 1 << 8) + struct.pack("<hhhBBBx", 1, 0, 50, 1, 0, 1) + \
+        struct.pack("<BB", 0, 2 + len(step)) + step
+    vector = _extension_movement([3, 10, 90, 5, 270])
+    pinball = _extension_movement([40, 0, 25, 0b101, 1])
+    ellipse = _extension_movement(ELLIPSE_VALUES)
+    names = [b"", b"clickteam-vector.mvx\0", b"pinball.mvx\0", b"clickteam-simple_ellipse.mvx\0"]
+    datas = [path, vector, pinball, ellipse]
+    table_end = 4 + 16 * len(datas)
+    name_offs, pos, strings = [], table_end, b""
+    for n in names:
+        name_offs.append(pos if n else 0)
+        strings += n
+        pos += len(n)
+    out = struct.pack("<I", len(datas))
+    data_pos = table_end + len(strings)
+    blobs = b""
+    for i, d in enumerate(datas):
+        out += struct.pack("<iiii", name_offs[i], 0x31000000 + i, data_pos, len(d))
+        blobs += d
+        data_pos += len(d)
+    return out + strings + blobs
+
+
 def _active_properties(frames: list[int]) -> bytes:
-    """ObjectCommon mínimo com 1 animação, 1 direção."""
-    o_anim = 0x46
-    d = bytearray(o_anim)
+    """ObjectCommon mínimo com movimentos e 1 animação, 1 direção."""
+    o_mov = 0x46
+    d = bytearray(o_mov) + movements_block()
+    o_anim = len(d)
     # cabeçalho de animações: tamanho, n=1, offset da anim 0 = 6
     dir_block = struct.pack("<BBHHH", 0, 100, 0, 0, len(frames)) + struct.pack(
         f"<{len(frames)}H", *frames)
     anim = struct.pack("<32H", *([64] + [0] * 31)) + dir_block
     anims = struct.pack("<HHH", 6 + len(anim), 1, 6) + anim
     d += anims
-    struct.pack_into("<iHH", d, 0, len(d), 0x46, o_anim)
+    struct.pack_into("<iHH", d, 0, len(d), o_mov, o_anim)
     d[0x2E:0x32] = b"SPRI"
     return bytes(d)
 

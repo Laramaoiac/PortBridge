@@ -299,6 +299,12 @@ class CCNFile:
             return rows
 
         types = Counter(o.type_name(ext) for o in self.objects)
+        mv_defs: Counter = Counter()
+        mv_objs: Counter = Counter()
+        for o in self.objects:
+            names = [m.name for m in o.movements]
+            mv_defs.update(names)
+            mv_objs.update(set(names))
         return {
             "format": {
                 "magic": "PAMU" if self.unicode else "PAME",
@@ -324,6 +330,8 @@ class CCNFile:
             "global_values": self.global_values,
             "global_strings": self.global_strings,
             "objects_summary": dict(types),
+            "movements_summary": {k: {"definitions": v, "objects": mv_objs[k]}
+                                  for k, v in mv_defs.most_common()},
             "objects": [o.to_dict(ext) for o in self.objects],
             "frames": [{
                 "index": f.index, "name": f.name, "size": [f.width, f.height],
