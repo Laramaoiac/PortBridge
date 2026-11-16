@@ -2,3 +2,7 @@
 	path = player/third_party/SDL
 	url = https://github.com/libsdl-org/SDL.git
 	shallow = true
+[submodule "third_party/touchHLE"]
+	path = third_party/touchHLE
+	url = https://github.com/touchHLE/touchhle
+	shallow = true

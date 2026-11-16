@@ -14,8 +14,10 @@ import zlib
 
 # ---------------------------------------------------------------- Mach-O
 
-def _thin_armv7(classes: list[str], dylibs: list[str], cryptid: int = 0) -> bytes:
+def _thin_armv7(classes: list[str], dylibs: list[str], cryptid: int = 0,
+                imports: tuple[str, ...] = ()) -> bytes:
     names = b"".join(c.encode() + b"\0" for c in classes)
+    names += b"\0" * (-len(names) % 4)
     cmds = []
     # LC_SEGMENT __TEXT com a seção __objc_classname (offset preenchido depois)
     seg_size = 56 + 68
@@ -26,6 +28,8 @@ def _thin_armv7(classes: list[str], dylibs: list[str], cryptid: int = 0) -> byte
         cmds.append(("dylib", 24 + len(raw), raw))
     cmds.append(("crypt", 20))
     cmds.append(("vmin", 16))
+    if imports:
+        cmds.append(("symtab", 24))
     sizeofcmds = sum(c[1] for c in cmds)
     names_off = 28 + sizeofcmds
     out = bytearray(struct.pack("<IiiIIII", 0xFEEDFACE, 12, 9, 2, len(cmds), sizeofcmds, 0))
@@ -41,14 +45,26 @@ def _thin_armv7(classes: list[str], dylibs: list[str], cryptid: int = 0) -> byte
             out += struct.pack("<IIIII", 0x21, 20, 0x4000, 0x1000, cryptid)
         elif c[0] == "vmin":
             out += struct.pack("<IIII", 0x25, 16, (5 << 16) | (1 << 8), 7 << 16)
+        elif c[0] == "symtab":
+            strtab = b"\0" + b"".join(n.encode() + b"\0" for n in imports)
+            symoff = names_off + len(names)
+            stroff = symoff + 12 * len(imports)
+            out += struct.pack("<IIIIII", 0x2, 24, symoff, len(imports), stroff, len(strtab))
     out += names
+    if imports:
+        strx = 1
+        for n in imports:   # N_UNDF | N_EXT
+            out += struct.pack("<IBBhI", strx, 0x01, 0, 0, 0)
+            strx += len(n) + 1
+        out += strtab
     return bytes(out)
 
 
 def fat_macho(classes=("CRunApp", "CRunFrame", "CEventProgram"),
               dylibs=("/System/Library/Frameworks/UIKit.framework/UIKit",
-                      "/usr/lib/libobjc.A.dylib"), cryptid: int = 0) -> bytes:
-    thin = _thin_armv7(list(classes), list(dylibs), cryptid)
+                      "/usr/lib/libobjc.A.dylib"), cryptid: int = 0,
+              imports: tuple[str, ...] = ()) -> bytes:
+    thin = _thin_armv7(list(classes), list(dylibs), cryptid, imports)
     off = 4096
     hdr = struct.pack(">II", 0xCAFEBABE, 1) + struct.pack(">iiIII", 12, 9, off, len(thin), 12)
     return hdr + b"\0" * (off - len(hdr)) + thin

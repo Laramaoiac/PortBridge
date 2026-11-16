@@ -88,8 +88,19 @@ def analyze(pkg: IpaPackage) -> tuple[dict, object | None]:
                            for mv in m["movement_extensions"]],
             "warnings": m["warnings"],
         }
+    elif mf_ok(bin_info):
+        # Código nativo: estima se o runtime HLE (touchHLE) dá conta, sem executar nada.
+        from . import hle
+        try:
+            analysis["hle"] = hle.check(mf)
+        except (OSError, ValueError) as e:
+            analysis["hle"] = {"error": str(e)}
     analysis["architecture"] = architecture_verdict(analysis, engine)
     return analysis, game
+
+
+def mf_ok(bin_info: dict | None) -> bool:
+    return bool(bin_info) and "error" not in bin_info
 
 
 BUILTIN_MOVEMENTS = {"Static", "Mouse", "Race", "EightDirections", "Ball", "Path",
@@ -220,6 +231,10 @@ def to_markdown(a: dict) -> str:
         L += ["## Frameworks da Apple usados pelo executável", "",
               "| Framework | Equivalente Android |", "|---|---|"]
         L += [f"| {f['name']} | {f['android']} |" for f in b["frameworks"]] + [""]
+
+    if a.get("hle") and "error" not in a["hle"]:
+        from . import hle
+        L += [hle.to_markdown(a["hle"])]
 
     L += ["## Arquitetura (32 × 64 bits)", "", arch["summary"], ""]
     L += [f"- {r}" for r in arch["android_requirements"]]

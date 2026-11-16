@@ -13,7 +13,7 @@ dependencies {
 }
 
 // Desktop: java -jar portbridge-converter.jar Jogo.ipa
-// (inclui o apksig e o template de runtime compilado pelo módulo :runtime)
+// (inclui o apksig e os templates de runtime: :runtime -> clickteam.apk, :hle -> hle.apk)
 tasks.register('desktopJar', Jar) {
     dependsOn ':runtime:assembleRelease', 'classes'
     archiveFileName = 'portbridge-converter.jar'
@@ -25,6 +25,13 @@ tasks.register('desktopJar', Jar) {
     from(project(':runtime').layout.buildDirectory.file('outputs/apk/release/runtime-release-unsigned.apk')) {
         into 'templates'
         rename { 'clickteam.apk' }
+    }
+    if (!project.hasProperty('pb.noHle')) {
+        dependsOn ':hle:assembleRelease'
+        from(project(':hle').layout.buildDirectory.file('outputs/apk/release/hle-release-unsigned.apk')) {
+            into 'templates'
+            rename { 'hle.apk' }
+        }
     }
     exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
 }

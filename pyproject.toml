@@ -15,3 +15,6 @@ portbridge = "portbridge.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["portbridge*"]
+
+[tool.setuptools.package-data]
+portbridge = ["data/*.json"]

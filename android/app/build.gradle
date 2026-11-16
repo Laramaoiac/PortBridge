@@ -3,14 +3,25 @@ plugins {
 }
 
 // PortBridge (conversor): escolhe um IPA e gera um APK independente para o jogo.
-// O runtime de cada APK gerado é o template compilado pelo módulo :runtime.
+// O runtime de cada APK gerado vem de um template:
+//   templates/clickteam.apk  <- módulo :runtime (jogos Clickteam Fusion, runtime próprio)
+//   templates/hle.apk        <- módulo :hle (apps nativos de 32 bits, touchHLE)
+// Sem Rust/cargo-ndk instalados, compile com -Ppb.noHle (só o template Clickteam).
 def templatesDir = layout.buildDirectory.dir('generated/pbtemplates')
+def withHle = !project.hasProperty('pb.noHle')
 
 tasks.register('copyTemplates', Copy) {
     dependsOn ':runtime:assembleRelease'
-    from(project(':runtime').layout.buildDirectory.file('outputs/apk/release/runtime-release-unsigned.apk'))
+    from(project(':runtime').layout.buildDirectory.file('outputs/apk/release/runtime-release-unsigned.apk')) {
+        rename { 'clickteam.apk' }
+    }
+    if (withHle) {
+        dependsOn ':hle:assembleRelease'
+        from(project(':hle').layout.buildDirectory.file('outputs/apk/release/hle-release-unsigned.apk')) {
+            rename { 'hle.apk' }
+        }
+    }
     into(templatesDir.map { it.dir('templates') })
-    rename { 'clickteam.apk' }
 }
 
 android {

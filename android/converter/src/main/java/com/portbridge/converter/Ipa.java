@@ -141,7 +141,8 @@ public final class Ipa {
     public String safeFileName() {
         String s = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "")
-                .replaceAll("[^A-Za-z0-9 ._()!-]+", "_").trim();
+                .replaceAll("[^A-Za-z0-9 ._-]+", "")
+                .replaceAll("\\s+", " ").trim();
         return s.isEmpty() ? "jogo" : s;
     }
 

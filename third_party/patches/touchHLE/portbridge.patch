@@ -1,0 +1,40 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index fcfec3f..354a529 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -87,8 +87,18 @@ pub extern "C" fn SDL_main(
+         }
+     }));
+ 
+-    // Empty args: brings up app picker.
+-    match main([String::new()].into_iter()) {
++    // PortBridge: the Java activity of a generated APK passes the path of the
++    // embedded app (plus options) as arguments. Without arguments we keep the
++    // original behaviour (empty args: brings up app picker).
++    let mut args = vec![String::new()];
++    for i in 1..(_argc.max(0) as usize) {
++        let arg = unsafe { *_argv.add(i) };
++        if !arg.is_null() {
++            let arg = unsafe { std::ffi::CStr::from_ptr(arg) };
++            args.push(arg.to_string_lossy().into_owned());
++        }
++    }
++    match main(args.into_iter()) {
+         Ok(_) => echo!("touchHLE finished"),
+         Err(e) => echo!("touchHLE errored: {e:?}"),
+     }
+diff --git a/src/version/lib.rs b/src/version/lib.rs
+index ff5a09d..73fa275 100644
+--- a/src/version/lib.rs
++++ b/src/version/lib.rs
+@@ -13,6 +13,10 @@ pub const GITHUB_REF_NAME: Option<&str> = option_env!("GITHUB_REF_NAME");
+ pub const GITHUB_EVENT_NAME: Option<&str> = option_env!("GITHUB_EVENT_NAME");
+ 
+ pub fn branding() -> &'static str {
++    // PortBridge: builds with PortBridge's patch set are not official touchHLE.
++    if option_env!("PORTBRIDGE_BUILD").is_some() {
++        return "UNOFFICIAL";
++    }
+     if GITHUB_RUN_ID.is_none() {
+         return "";
+     }

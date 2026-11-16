@@ -47,6 +47,7 @@ android {
             minifyEnabled false
             shrinkResources false
             signingConfig null   // o conversor assina cada APK gerado
+            vcsInfo.include false   // não embute dados do repositório nos APKs distribuídos
         }
     }
 

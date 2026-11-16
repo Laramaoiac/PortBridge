@@ -3,6 +3,7 @@
     python -m portbridge analyze  jogo.ipa                -o saida/
     python -m portbridge analyze  jogo.ipa.part01 ...     -o saida/
     python -m portbridge extract  parte1.zip parte2.zip   -o saida/
+    python -m portbridge hle-check jogo.ipa                (compatibilidade com o touchHLE)
 """
 
 from __future__ import annotations
@@ -71,6 +72,23 @@ def _extract_bundle(pkg: IpaPackage, out: str) -> None:
     _log(f"{n} recursos do bundle copiados para {out}")
 
 
+def _hle_check(args: argparse.Namespace) -> int:
+    from . import hle, macho
+    with tempfile.TemporaryDirectory(prefix="portbridge-") as tmp:
+        try:
+            ipa_path = resolve_inputs(args.inputs, tmp)
+            pkg = IpaPackage.open(ipa_path)
+            r = hle.check(macho.parse(pkg.read(pkg.executable)))
+        except (IpaError, KeyError, macho.MachOError) as e:
+            _log(f"erro: {e}")
+            return 2
+    if args.json:
+        print(json.dumps(r, ensure_ascii=False, indent=1))
+    else:
+        print(hle.to_markdown(r))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="portbridge",
                                 description="Desconstrói apps iOS (.ipa) para port Android.")
@@ -85,7 +103,12 @@ def main(argv: list[str] | None = None) -> int:
         if name == "extract":
             sp.add_argument("--no-images", action="store_true", help="não exportar imagens")
             sp.add_argument("--no-sounds", action="store_true", help="não exportar sons")
+    sp = sub.add_parser("hle-check", help="estima se o touchHLE roda o app (sem executá-lo)")
+    sp.add_argument("inputs", nargs="+", help=".ipa ou partes")
+    sp.add_argument("--json", action="store_true", help="saída em JSON")
     args = p.parse_args(argv)
+    if args.cmd == "hle-check":
+        return _hle_check(args)
     return _run(args, extract=args.cmd == "extract")
 
 

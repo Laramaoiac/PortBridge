@@ -45,6 +45,19 @@ class MachOTests(unittest.TestCase):
         with self.assertRaises(macho.MachOError):
             macho.parse(b"\0" * 64)
 
+    def test_imports_and_hle_check(self):
+        from portbridge import hle
+        mf = macho.parse(fixtures.fat_macho(imports=(
+            "_glClear", "_OBJC_CLASS_$_UIView", "_OBJC_CLASS_$_PBNaoExiste",
+            "_pb_funcao_inexistente", "___CFConstantStringClassReference")))
+        sl = mf.slices[0]
+        self.assertIn("_glClear", sl.imports)
+        r = hle.check(mf)
+        self.assertEqual(r["missing_functions"], ["pb_funcao_inexistente"])
+        self.assertEqual(r["missing_classes"], ["PBNaoExiste"])
+        self.assertIn("UIView", r["classes_used"])
+        self.assertIn("touchHLE", hle.to_markdown(r))
+
 
 class ImageTests(unittest.TestCase):
     def px(self, fmt, raw, w=1, h=1):

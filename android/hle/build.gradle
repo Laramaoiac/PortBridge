@@ -1,0 +1,121 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Template dos APKs gerados para apps iOS nativos (código ARM de 32 bits):
+// o touchHLE (emulador de alto nível, MPL-2.0) com os patches do PortBridge,
+// sem jogo. O conversor troca pacote, nome, versão e ícone, embute o IPA em
+// assets/game.ipa e assina — igual ao template Clickteam (:runtime).
+//
+// Requisitos para compilar: Rust (rustup target add aarch64-linux-android),
+// cargo-ndk (cargo install cargo-ndk), cabeçalhos do Boost em
+// third_party/touchHLE/vendor/boost (veja android/hle/README.md).
+// Com -Ppb.hle.prebuilt=<pasta> usa bibliotecas já compiladas (arm64-v8a/*.so).
+def touchhleDir = file('../../third_party/touchHLE')
+def jniOut = layout.buildDirectory.dir('touchhle-jni').get().asFile
+def assetsOut = layout.buildDirectory.dir('touchhle-assets').get().asFile
+def cargoFeatures = 'touchHLE_openal_soft_wrapper/static,sdl2/bundled'
+
+android {
+    namespace 'com.portbridge.hle'
+    compileSdk 35
+    ndkVersion '28.2.13676358'
+
+    defaultConfig {
+        applicationId 'com.portbridge.rtplaceholder'   // Converter.PLACEHOLDER_PACKAGE
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName '@@PB_VERSION@@'                    // Converter.PLACEHOLDER_VERSION
+        ndk {
+            // dynarmic (o JIT ARM32 do touchHLE) só gera código para arm64 e x86_64
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java',
+                            "${touchhleDir}/vendor/SDL/android-project/app/src/main/java"]
+            jniLibs.srcDirs = [jniOut]
+            assets.srcDirs = ['src/main/assets', assetsOut]
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig null   // o conversor assina cada APK gerado
+            vcsInfo.include false   // não embute dados do repositório nos APKs distribuídos
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging false
+        }
+    }
+
+    androidResources {
+        noCompress += ['ipa']
+    }
+}
+
+tasks.register('applyTouchHLEPatches', Exec) {
+    description 'Aplica third_party/patches/touchHLE/*.patch (idempotente)'
+    workingDir rootDir.parentFile
+    commandLine 'sh', 'tools/touchhle_patches.sh', 'apply'
+}
+
+tasks.register('touchHLENative') {
+    description 'Compila libtouchHLE.so (+ libSDL2.so, libc++_shared.so) para arm64-v8a'
+    def prebuilt = project.findProperty('pb.hle.prebuilt')
+    if (!prebuilt) dependsOn 'applyTouchHLEPatches'
+    outputs.dir jniOut
+    outputs.upToDateWhen { false }   // o cargo decide o que recompilar
+    doLast {
+        def abiDir = new File(jniOut, 'arm64-v8a')
+        abiDir.mkdirs()
+        if (prebuilt) {
+            project.copy { from(new File(prebuilt.toString(), 'arm64-v8a')) { include '*.so' }; into abiDir }
+            return
+        }
+        def ndk = android.ndkDirectory.absolutePath
+        project.exec {
+            workingDir touchhleDir
+            environment 'ANDROID_NDK_HOME', ndk
+            environment 'ANDROID_NDK', ndk
+            environment 'PORTBRIDGE_BUILD', '1'
+            // SDL2 do touchHLE ainda chama ALooper_pollAll, removida no NDK r28
+            environment 'CFLAGS_aarch64_linux_android',
+                        '-include ' + file('../../third_party/patches/touchHLE/android_looper_compat.h').absolutePath
+            commandLine 'cargo', 'ndk', '-t', 'arm64-v8a', '-P', '21', '-o', jniOut.absolutePath,
+                        'build', '--release', '--lib', '--no-default-features', '--features', cargoFeatures
+        }
+        // SDL2 (compilado pelo sdl2-sys) e a libc++ do NDK ficam na pasta do target
+        def rel = new File(touchhleDir, 'target/aarch64-linux-android/release')
+        project.copy { from(rel) { include 'libSDL2.so', 'libc++_shared.so' }; into abiDir }
+        ['libtouchHLE.so', 'libSDL2.so', 'libc++_shared.so'].each {
+            if (!new File(abiDir, it).exists()) throw new GradleException("faltou ${it} em ${abiDir}")
+        }
+    }
+}
+
+tasks.register('touchHLEAssets', Copy) {
+    description 'Copia as dylibs, fontes e opções padrão do touchHLE para os assets'
+    from(touchhleDir) {
+        include 'touchHLE_dylibs/**', 'touchHLE_fonts/**', 'touchHLE_default_options.txt'
+        exclude '**/README.md'
+    }
+    into assetsOut
+}
+
+tasks.named('preBuild') {
+    dependsOn 'touchHLENative', 'touchHLEAssets'
+}
