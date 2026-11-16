@@ -215,7 +215,7 @@ class CCNFile:
             elif sub.id == 0x3341:
                 r = Reader(d, 0, self.unicode)
                 for _ in range(r.u32()):
-                    flags, xc, yc = r.u32(), r.f32(), r.f32()
+                    flags, xc, yc = r.u32(), _coef(r.u32()), _coef(r.u32())
                     r.p += 8   # nº de backdrops, índice
                     fr.layers.append(Layer(r.cstr(), flags, round(xc, 3), round(yc, 3)))
             elif sub.id == 0x3338:
@@ -391,6 +391,13 @@ def _global_values(d: bytes) -> list[int]:
     for v, k in zip(vals, kinds):
         out.append(struct.unpack("<f", struct.pack("<i", v))[0] if k == 2 else v)
     return out
+
+
+def _coef(raw: int) -> float:
+    """Coeficiente de rolagem da camada: ponto fixo 16.16 no export iOS, float no Windows."""
+    if raw and not raw & 0x7F800000:
+        return raw / 65536.0
+    return struct.unpack("<f", struct.pack("<I", raw))[0]
 
 
 def _sound_kind(head: bytes) -> str:

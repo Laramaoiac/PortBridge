@@ -32,7 +32,27 @@ Observações:
 - O IPA traz `Container/` com um save (`zorbie_save.ini`) e caches de um aparelho, e
   um `iTunesMetadata.plist` com dados da conta de quem comprou. Nada disso entra no APK.
 
-## Fase 2: reconstrução (a decidir)
+## Fase 2: reconstrução ✅ (primeira versão)
+
+Escolhido: **runtime próprio** (a opção B abaixo), em C++ com SDL2 em vez de Kotlin,
+para o mesmo código rodar em Android, Linux, Windows e macOS. O conversor roda **no
+próprio Android**: o app importa o IPA e interpreta o jogo direto dos dados, sem
+compilar nada no aparelho. Detalhes em [player/README.md](../player/README.md).
+
+Estado com o Zorbié:
+
+- leitor C++ idêntico ao do PortBridge em Python (697 objetos, 2.791 imagens, 169 sons,
+  22.892 grupos de eventos, mesmos movimentos);
+- introdução completa, tela de título e entrada na partida rodando, com troca
+  automática de frames e save em INI;
+- todas as 73 condições, 105 ações e 50 expressões do jogo têm implementação (0 itens
+  "não implementados" nos testes);
+- APK Android 64 bits (`arm64-v8a`, mais `armeabi-v7a` e `x86_64`), targetSdk 35,
+  bibliotecas alinhadas a 16 KB;
+- ainda não validado: jogabilidade completa (testes automáticos só simulam toques curtos),
+  textos (objetos Text ainda não são desenhados) e testes num aparelho real.
+
+As opções analisadas antes da escolha ficam registradas abaixo.
 
 O executável iOS é descartado nas duas opções abaixo. O APK sai em 64 bits porque o
 runtime é compilado para `arm64-v8a` (ou não tem código nativo).
@@ -84,11 +104,12 @@ então não é um bom alvo para essa via.
 ## Próximas tarefas da ferramenta
 
 - [x] Decodificar movimentos (`off_movimentos`) e listar os tipos usados por objeto
+- [x] Runtime que lê o `.cci` direto e desenha os frames (player C++/SDL2)
+- [x] App Android: importar IPA, biblioteca de jogos, player em tela cheia, 64 bits, 16 KB
+- [x] Nomes legíveis de condições/ações/expressões (`pbinfo --events`)
+- [ ] Testar no aparelho e ajustar a jogabilidade (toque contínuo, colisões, velocidades)
+- [ ] Desenhar objetos Text (fonte embutida)
 - [ ] Calibrar a velocidade do Simple Ellipse e identificar seus campos 5, 6 e 8
-- [ ] Nomear cada condição/ação/expressão do sistema no inventário
-- [ ] Decodificar máscaras de colisão e ink effects por objeto
-- [ ] Suporte a `.ccn` de Windows e ao formato Android (para comparar e converter)
-- [ ] Opção A: conversor `.cci` → formato do runtime Android
-- [ ] Opção B: protótipo Kotlin que carrega o `.cci` e desenha o frame de intro
-- [ ] Gerador de APK: manifest, ícones a partir de `bundle/`, assinatura, `arm64-v8a`,
-      alinhamento de 16 KB
+- [ ] Exportar um APK independente por jogo (ícone e nome do jogo, sem a biblioteca)
+- [ ] Suporte a `.ccn` de Windows e ao formato Android (outros jogos Clickteam)
+- [ ] Builds de release prontos para Windows e macOS (CMake já suporta; falta empacotar)

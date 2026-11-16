@@ -177,10 +177,16 @@ Sub-chunks:
 
 - `0x3334` `i32 largura · i32 altura · u32 cor_fundo · u32 flags`
 - `0x3335` nome · `0x3342` retângulo virtual `i32[4]` · `0x3337` paleta (1028 bytes)
-- `0x3341` camadas: `u32 n`, cada `u32 flags · f32 coef_x · f32 coef_y · i32 · i32 · cstr nome`
+- `0x3341` camadas: `u32 n`, cada `u32 flags · coef_x · coef_y · i32 · i32 · cstr nome`.
+  No export iOS os coeficientes de rolagem são **ponto fixo 16.16** (`0x00010000` = 1,0;
+  `0x8000` = 0,5); no Windows são `float`. Flag `0x10` = camada visível.
 - `0x3338` instâncias: `u32 n`, cada 20 bytes
   `u16 handle_instância · u16 handle_objeto · i32 x · i32 y · i16 tipo_pai ·
-  i16 handle_pai · i16 camada · i16 -`, mais 4 bytes no fim do chunk
+  i16 handle_pai · i16 camada · i16 -`, mais 4 bytes no fim do chunk.
+  Só as instâncias com **`tipo_pai = 0`** nascem no início do frame (e só se o objeto não
+  tiver a flag `0x20000` "não criar no início"). `tipo_pai` 1 (frame) e 2 (outro objeto,
+  `handle_pai` = instância) são modelos que o editor guarda para as ações "Criar objeto";
+  nesses, x/y são deslocamentos e costumam valer (0, 0).
 - `0x333D` eventos (abaixo)
 
 ### 0x333D Eventos
@@ -205,6 +211,22 @@ Sub-chunks:
   `u16 tam(inclui cabeçalho)` + dados. Tipo 0 = operador, −1 = constantes/funções.
 
 Pastas de eventos (grupos) aparecem como condição `(−1, −10)` e fecham com `(−1, −11)`.
+O parâmetro do grupo traz `flags` (bit 0 = **inativo no início**, bit 1 = recolhido no
+editor) e o `id` que as ações Ativar/Desativar grupo (`(−1, 6)`/`(−1, 7)`) referenciam.
+
+Regras confirmadas ao rodar o Zorbié no player:
+
+- **Funções** (`Random`, `Sin`, extensões com parâmetros...) não têm token de "(": os
+  argumentos vêm em seguida, separados por `(−1,−3)` e fechados por `(−1,−2)`.
+- **Cores** (parâmetro 24 e expressões de cor) são `COLORREF` `0x00BBGGRR`.
+- **Pular para frame**: com parâmetro 26 é o *handle* do frame (índice =
+  `FrameHandles[handle]`); com expressão é o **número do frame a partir de 1**.
+- **Valores globais/alteráveis**: parâmetros 49 (`VARGLO`) e 50 (`ALTVALUE`) trazem o
+  índice a partir de 0.
+- **"Mouse sobre X" / "X clicado" com NOT** é verdadeiro quando o ponteiro não está
+  sobre nenhuma instância, inclusive quando X não existe no frame.
+- **Tecla virtual** (parâmetro 44) também codifica botões do mouse: 1 = esquerdo,
+  2 = direito, 4 = meio.
 
 ### 0x6666 Images (específico do iOS)
 

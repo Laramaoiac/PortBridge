@@ -1,0 +1,64 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Código C++ do player e o SDL ficam em ../../player (o mesmo usado em Linux/Windows/macOS).
+def playerDir = file('../../player')
+
+android {
+    namespace 'com.portbridge.app'
+    compileSdk 35
+    ndkVersion '28.2.13676358'
+
+    defaultConfig {
+        applicationId 'com.portbridge.app'
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared', '-DPB_BUILD_TOOLS=OFF',
+                          '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+            }
+        }
+        ndk {
+            // 64 bits primeiro (exigido pelo Google Play); armeabi-v7a para aparelhos antigos,
+            // x86_64 para o emulador.
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "${playerDir}/CMakeLists.txt"
+            version '3.22.1'
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java',
+                            "${playerDir}/third_party/SDL/android-project/app/src/main/java"]
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Para uso próprio: assina com a chave de debug. Troque por uma chave sua para publicar.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging false  // .so alinhados e sem compressão (16 KB)
+        }
+    }
+}

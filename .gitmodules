@@ -1,0 +1,4 @@
+[submodule "player/third_party/SDL"]
+	path = player/third_party/SDL
+	url = https://github.com/libsdl-org/SDL.git
+	shallow = true

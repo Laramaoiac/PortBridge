@@ -4,10 +4,25 @@ Ferramenta para **portar apps iOS (.ipa) para Android (.apk)**.
 
 O trabalho tem duas fases:
 
-1. **Desconstruir** (implementado): abrir o IPA, entender o executável, detectar a
-   engine, extrair tudo o que é portável e dizer qual é o caminho de port.
-2. **Reconstruir** (próxima fase): montar o APK com um runtime Android que roda
-   os dados extraídos. Veja [docs/ROADMAP.md](docs/ROADMAP.md).
+1. **Desconstruir** (`portbridge/`, Python): abrir o IPA, entender o executável,
+   detectar a engine, extrair tudo o que é portável e dizer qual é o caminho de port.
+2. **Reconstruir** (`player/` + `android/`, C++/SDL2): o **PortBridge Player** roda jogos
+   Clickteam Fusion direto dos dados do IPA, em **Android, Linux, Windows e macOS**. No
+   Android, o app importa o IPA no próprio celular e joga. Veja
+   [player/README.md](player/README.md) e [docs/ROADMAP.md](docs/ROADMAP.md).
+
+## App Android
+
+1. Instale o APK (`android/app/build/outputs/apk/release/app-release.apk` depois de
+   compilar; instruções em [player/README.md](player/README.md)).
+2. Abra o **PortBridge**, toque em **Importar IPA** e escolha o arquivo. Também dá para
+   usar "Abrir com" num gerenciador de arquivos.
+3. O jogo aparece na biblioteca com o nome e o ícone do IPA. Toque para jogar; toque
+   longo para remover.
+
+O progresso do jogo fica salvo em `files/games/<id>/save/` dentro do app.
+
+## Ferramenta de análise (Python)
 
 Só usa a biblioteca padrão do Python (3.10+). Nenhuma dependência para instalar.
 
