@@ -1,0 +1,13 @@
+# Saídas da ferramenta (contêm assets de terceiros: nunca versionar)
+portbridge-out/
+out/
+*.ipa
+*.ipa.part*
+*.apk
+*.aab
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
