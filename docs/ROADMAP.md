@@ -101,6 +101,33 @@ tempo de execução, mas a cobertura de APIs é o gargalo: projetos atuais focam
 antigos (iPhone OS 2–4, OpenGL ES 1.1). O Zorbié exige iOS 5.1 e usa OpenGL ES 2.0,
 então não é um bom alvo para essa via.
 
+## Fase 3: apps nativos com touchHLE ✅ (primeira versão)
+
+Implementado como segundo template de APK (`android/hle`). Detalhes em
+[android/hle/README.md](../android/hle/README.md).
+
+### Estudo de caso: Ninja Striker! 1.05 (Q-Cumber Factory)
+
+| Item | Valor |
+|---|---|
+| Engine | nenhuma: Objective-C + OpenGL ES 1.1 |
+| Executável | Mach-O armv7, só 32 bits, descriptografado, iOS mínimo 5.0 |
+| Importações | 191 símbolos (funções C, constantes, classes) e 109 métodos de classes do sistema |
+| touchHLE oficial (ca1de89) | faltavam 19 funções/constantes (ARC, *blocks*, proteção de pilha, `__divmodsi4`, introspecção do runtime), 7 classes e 34 métodos |
+| Com o patch do PortBridge | 0 funções ausentes; faltam só classes/métodos de loja In-App, Twitter e `NSNumberFormatter`, que o modo tolerante transforma em "nada" |
+
+O que o patch acrescenta ao touchHLE (todas as fontes são documentação pública):
+ARC (`objc_retain`, `objc_storeStrong`, referências fracas…), runtime de *blocks*
+(`_Block_copy`, `_Block_object_assign/dispose`, classes `__NSStackBlock__` etc.),
+`__stack_chk_guard/fail`, `__divmodsi4`, `__assert_rtn`, `class_addMethod`,
+`class_getInstanceMethod`, `class_getInstanceVariable` e afins, subscripting e
+literais do iOS 6 (`array[i]`, `dict[k]`, `@{}`), `NSOrderedSet`, `currentMode`,
+`presentViewController:animated:completion:` e o modo tolerante (`--lenient`).
+
+Ainda não validado: o Ninja Striker não foi executado aqui (o ambiente de
+desenvolvimento não permite rodar o código do app); a validação é no aparelho, com o
+relatório de erro que o APK mostra.
+
 ## Próximas tarefas da ferramenta
 
 - [x] Decodificar movimentos (`off_movimentos`) e listar os tipos usados por objeto
@@ -110,6 +137,10 @@ então não é um bom alvo para essa via.
 - [ ] Testar no aparelho e ajustar a jogabilidade (toque contínuo, colisões, velocidades)
 - [ ] Desenhar objetos Text (fonte embutida)
 - [ ] Calibrar a velocidade do Simple Ellipse e identificar seus campos 5, 6 e 8
-- [ ] Exportar um APK independente por jogo (ícone e nome do jogo, sem a biblioteca)
+- [x] Exportar um APK independente por jogo (ícone, nome, versão e pacote do jogo)
+- [x] Runtime touchHLE para apps nativos de 32 bits (template `android/hle`)
+- [x] `portbridge hle-check`: compatibilidade estimada sem executar o app
+- [ ] Rodar o Ninja Striker no aparelho e completar as APIs que o log apontar
+- [ ] Mostrar o `hle-check` no próprio app conversor antes de gerar o APK
 - [ ] Suporte a `.ccn` de Windows e ao formato Android (outros jogos Clickteam)
 - [ ] Builds de release prontos para Windows e macOS (CMake já suporta; falta empacotar)

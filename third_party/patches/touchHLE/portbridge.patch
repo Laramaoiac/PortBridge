@@ -1,5 +1,445 @@
+diff --git a/OPTIONS_HELP.txt b/OPTIONS_HELP.txt
+index 9297a5f..072b7e6 100644
+--- a/OPTIONS_HELP.txt
++++ b/OPTIONS_HELP.txt
+@@ -280,6 +280,12 @@ Other options:
+     --allow-network-access
+         Allow apps running in touchHLE to access the Internet and the local network.
+ 
++    --lenient
++        (PortBridge) When the app calls a function, class or method that is
++        not implemented, log a warning once and carry on as if it returned
++        0/nil, instead of stopping the app. Useful for optional features
++        (in-app purchases, social networks); may cause odd behaviour.
++
+     --ignore-gl-errors
+         Ignore host OpenGL errors as queried by glGetError function.
+         This only affects return value of glGetError as seen by the guest
+diff --git a/src/dyld.rs b/src/dyld.rs
+index 71b8d00..c79b9ee 100644
+--- a/src/dyld.rs
++++ b/src/dyld.rs
+@@ -808,6 +808,26 @@ impl Dyld {
+             }
+         }
+ 
++        if crate::objc::is_lenient() {
++            // PortBridge: link the stub to a function that returns 0, so the
++            // app can carry on (the warning is logged once per symbol).
++            crate::objc::warn_once(format!(
++                "call to unimplemented function {symbol}; it will return 0"
++            ));
++            let &(stub_symbol, f) = &crate::objc::UNIMPLEMENTED_FUNCTION[0];
++            let idx: u32 = self.linked_host_functions.len().try_into().unwrap();
++            let mut svc = idx + Self::SVC_LINKED_FUNCTIONS_BASE;
++            if info.entry_size == 4 {
++                assert!(svc < Self::SVC_LAZY_LINK_RET_FLAG);
++                svc |= Self::SVC_LAZY_LINK_RET_FLAG;
++            }
++            self.linked_host_functions.push((stub_symbol, f));
++            let stub_function_ptr: MutPtr<u32> = Ptr::from_bits(svc_pc);
++            mem.write(stub_function_ptr, encode_a32_svc(svc));
++            cpu.invalidate_cache_range(stub_function_ptr.to_bits(), 4);
++            return Some(f);
++        }
++
+         panic!("Call to unimplemented function {symbol}");
+     }
+ 
+diff --git a/src/frameworks/foundation.rs b/src/frameworks/foundation.rs
+index 441c507..d112ca7 100644
+--- a/src/frameworks/foundation.rs
++++ b/src/frameworks/foundation.rs
+@@ -44,6 +44,7 @@ pub mod ns_notification_center;
+ pub mod ns_null;
+ pub mod ns_objc_runtime;
+ pub mod ns_object;
++pub mod ns_ordered_set;
+ pub mod ns_process_info;
+ pub mod ns_property_list_serialization;
+ pub mod ns_run_loop;
+@@ -86,6 +87,7 @@ pub const DYLIB: crate::dyld::HostDylib = crate::dyld::HostDylib {
+         ns_locale::CLASSES,
+         ns_lock::CLASSES,
+         ns_notification::CLASSES,
++        ns_ordered_set::CLASSES,
+         ns_notification_center::CLASSES,
+         ns_null::CLASSES,
+         ns_method_signature::CLASSES,
+diff --git a/src/frameworks/foundation/ns_array.rs b/src/frameworks/foundation/ns_array.rs
+index a23f284..a192554 100644
+--- a/src/frameworks/foundation/ns_array.rs
++++ b/src/frameworks/foundation/ns_array.rs
+@@ -248,6 +248,12 @@ pub const CLASSES: ClassExports = objc_classes! {
+     true
+ }
+ 
++
++// PortBridge: subscripting used by Objective-C literals (iOS 6 SDK).
++- (id)objectAtIndexedSubscript:(NSUInteger)index {
++    msg![env; this objectAtIndex:index]
++}
++
+ @end
+ 
+ // NSMutableArray is an abstract class. A subclass must provide everything
+@@ -346,6 +352,17 @@ pub const CLASSES: ClassExports = objc_classes! {
+     other
+ }
+ 
++
++// PortBridge: `array[i] = obj` (appends when i == count, like Apple's).
++- (())setObject:(id)obj atIndexedSubscript:(NSUInteger)index {
++    let count: NSUInteger = msg![env; this count];
++    if index == count {
++        msg![env; this addObject:obj]
++    } else {
++        msg![env; this replaceObjectAtIndex:index withObject:obj]
++    }
++}
++
+ @end
+ 
+ // Our private subclass that is the single implementation of NSArray for the
+diff --git a/src/frameworks/foundation/ns_dictionary.rs b/src/frameworks/foundation/ns_dictionary.rs
+index 7e49445..6d70520 100644
+--- a/src/frameworks/foundation/ns_dictionary.rs
++++ b/src/frameworks/foundation/ns_dictionary.rs
+@@ -381,6 +381,20 @@ pub const CLASSES: ClassExports = objc_classes! {
+ // For the time being, that will always be _touchHLE_NSDictionary.
+ @implementation NSDictionary: NSObject
+ 
++// PortBridge: `@{...}` literals and `dict[key]` subscripting (iOS 6 SDK).
+++ (id)dictionaryWithObjects:(ConstPtr<id>)objects
++                    forKeys:(ConstPtr<id>)keys
++                      count:(NSUInteger)count {
++    let mut pairs = Vec::with_capacity(count as usize);
++    for i in 0..count {
++        let key: id = env.mem.read(keys + i);
++        let object: id = env.mem.read(objects + i);
++        pairs.push((key, object));
++    }
++    let dict = dict_from_keys_and_objects(env, &pairs);
++    autorelease(env, dict)
++}
++
+ + (id)allocWithZone:(NSZonePtr)zone {
+     // NSDictionary might be subclassed by something which needs allocWithZone:
+     // to have the normal behaviour. Unimplemented: call superclass alloc then.
+@@ -538,6 +552,10 @@ pub const CLASSES: ClassExports = objc_classes! {
+     msg![env; this objectForKey:file_type_key]
+ }
+ 
++- (id)objectForKeyedSubscript:(id)key {
++    msg![env; this objectForKey:key]
++}
++
+ @end
+ 
+ // NSMutableDictionary is an abstract class. A subclass must provide everything
+@@ -593,6 +611,16 @@ pub const CLASSES: ClassExports = objc_classes! {
+     res
+ }
+ 
++
++// PortBridge: `dict[key] = obj` (iOS 6 SDK).
++- (())setObject:(id)object forKeyedSubscript:(id)key {
++    if object == nil {
++        msg![env; this removeObjectForKey:key]
++    } else {
++        msg![env; this setObject:object forKey:key]
++    }
++}
++
+ @end
+ 
+ // Our private subclass that is the single implementation of NSDictionary for
+diff --git a/src/frameworks/foundation/ns_ordered_set.rs b/src/frameworks/foundation/ns_ordered_set.rs
+new file mode 100644
+index 0000000..740ec00
+--- /dev/null
++++ b/src/frameworks/foundation/ns_ordered_set.rs
+@@ -0,0 +1,214 @@
++/*
++ * This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
++ */
++//! `NSOrderedSet` and `NSMutableOrderedSet` (iOS 5), added by PortBridge.
++//!
++//! A simple implementation: the elements live in an `NSMutableArray` owned by
++//! the set, and uniqueness is checked with `containsObject:` (`isEqual:`).
++
++use super::ns_enumerator::NSFastEnumerationState;
++use super::NSUInteger;
++use crate::mem::{ConstPtr, MutPtr};
++use crate::objc::{
++    autorelease, id, msg, msg_class, nil, objc_classes, release, ClassExports, HostObject,
++    NSZonePtr,
++};
++
++struct OrderedSetHostObject {
++    /// NSMutableArray *
++    array: id,
++}
++impl HostObject for OrderedSetHostObject {}
++
++fn inner(env: &mut crate::Environment, this: id) -> id {
++    let array = env.objc.borrow::<OrderedSetHostObject>(this).array;
++    if array != nil {
++        return array;
++    }
++    let array: id = msg_class![env; NSMutableArray new];
++    env.objc.borrow_mut::<OrderedSetHostObject>(this).array = array;
++    array
++}
++
++fn add_unique(env: &mut crate::Environment, this: id, object: id) {
++    if object == nil {
++        return;
++    }
++    let array = inner(env, this);
++    let contains: bool = msg![env; array containsObject:object];
++    if !contains {
++        () = msg![env; array addObject:object];
++    }
++}
++
++pub const CLASSES: ClassExports = objc_classes! {
++
++(env, this, _cmd);
++
++@implementation NSOrderedSet: NSObject
++
+++ (id)allocWithZone:(NSZonePtr)_zone {
++    let host_object = Box::new(OrderedSetHostObject { array: nil });
++    env.objc.alloc_object(this, host_object, &mut env.mem)
++}
++
+++ (id)orderedSet {
++    let set: id = msg![env; this new];
++    autorelease(env, set)
++}
+++ (id)orderedSetWithObject:(id)object {
++    let set: id = msg![env; this new];
++    add_unique(env, set, object);
++    autorelease(env, set)
++}
+++ (id)orderedSetWithArray:(id)array {
++    let set: id = msg![env; this alloc];
++    let set: id = msg![env; set initWithArray:array];
++    autorelease(env, set)
++}
+++ (id)orderedSetWithObjects:(ConstPtr<id>)objects count:(NSUInteger)count {
++    let set: id = msg![env; this new];
++    for i in 0..count {
++        let object: id = env.mem.read(objects + i);
++        add_unique(env, set, object);
++    }
++    autorelease(env, set)
++}
++
++- (id)init {
++    inner(env, this);
++    this
++}
++- (id)initWithArray:(id)array {
++    inner(env, this);
++    let count: NSUInteger = msg![env; array count];
++    for i in 0..count {
++        let object: id = msg![env; array objectAtIndex:i];
++        add_unique(env, this, object);
++    }
++    this
++}
++- (id)initWithOrderedSet:(id)other {
++    let array: id = msg![env; other array];
++    msg![env; this initWithArray:array]
++}
++
++- (())dealloc {
++    let array = env.objc.borrow::<OrderedSetHostObject>(this).array;
++    release(env, array);
++    env.objc.dealloc_object(this, &mut env.mem)
++}
++
++- (id)copyWithZone:(NSZonePtr)_zone {
++    let array = inner(env, this);
++    let copy: id = msg_class![env; NSOrderedSet alloc];
++    msg![env; copy initWithArray:array]
++}
++- (id)mutableCopyWithZone:(NSZonePtr)_zone {
++    let array = inner(env, this);
++    let copy: id = msg_class![env; NSMutableOrderedSet alloc];
++    msg![env; copy initWithArray:array]
++}
++
++- (NSUInteger)count {
++    let array = inner(env, this);
++    msg![env; array count]
++}
++- (id)objectAtIndex:(NSUInteger)index {
++    let array = inner(env, this);
++    msg![env; array objectAtIndex:index]
++}
++- (id)objectAtIndexedSubscript:(NSUInteger)index {
++    let array = inner(env, this);
++    msg![env; array objectAtIndex:index]
++}
++- (NSUInteger)indexOfObject:(id)object {
++    let array = inner(env, this);
++    msg![env; array indexOfObject:object]
++}
++- (bool)containsObject:(id)object {
++    let array = inner(env, this);
++    msg![env; array containsObject:object]
++}
++- (id)firstObject {
++    let array = inner(env, this);
++    msg![env; array firstObject]
++}
++- (id)lastObject {
++    let array = inner(env, this);
++    msg![env; array lastObject]
++}
++- (id)array {
++    let array = inner(env, this);
++    let copy: id = msg_class![env; NSArray alloc];
++    let copy: id = msg![env; copy initWithArray:array];
++    autorelease(env, copy)
++}
++- (id)objectEnumerator {
++    let array = inner(env, this);
++    msg![env; array objectEnumerator]
++}
++- (NSUInteger)countByEnumeratingWithState:(MutPtr<NSFastEnumerationState>)state
++                                  objects:(MutPtr<id>)stackbuf
++                                    count:(NSUInteger)len {
++    let array = inner(env, this);
++    msg![env; array countByEnumeratingWithState:state objects:stackbuf count:len]
++}
++
++@end
++
++@implementation NSMutableOrderedSet: NSOrderedSet
++
++- (())addObject:(id)object {
++    add_unique(env, this, object);
++}
++- (())addObjectsFromArray:(id)array {
++    let count: NSUInteger = msg![env; array count];
++    for i in 0..count {
++        let object: id = msg![env; array objectAtIndex:i];
++        add_unique(env, this, object);
++    }
++}
++- (())insertObject:(id)object atIndex:(NSUInteger)index {
++    let array = inner(env, this);
++    let contains: bool = msg![env; array containsObject:object];
++    if !contains {
++        () = msg![env; array insertObject:object atIndex:index];
++    }
++}
++- (())setObject:(id)object atIndex:(NSUInteger)index {
++    let array = inner(env, this);
++    let count: NSUInteger = msg![env; array count];
++    if index >= count {
++        add_unique(env, this, object);
++    } else {
++        let contains: bool = msg![env; array containsObject:object];
++        if !contains {
++            () = msg![env; array replaceObjectAtIndex:index withObject:object];
++        }
++    }
++}
++- (())setObject:(id)object atIndexedSubscript:(NSUInteger)index {
++    () = msg![env; this setObject:object atIndex:index];
++}
++- (())replaceObjectAtIndex:(NSUInteger)index withObject:(id)object {
++    () = msg![env; this setObject:object atIndex:index];
++}
++- (())removeObject:(id)object {
++    let array = inner(env, this);
++    () = msg![env; array removeObject:object];
++}
++- (())removeObjectAtIndex:(NSUInteger)index {
++    let array = inner(env, this);
++    () = msg![env; array removeObjectAtIndex:index];
++}
++- (())removeAllObjects {
++    let array = inner(env, this);
++    () = msg![env; array removeAllObjects];
++}
++
++@end
++
++};
+diff --git a/src/frameworks/foundation/ns_run_loop.rs b/src/frameworks/foundation/ns_run_loop.rs
+index f473e09..e8a3ecd 100644
+--- a/src/frameworks/foundation/ns_run_loop.rs
++++ b/src/frameworks/foundation/ns_run_loop.rs
+@@ -86,6 +86,11 @@ pub const CLASSES: ClassExports = objc_classes! {
+     run_loop_for_thread(env, this, env.current_thread)
+ }
+ 
++// PortBridge: only the default mode is modelled.
++- (id)currentMode {
++    ns_string::get_static_str(env, NSDefaultRunLoopMode)
++}
++
+ // TODO: more accessors
+ 
+ - (id) retain { this }
+diff --git a/src/frameworks/uikit/ui_view/ui_alert_view.rs b/src/frameworks/uikit/ui_view/ui_alert_view.rs
+index 7dc2539..d894dc1 100644
+--- a/src/frameworks/uikit/ui_view/ui_alert_view.rs
++++ b/src/frameworks/uikit/ui_view/ui_alert_view.rs
+@@ -6,6 +6,7 @@
+ //! `UIAlertView`.
+ 
+ use crate::frameworks::foundation::ns_string;
++use crate::frameworks::foundation::NSInteger;
+ use crate::objc::{id, msg_super, nil, objc_classes, ClassExports};
+ use std::borrow::Cow;
+ 
+@@ -34,6 +35,11 @@ pub const CLASSES: ClassExports = objc_classes! {
+     log!("TODO: [(UIAlertView *){:?} addButtonWithTitle:{}]", this, ns_string::to_rust_string(env, title));
+ }
+ 
++// PortBridge: alerts aren't displayed yet, so the index is only logged.
++- (())setCancelButtonIndex:(NSInteger)index {
++    log!("TODO: [(UIAlertView*){:?} setCancelButtonIndex:{}]", this, index);
++}
++
+ - (())show {
+     log!("TODO: [(UIAlertView*){:?} show]", this);
+ }
+diff --git a/src/frameworks/uikit/ui_view_controller.rs b/src/frameworks/uikit/ui_view_controller.rs
+index d0a73bc..e7c803a 100644
+--- a/src/frameworks/uikit/ui_view_controller.rs
++++ b/src/frameworks/uikit/ui_view_controller.rs
+@@ -191,6 +191,19 @@ pub const CLASSES: ClassExports = objc_classes! {
+     todo_objc_setter!(this, style);
+ }
+ 
++// PortBridge: iOS 5 presentation API. Presenting isn't modelled (as with the
++// modal API above); completion blocks are run so the app's flow continues.
++- (())presentViewController:(id)controller
++                   animated:(bool)animated
++                 completion:(id)completion {
++    log!("TODO: [(UIViewController*){:?} presentViewController:{:?} animated:{}]", this, controller, animated);
++    crate::objc::call_block_void(env, completion);
++}
++- (())dismissViewControllerAnimated:(bool)animated completion:(id)completion {
++    log!("TODO: [(UIViewController*){:?} dismissViewControllerAnimated:{}]", this, animated);
++    crate::objc::call_block_void(env, completion);
++}
++
+ - (())dismissModalViewControllerAnimated:(bool)animated {
+     log!("TODO: [(UIViewController*){:?} dismissModalViewControllerAnimated:{}]", this, animated); // TODO
+ }
 diff --git a/src/lib.rs b/src/lib.rs
-index fcfec3f..354a529 100644
+index fcfec3f..ba9d530 100644
 --- a/src/lib.rs
 +++ b/src/lib.rs
 @@ -87,8 +87,18 @@ pub extern "C" fn SDL_main(
@@ -23,6 +463,892 @@ index fcfec3f..354a529 100644
          Ok(_) => echo!("touchHLE finished"),
          Err(e) => echo!("touchHLE errored: {e:?}"),
      }
+@@ -339,7 +349,10 @@ pub fn main<T: Iterator<Item = String>>(mut args: T) -> Result<(), String> {
+     }
+ 
+     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+-        Environment::new(bundle, fs, options.clone(), app_args.unwrap_or_default())
++        {
++            objc::set_lenient(options.lenient);
++            Environment::new(bundle, fs, options.clone(), app_args.unwrap_or_default())
++        }
+     }));
+     let env = match res {
+         Ok(ret) => match ret {
+diff --git a/src/objc.rs b/src/objc.rs
+index 065cd62..fef2a41 100644
+--- a/src/objc.rs
++++ b/src/objc.rs
+@@ -27,6 +27,7 @@ mod classes;
+ mod messages;
+ mod methods;
+ mod objects;
++mod portbridge_compat;
+ mod properties;
+ mod selectors;
+ mod synchronization;
+@@ -42,9 +43,10 @@ pub use objects::{
+ };
+ pub use properties::todo_objc_setter;
+ pub use selectors::{selector, SEL};
++pub use portbridge_compat::{
++    call_block_void, is_lenient, set_lenient, warn_once, UNIMPLEMENTED_FUNCTION,
++};
+ 
+-use crate::mem::ConstVoidPtr;
+-use crate::Environment;
+ use classes::{
+     class_getInstanceSize, class_getMethodImplementation, class_getProperty, class_getSuperclass,
+     class_replaceMethod, objc_getClass, ClassHostObject, FakeClass, UnimplementedClass,
+@@ -106,9 +108,9 @@ impl ObjC {
+ pub const DYLIB: HostDylib = HostDylib {
+     path: "/usr/lib/libobjc.A.dylib",
+     aliases: &["/usr/lib/libobjc.dylib"],
+-    class_exports: &[],
+-    constant_exports: &[CONSTANTS],
+-    function_exports: &[FUNCTIONS],
++    class_exports: &[portbridge_compat::CLASSES],
++    constant_exports: &[CONSTANTS, portbridge_compat::CONSTANTS],
++    function_exports: &[FUNCTIONS, portbridge_compat::FUNCTIONS],
+ };
+ 
+ const CONSTANTS: ConstantExports = &[
+@@ -119,21 +121,6 @@ const CONSTANTS: ConstantExports = &[
+     ("__objc_empty_cache", HostConstant::NullPtr),
+ ];
+ 
+-/// Block support is iOS 4+, but it seems like Block Runtime Helpers
+-/// could still be called on even if minimal iOS version is set to 3.x?
+-///
+-/// ref. <https://clang.llvm.org/docs/Block-ABI-Apple.html#runtime-helper-functions>
+-fn _Block_object_dispose(_env: &mut Environment, object: ConstVoidPtr, flags: i32) {
+-    // `BLOCK_FIELD_IS_BYREF` flag defines an on stack structure holding
+-    // the __block variable. It is _probably_ safe to ignore.
+-    // TODO: properly implement for block support
+-    assert!(flags == 8); // BLOCK_FIELD_IS_BYREF
+-    log!(
+-        "Warning: Ignoring _Block_object_dispose({:?}, BLOCK_FIELD_IS_BYREF)",
+-        object
+-    );
+-}
+-
+ const FUNCTIONS: FunctionExports = &[
+     export_c_func!(class_getInstanceSize(_)),
+     export_c_func!(class_getSuperclass(_)),
+@@ -151,5 +138,4 @@ const FUNCTIONS: FunctionExports = &[
+     export_c_func!(objc_sync_exit(_)),
+     export_c_func!(object_getClass(_)),
+     export_c_func!(sel_registerName(_)),
+-    export_c_func!(_Block_object_dispose(_, _)),
+ ];
+diff --git a/src/objc/messages.rs b/src/objc/messages.rs
+index 03a6f99..b499606 100644
+--- a/src/objc/messages.rs
++++ b/src/objc/messages.rs
+@@ -35,7 +35,11 @@ pub(super) struct ThreadInitializer {
+ }
+ 
+ fn maybe_initialize_class(env: &mut Environment, receiver: id) {
+-    let class_host_object = env.objc.get_host_object(receiver).unwrap();
++    // PortBridge: objects whose memory isn't managed by touchHLE (e.g. block
++    // literals, whose isa is one of the block classes) have no host object.
++    let Some(class_host_object) = env.objc.get_host_object(receiver) else {
++        return;
++    };
+     let Some(&super::ClassHostObject {
+         superclass,
+         is_metaclass,
+@@ -211,6 +215,17 @@ fn objc_msgSend_inner(
+                 ..
+             } = class_host_object.as_any().downcast_ref().unwrap();
+ 
++            if super::is_lenient() {
++                super::warn_once(format!(
++                    "{}class \"{}\" does not respond to selector \"{}\"; returning nil/0",
++                    if is_metaclass { "meta" } else { "" },
++                    name,
++                    selector.as_str(&env.mem),
++                ));
++                env.cpu.regs_mut()[0..2].fill(0);
++                return;
++            }
++
+             panic!(
+                 "{} {:?} ({}class \"{}\", {:?}){} does not respond to selector \"{}\"!",
+                 if is_metaclass { "Class" } else { "Object" },
+@@ -289,6 +304,16 @@ Type mismatch when sending message {} to {:?}!
+             is_metaclass,
+         }) = host_object.as_any().downcast_ref()
+         {
++            if super::is_lenient() {
++                super::warn_once(format!(
++                    "class \"{}\" is unimplemented; {} method \"{}\" behaves as a message to nil",
++                    name,
++                    if is_metaclass { "class" } else { "instance" },
++                    selector.as_str(&env.mem),
++                ));
++                env.cpu.regs_mut()[0..2].fill(0);
++                return;
++            }
+             panic!(
+                 "Class \"{}\" ({:?}) is unimplemented. Call to {} method \"{}\".",
+                 name,
+diff --git a/src/objc/portbridge_compat.rs b/src/objc/portbridge_compat.rs
+new file mode 100644
+index 0000000..176a96a
+--- /dev/null
++++ b/src/objc/portbridge_compat.rs
+@@ -0,0 +1,705 @@
++/*
++ * This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
++ */
++//! PortBridge compatibility layer (not part of upstream touchHLE).
++//!
++//! Runtime pieces that apps built with the iOS 5/6 SDKs import even when they
++//! target older devices: the ARC entry points, the Blocks runtime and block
++//! classes, stack protector symbols, a few compiler-rt helpers and part of the
++//! Objective-C runtime introspection API. It also hosts the "lenient" switch
++//! (`--lenient`), which turns calls to unimplemented functions, classes and
++//! methods into logged no-ops instead of aborting the app.
++//!
++//! References (public documentation only):
++//! - Block ABI: <https://clang.llvm.org/docs/Block-ABI-Apple.html>
++//! - ARC runtime functions: <https://clang.llvm.org/docs/AutomaticReferenceCounting.html#runtime-support>
++//! - Objective-C runtime reference (class_addMethod, class_getInstanceMethod,
++//!   class_getInstanceVariable, ivar_getName, ivar_getOffset, object_setIvar).
++
++use super::{
++    autorelease, id, msg, msg_class, nil, objc_classes, release, retain, Class, ClassExports,
++    ClassHostObject, SEL, IMP,
++};
++use crate::abi::{CallFromHost, GuestFunction};
++use crate::dyld::{export_c_func, ConstantExports, FunctionExports, HostConstant};
++use crate::frameworks::foundation::NSUInteger;
++use crate::libc::string::strdup;
++use crate::mem::{ConstPtr, ConstVoidPtr, GuestUSize, MutPtr, MutVoidPtr, Ptr};
++use crate::Environment;
++use std::collections::{HashMap, HashSet};
++use std::sync::atomic::{AtomicBool, Ordering};
++use std::sync::{LazyLock, Mutex};
++
++// ------------------------------------------------------------------ lenient
++
++static LENIENT: AtomicBool = AtomicBool::new(false);
++static WARNED: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(Default::default);
++
++pub fn set_lenient(value: bool) {
++    LENIENT.store(value, Ordering::Relaxed);
++}
++
++pub fn is_lenient() -> bool {
++    LENIENT.load(Ordering::Relaxed)
++}
++
++/// Logs a lenient-mode warning once per distinct message.
++pub fn warn_once(message: String) {
++    if WARNED.lock().unwrap().insert(message.clone()) {
++        log!("Warning (lenient): {}", message);
++    }
++}
++
++/// Host function linked in place of a missing C function in lenient mode.
++fn _portbridge_unimplemented_function(_env: &mut Environment) -> u32 {
++    0
++}
++
++pub const UNIMPLEMENTED_FUNCTION: FunctionExports =
++    &[export_c_func!(_portbridge_unimplemented_function())];
++
++// -------------------------------------------------------- compiler support
++
++fn __divmodsi4(env: &mut Environment, a: i32, b: i32, rem: MutPtr<i32>) -> i32 {
++    if b == 0 {
++        if !rem.is_null() {
++            env.mem.write(rem, 0);
++        }
++        return 0;
++    }
++    let q = a.wrapping_div(b);
++    if !rem.is_null() {
++        env.mem.write(rem, a.wrapping_sub(q.wrapping_mul(b)));
++    }
++    q
++}
++
++fn __udivmodsi4(env: &mut Environment, a: u32, b: u32, rem: MutPtr<u32>) -> u32 {
++    if b == 0 {
++        if !rem.is_null() {
++            env.mem.write(rem, 0);
++        }
++        return 0;
++    }
++    if !rem.is_null() {
++        env.mem.write(rem, a % b);
++    }
++    a / b
++}
++
++fn __stack_chk_fail(_env: &mut Environment) {
++    panic!("__stack_chk_fail: stack buffer overflow detected in the app");
++}
++
++fn __assert_rtn(
++    env: &mut Environment,
++    func: ConstPtr<u8>,
++    file: ConstPtr<u8>,
++    line: i32,
++    expr: ConstPtr<u8>,
++) {
++    let s = |p: ConstPtr<u8>| -> String {
++        if p.is_null() {
++            String::from("?")
++        } else {
++            String::from_utf8_lossy(env.mem.cstr_at(p)).into_owned()
++        }
++    };
++    panic!(
++        "Assertion failed in the app: ({}), function {}, file {}, line {}",
++        s(expr),
++        s(func),
++        s(file),
++        line
++    );
++}
++
++// --------------------------------------------------------------------- ARC
++
++fn objc_retain(env: &mut Environment, obj: id) -> id {
++    retain(env, obj)
++}
++fn objc_release(env: &mut Environment, obj: id) {
++    release(env, obj)
++}
++fn objc_autorelease(env: &mut Environment, obj: id) -> id {
++    autorelease(env, obj)
++}
++fn objc_retainAutorelease(env: &mut Environment, obj: id) -> id {
++    let obj = retain(env, obj);
++    autorelease(env, obj)
++}
++fn objc_retainAutoreleasedReturnValue(env: &mut Environment, obj: id) -> id {
++    retain(env, obj)
++}
++fn objc_autoreleaseReturnValue(env: &mut Environment, obj: id) -> id {
++    autorelease(env, obj)
++}
++fn objc_retainAutoreleaseReturnValue(env: &mut Environment, obj: id) -> id {
++    let obj = retain(env, obj);
++    autorelease(env, obj)
++}
++fn objc_storeStrong(env: &mut Environment, location: MutPtr<id>, obj: id) {
++    let old = env.mem.read(location);
++    let obj = retain(env, obj);
++    env.mem.write(location, obj);
++    release(env, old);
++}
++fn objc_retainBlock(env: &mut Environment, block: id) -> id {
++    _Block_copy(env, block.cast().cast_const()).cast()
++}
++fn objc_autoreleasePoolPush(env: &mut Environment) -> id {
++    msg_class![env; NSAutoreleasePool new]
++}
++fn objc_autoreleasePoolPop(env: &mut Environment, pool: id) {
++    if pool != nil {
++        let _: () = msg![env; pool drain];
++    }
++}
++// Weak references are kept as plain (non-zeroing) pointers.
++fn objc_storeWeak(env: &mut Environment, location: MutPtr<id>, obj: id) -> id {
++    env.mem.write(location, obj);
++    obj
++}
++fn objc_initWeak(env: &mut Environment, location: MutPtr<id>, obj: id) -> id {
++    env.mem.write(location, obj);
++    obj
++}
++fn objc_loadWeak(env: &mut Environment, location: MutPtr<id>) -> id {
++    env.mem.read(location)
++}
++fn objc_loadWeakRetained(env: &mut Environment, location: MutPtr<id>) -> id {
++    let obj = env.mem.read(location);
++    retain(env, obj)
++}
++fn objc_destroyWeak(env: &mut Environment, location: MutPtr<id>) {
++    env.mem.write(location, nil);
++}
++fn objc_copyWeak(env: &mut Environment, to: MutPtr<id>, from: MutPtr<id>) {
++    let obj = env.mem.read(from);
++    env.mem.write(to, obj);
++}
++fn objc_moveWeak(env: &mut Environment, to: MutPtr<id>, from: MutPtr<id>) {
++    let obj = env.mem.read(from);
++    env.mem.write(to, obj);
++    env.mem.write(from, nil);
++}
++
++fn objc_enumerationMutation(_env: &mut Environment, obj: id) {
++    // Apple's runtime raises an exception here. Keep going and leave a trace.
++    log!("Warning: collection {:?} was mutated while being enumerated", obj);
++}
++
++// ------------------------------------------------------------------ Blocks
++
++const BLOCK_REFCOUNT_MASK: u32 = 0xfffe;
++const BLOCK_NEEDS_FREE: u32 = 1 << 24;
++const BLOCK_HAS_COPY_DISPOSE: u32 = 1 << 25;
++const BLOCK_IS_GLOBAL: u32 = 1 << 28;
++
++const BLOCK_FIELD_IS_OBJECT: i32 = 3;
++const BLOCK_FIELD_IS_BLOCK: i32 = 7;
++const BLOCK_FIELD_IS_BYREF: i32 = 8;
++const BLOCK_BYREF_CALLER: i32 = 128;
++
++fn rd(env: &Environment, addr: u32) -> u32 {
++    env.mem.read(Ptr::<u32, false>::from_bits(addr))
++}
++fn wr(env: &mut Environment, addr: u32, value: u32) {
++    env.mem.write(Ptr::<u32, true>::from_bits(addr), value)
++}
++fn call_helper(env: &mut Environment, func: u32, a: u32, b: Option<u32>) {
++    if func == 0 {
++        return;
++    }
++    let f = GuestFunction::from_addr_with_thumb_bit(func);
++    let a: MutVoidPtr = Ptr::from_bits(a);
++    match b {
++        Some(b) => {
++            let b: MutVoidPtr = Ptr::from_bits(b);
++            let () = f.call_from_host(env, (a, b));
++        }
++        None => {
++            let () = f.call_from_host(env, (a,));
++        }
++    }
++}
++
++// Block literal layout (32-bit): isa, flags, reserved, invoke, descriptor.
++// Descriptor: reserved, size, [copy_helper, dispose_helper].
++pub(crate) fn _Block_copy(env: &mut Environment, block: ConstVoidPtr) -> MutVoidPtr {
++    let b = block.to_bits();
++    if b == 0 {
++        return Ptr::null();
++    }
++    let flags = rd(env, b + 4);
++    if flags & BLOCK_NEEDS_FREE != 0 {
++        // already on the heap: just add a reference
++        let rc = flags & BLOCK_REFCOUNT_MASK;
++        if rc != BLOCK_REFCOUNT_MASK {
++            wr(env, b + 4, flags + 2);
++        }
++        return block.cast_mut();
++    }
++    if flags & BLOCK_IS_GLOBAL != 0 {
++        return block.cast_mut();
++    }
++    let descriptor = rd(env, b + 16);
++    let size = rd(env, descriptor + 4).max(20);
++    let copy: MutVoidPtr = env.mem.alloc(size);
++    env.mem.memmove(copy, block, size);
++    let c = copy.to_bits();
++    let malloc_class = env.objc.get_known_class("__NSMallocBlock__", &mut env.mem);
++    wr(env, c, malloc_class.to_bits());
++    wr(env, c + 4, (flags & !BLOCK_REFCOUNT_MASK) | BLOCK_NEEDS_FREE | 2);
++    if flags & BLOCK_HAS_COPY_DISPOSE != 0 {
++        let copy_helper = rd(env, descriptor + 8);
++        call_helper(env, copy_helper, c, Some(b));
++    }
++    copy
++}
++
++pub(crate) fn _Block_release(env: &mut Environment, block: ConstVoidPtr) {
++    let b = block.to_bits();
++    if b == 0 {
++        return;
++    }
++    let flags = rd(env, b + 4);
++    if flags & BLOCK_NEEDS_FREE == 0 {
++        return; // stack or global block
++    }
++    let rc = flags & BLOCK_REFCOUNT_MASK;
++    if rc == BLOCK_REFCOUNT_MASK {
++        return; // saturated: leak rather than free a live block
++    }
++    if rc > 2 {
++        wr(env, b + 4, flags - 2);
++        return;
++    }
++    if flags & BLOCK_HAS_COPY_DISPOSE != 0 {
++        let descriptor = rd(env, b + 16);
++        let dispose_helper = rd(env, descriptor + 12);
++        call_helper(env, dispose_helper, b, None);
++    }
++    env.mem.free(block.cast_mut());
++}
++
++// __block variable layout (32-bit): isa, forwarding, flags, size,
++// [byref_keep, byref_destroy], variable...
++fn byref_copy(env: &mut Environment, src: u32) -> u32 {
++    let forwarding = rd(env, src + 4);
++    let fwd_flags = rd(env, forwarding + 8);
++    if fwd_flags & BLOCK_NEEDS_FREE != 0 {
++        if fwd_flags & BLOCK_REFCOUNT_MASK != BLOCK_REFCOUNT_MASK {
++            wr(env, forwarding + 8, fwd_flags + 2);
++        }
++        return forwarding;
++    }
++    let flags = rd(env, src + 8);
++    let size = rd(env, src + 12).max(16);
++    let copy: MutVoidPtr = env.mem.alloc(size);
++    let c = copy.to_bits();
++    env.mem
++        .memmove(copy, Ptr::<u8, false>::from_bits(src).cast(), size);
++    // one reference for the heap copy held by the block, one for the stack
++    wr(env, c + 8, (flags & !BLOCK_REFCOUNT_MASK) | BLOCK_NEEDS_FREE | 4);
++    wr(env, c + 4, c);
++    wr(env, src + 4, c);
++    if flags & BLOCK_HAS_COPY_DISPOSE != 0 {
++        let keep = rd(env, src + 16);
++        call_helper(env, keep, c, Some(src));
++    }
++    c
++}
++
++fn byref_release(env: &mut Environment, byref: u32) {
++    let byref = rd(env, byref + 4); // follow forwarding
++    let flags = rd(env, byref + 8);
++    if flags & BLOCK_NEEDS_FREE == 0 {
++        return;
++    }
++    let rc = flags & BLOCK_REFCOUNT_MASK;
++    if rc == BLOCK_REFCOUNT_MASK {
++        return;
++    }
++    if rc > 2 {
++        wr(env, byref + 8, flags - 2);
++        return;
++    }
++    if flags & BLOCK_HAS_COPY_DISPOSE != 0 {
++        let destroy = rd(env, byref + 20);
++        call_helper(env, destroy, byref, None);
++    }
++    env.mem.free(Ptr::from_bits(byref));
++}
++
++fn _Block_object_assign(env: &mut Environment, dest: MutPtr<u32>, object: ConstVoidPtr, flags: i32) {
++    let obj = object.to_bits();
++    let value = if flags & BLOCK_FIELD_IS_BYREF == BLOCK_FIELD_IS_BYREF {
++        byref_copy(env, obj)
++    } else if flags & BLOCK_BYREF_CALLER != 0 {
++        obj // __block object/block variables are not retained (MRR semantics)
++    } else if flags & BLOCK_FIELD_IS_BLOCK == BLOCK_FIELD_IS_BLOCK {
++        _Block_copy(env, object).to_bits()
++    } else if flags & BLOCK_FIELD_IS_OBJECT == BLOCK_FIELD_IS_OBJECT {
++        retain(env, object.cast().cast_mut()).to_bits()
++    } else {
++        obj
++    };
++    env.mem.write(dest, value);
++}
++
++pub(crate) fn _Block_object_dispose(env: &mut Environment, object: ConstVoidPtr, flags: i32) {
++    let obj = object.to_bits();
++    if obj == 0 {
++        return;
++    }
++    if flags & BLOCK_FIELD_IS_BYREF == BLOCK_FIELD_IS_BYREF {
++        byref_release(env, obj);
++    } else if flags & BLOCK_BYREF_CALLER != 0 {
++        // not retained by _Block_object_assign
++    } else if flags & BLOCK_FIELD_IS_BLOCK == BLOCK_FIELD_IS_BLOCK {
++        _Block_release(env, object);
++    } else if flags & BLOCK_FIELD_IS_OBJECT == BLOCK_FIELD_IS_OBJECT {
++        release(env, object.cast().cast_mut());
++    }
++}
++
++/// Calls a block that takes no arguments besides itself (e.g. a completion
++/// handler `void (^)(void)`), if it isn't NULL.
++pub fn call_block_void(env: &mut Environment, block: id) {
++    if block == nil {
++        return;
++    }
++    let invoke = rd(env, block.to_bits() + 12);
++    call_helper(env, invoke, block.to_bits(), None);
++}
++
++fn block_retain_count(env: &Environment, this: id) -> NSUInteger {
++    let flags = rd(env, this.to_bits() + 4);
++    if flags & BLOCK_NEEDS_FREE != 0 {
++        (flags & BLOCK_REFCOUNT_MASK) >> 1
++    } else {
++        1
++    }
++}
++
++fn block_class_constant(env: &mut Environment, name: &str) -> ConstVoidPtr {
++    env.objc
++        .get_known_class(name, &mut env.mem)
++        .cast()
++        .cast_const()
++}
++
++pub const CLASSES: ClassExports = objc_classes! {
++
++(env, this, _cmd);
++
++// Blocks are Objective-C objects whose memory is managed by the Blocks
++// runtime, so these classes never touch NSObject's reference counting.
++@implementation NSBlock: NSObject
++
++- (id)copy {
++    _Block_copy(env, this.cast().cast_const()).cast()
++}
++- (id)copyWithZone:(MutVoidPtr)_zone {
++    _Block_copy(env, this.cast().cast_const()).cast()
++}
++- (id)retain {
++    _Block_copy(env, this.cast().cast_const()).cast()
++}
++- (())release {
++    _Block_release(env, this.cast().cast_const())
++}
++- (id)autorelease {
++    let flags = rd(env, this.to_bits() + 4);
++    if flags & BLOCK_NEEDS_FREE != 0 {
++        let _: () = msg_class![env; NSAutoreleasePool addObject:this];
++    }
++    this
++}
++- (NSUInteger)retainCount {
++    block_retain_count(env, this)
++}
++- (())dealloc {
++    // memory is freed by _Block_release
++}
++- (())invoke {
++    call_block_void(env, this)
++}
++
++@end
++
++@implementation __NSStackBlock__: NSBlock
++- (id)retain {
++    this // retaining a stack block does nothing, like Apple's runtime
++}
++- (())release {}
++@end
++
++@implementation __NSMallocBlock__: NSBlock
++@end
++
++@implementation __NSGlobalBlock__: NSBlock
++- (id)copy {
++    this
++}
++- (id)retain {
++    this
++}
++- (())release {}
++- (id)autorelease {
++    this
++}
++@end
++
++};
++
++// ---------------------------------------------- runtime introspection API
++
++/// Guest-visible `Method` / `Ivar` handles, created on demand and cached.
++static METHOD_HANDLES: LazyLock<Mutex<HashMap<(u32, u32), u32>>> = LazyLock::new(Default::default);
++static IVAR_HANDLES: LazyLock<Mutex<HashMap<(u32, String), u32>>> = LazyLock::new(Default::default);
++
++fn class_info(env: &Environment, class: Class) -> Option<&ClassHostObject> {
++    env.objc
++        .get_host_object(class)?
++        .as_any()
++        .downcast_ref::<ClassHostObject>()
++}
++
++fn class_addMethod(
++    env: &mut Environment,
++    cls: Class,
++    name: SEL,
++    imp: GuestFunction,
++    types: ConstPtr<u8>,
++) -> bool {
++    if cls == nil || name.is_null() {
++        return false;
++    }
++    if class_info(env, cls).is_none_or(|c| c.methods.contains_key(&name)) {
++        return false;
++    }
++    let types_copy = if types.is_null() {
++        types
++    } else {
++        strdup(env, types).cast_const()
++    };
++    let class = env.objc.borrow_mut::<ClassHostObject>(cls);
++    class.methods.insert(name, IMP::Guest(imp));
++    class.guest_method_signatures.insert(name, types_copy);
++    true
++}
++
++/// Returns a `Method` (pointer to a `{SEL name; char *types; IMP imp}` struct)
++/// or NULL. The IMP is NULL for methods implemented by touchHLE itself.
++fn class_getInstanceMethod(env: &mut Environment, cls: Class, name: SEL) -> MutVoidPtr {
++    let mut class = cls;
++    while class != nil {
++        let Some(info) = class_info(env, class) else {
++            return Ptr::null();
++        };
++        if let Some(imp) = info.methods.get(&name) {
++            let imp = match imp {
++                IMP::Guest(g) => g.addr_with_thumb_bit(),
++                IMP::Host(_) => 0,
++            };
++            let types = info
++                .guest_method_signatures
++                .get(&name)
++                .map_or(0, |t| t.to_bits());
++            let key = (class.to_bits(), name.to_ptr().to_bits());
++            if let Some(&h) = METHOD_HANDLES.lock().unwrap().get(&key) {
++                return Ptr::from_bits(h);
++            }
++            let h = env.mem.alloc(12).to_bits();
++            wr(env, h, name.to_ptr().to_bits());
++            wr(env, h + 4, types);
++            wr(env, h + 8, imp);
++            METHOD_HANDLES.lock().unwrap().insert(key, h);
++            return Ptr::from_bits(h);
++        }
++        class = info.superclass;
++    }
++    Ptr::null()
++}
++
++fn class_getClassMethod(env: &mut Environment, cls: Class, name: SEL) -> MutVoidPtr {
++    if cls == nil {
++        return Ptr::null();
++    }
++    let metaclass = super::ObjC::read_isa(cls, &env.mem);
++    class_getInstanceMethod(env, metaclass, name)
++}
++
++fn method_getImplementation(env: &mut Environment, method: MutVoidPtr) -> u32 {
++    if method.is_null() {
++        0
++    } else {
++        rd(env, method.to_bits() + 8)
++    }
++}
++
++fn method_getName(env: &mut Environment, method: MutVoidPtr) -> u32 {
++    if method.is_null() {
++        0
++    } else {
++        rd(env, method.to_bits())
++    }
++}
++
++/// Returns an `Ivar` (pointer to a `{char *name; GuestUSize *offset}` struct).
++fn class_getInstanceVariable(env: &mut Environment, cls: Class, name: ConstPtr<u8>) -> MutVoidPtr {
++    if cls == nil || name.is_null() {
++        return Ptr::null();
++    }
++    let wanted = String::from_utf8_lossy(env.mem.cstr_at(name)).into_owned();
++    let mut class = cls;
++    while class != nil {
++        let Some(info) = class_info(env, class) else {
++            return Ptr::null();
++        };
++        if let Some(&(offset_ptr, _align)) = info.ivars.get(&wanted) {
++            let key = (class.to_bits(), wanted.clone());
++            if let Some(&h) = IVAR_HANDLES.lock().unwrap().get(&key) {
++                return Ptr::from_bits(h);
++            }
++            let name_copy = env.mem.alloc_and_write_cstr(wanted.as_bytes());
++            let h = env.mem.alloc(8).to_bits();
++            wr(env, h, name_copy.to_bits());
++            wr(env, h + 4, offset_ptr.to_bits());
++            IVAR_HANDLES.lock().unwrap().insert(key, h);
++            return Ptr::from_bits(h);
++        }
++        class = info.superclass;
++    }
++    Ptr::null()
++}
++
++fn ivar_getName(env: &mut Environment, ivar: MutVoidPtr) -> u32 {
++    if ivar.is_null() {
++        0
++    } else {
++        rd(env, ivar.to_bits())
++    }
++}
++
++fn ivar_getOffset(env: &mut Environment, ivar: MutVoidPtr) -> GuestUSize {
++    if ivar.is_null() {
++        return 0;
++    }
++    let offset_ptr = rd(env, ivar.to_bits() + 4);
++    if offset_ptr == 0 {
++        0
++    } else {
++        rd(env, offset_ptr)
++    }
++}
++
++fn object_setIvar(env: &mut Environment, obj: id, ivar: MutVoidPtr, value: id) {
++    if obj == nil || ivar.is_null() {
++        return;
++    }
++    let offset = ivar_getOffset(env, ivar);
++    wr(env, obj.to_bits() + offset, value.to_bits());
++}
++
++fn object_getIvar(env: &mut Environment, obj: id, ivar: MutVoidPtr) -> id {
++    if obj == nil || ivar.is_null() {
++        return nil;
++    }
++    let offset = ivar_getOffset(env, ivar);
++    Ptr::from_bits(rd(env, obj.to_bits() + offset))
++}
++
++fn class_getIvarLayout(_env: &mut Environment, _cls: Class) -> ConstPtr<u8> {
++    Ptr::null() // no GC/ARC layout information: "scan conservatively"
++}
++
++/// `struct objc_method_description` is returned through a hidden pointer.
++fn protocol_getMethodDescription(
++    env: &mut Environment,
++    result: MutPtr<u32>,
++    _protocol: ConstVoidPtr,
++    _name: SEL,
++    _required: bool,
++    _instance: bool,
++) {
++    // Protocol metadata isn't tracked: report "not found" ({NULL, NULL}).
++    if !result.is_null() {
++        env.mem.write(result, 0);
++        env.mem.write(result + 1, 0);
++    }
++}
++
++pub const FUNCTIONS: FunctionExports = &[
++    export_c_func!(__divmodsi4(_, _, _)),
++    export_c_func!(__udivmodsi4(_, _, _)),
++    export_c_func!(__stack_chk_fail()),
++    export_c_func!(__assert_rtn(_, _, _, _)),
++    export_c_func!(objc_retain(_)),
++    export_c_func!(objc_release(_)),
++    export_c_func!(objc_autorelease(_)),
++    export_c_func!(objc_retainAutorelease(_)),
++    export_c_func!(objc_retainAutoreleasedReturnValue(_)),
++    export_c_func!(objc_autoreleaseReturnValue(_)),
++    export_c_func!(objc_retainAutoreleaseReturnValue(_)),
++    export_c_func!(objc_storeStrong(_, _)),
++    export_c_func!(objc_retainBlock(_)),
++    export_c_func!(objc_autoreleasePoolPush()),
++    export_c_func!(objc_autoreleasePoolPop(_)),
++    export_c_func!(objc_storeWeak(_, _)),
++    export_c_func!(objc_initWeak(_, _)),
++    export_c_func!(objc_loadWeak(_)),
++    export_c_func!(objc_loadWeakRetained(_)),
++    export_c_func!(objc_destroyWeak(_)),
++    export_c_func!(objc_copyWeak(_, _)),
++    export_c_func!(objc_moveWeak(_, _)),
++    export_c_func!(objc_enumerationMutation(_)),
++    export_c_func!(_Block_copy(_)),
++    export_c_func!(_Block_release(_)),
++    export_c_func!(_Block_object_assign(_, _, _)),
++    export_c_func!(_Block_object_dispose(_, _)),
++    export_c_func!(class_addMethod(_, _, _, _)),
++    export_c_func!(class_getInstanceMethod(_, _)),
++    export_c_func!(class_getClassMethod(_, _)),
++    export_c_func!(method_getImplementation(_)),
++    export_c_func!(method_getName(_)),
++    export_c_func!(class_getInstanceVariable(_, _)),
++    export_c_func!(class_getIvarLayout(_)),
++    export_c_func!(ivar_getName(_)),
++    export_c_func!(ivar_getOffset(_)),
++    export_c_func!(object_setIvar(_, _, _)),
++    export_c_func!(object_getIvar(_, _)),
++    export_c_func!(protocol_getMethodDescription(_, _, _, _, _)),
++];
++
++pub const CONSTANTS: ConstantExports = &[
++    // StoreKit (iOS 6): only used as a dictionary key for the App Store sheet.
++    (
++        "_SKStoreProductParameterITunesItemIdentifier",
++        HostConstant::NSString("id"),
++    ),
++    (
++        "___stack_chk_guard",
++        HostConstant::Custom(|env| -> ConstVoidPtr {
++            // Any stable value works; avoid zero bytes like a real canary.
++            env.mem.alloc_and_write(0x5A3C_9E17u32).cast().cast_const()
++        }),
++    ),
++    (
++        "__NSConcreteStackBlock",
++        HostConstant::Custom(|env| block_class_constant(env, "__NSStackBlock__")),
++    ),
++    (
++        "__NSConcreteMallocBlock",
++        HostConstant::Custom(|env| block_class_constant(env, "__NSMallocBlock__")),
++    ),
++    (
++        "__NSConcreteGlobalBlock",
++        HostConstant::Custom(|env| block_class_constant(env, "__NSGlobalBlock__")),
++    ),
++];
+diff --git a/src/objc/selectors.rs b/src/objc/selectors.rs
+index 204754a..3723381 100644
+--- a/src/objc/selectors.rs
++++ b/src/objc/selectors.rs
+@@ -67,6 +67,10 @@ impl SEL {
+     pub fn is_null(self) -> bool {
+         self.0.is_null()
+     }
++    /// PortBridge: raw pointer (used as a cache key by portbridge_compat).
++    pub fn to_ptr(self) -> ConstPtr<u8> {
++        self.0
++    }
+ }
+ 
+ unsafe impl SafeRead for SEL {}
+diff --git a/src/options.rs b/src/options.rs
+index 7f13c7f..e9fc329 100644
+--- a/src/options.rs
++++ b/src/options.rs
+@@ -62,6 +62,8 @@ pub struct Options {
+     pub dumping_file: PathBuf,
+     pub ignore_gl_errors: bool,
+     pub zero_stack_after_guest_to_host_call: Option<u32>,
++    /// PortBridge: log and continue instead of aborting on unimplemented APIs.
++    pub lenient: bool,
+ }
+ 
+ impl Default for Options {
+@@ -95,6 +97,7 @@ impl Default for Options {
+             dumping_file: crate::paths::user_data_base_path().join("DUMP.txt"),
+             ignore_gl_errors: false,
+             zero_stack_after_guest_to_host_call: None,
++            lenient: false,
+         }
+     }
+ }
+@@ -252,6 +255,8 @@ impl Options {
+             self.dumping_file = crate::paths::user_data_base_path().join(path);
+         } else if arg == "--ignore-gl-errors" {
+             self.ignore_gl_errors = true;
++        } else if arg == "--lenient" {
++            self.lenient = true;
+         } else if let Some(value) = arg.strip_prefix("--zero-stack-after-guest-to-host-call=") {
+             self.zero_stack_after_guest_to_host_call = Some(value.parse().map_err(|_| {
+                 "Invalid value for --zero-stack-after-guest-to-host-call=".to_string()
 diff --git a/src/version/lib.rs b/src/version/lib.rs
 index ff5a09d..73fa275 100644
 --- a/src/version/lib.rs

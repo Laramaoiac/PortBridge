@@ -73,6 +73,9 @@ public class HleActivity extends SDLActivity {
             return new String[0];   // abre o seletor de apps do touchHLE, com o erro no log
         }
         args.add("--fullscreen");
+        // O que o touchHLE ainda não implementa (loja, redes sociais...) vira
+        // "nada" com aviso no log, em vez de fechar o jogo.
+        args.add("--lenient");
         // Opções extras por jogo (o conversor pode gravar em assets/portbridge.json)
         try (InputStream in = getAssets().open("portbridge.json")) {
             JSONObject cfg = new JSONObject(new String(readAll(in), StandardCharsets.UTF_8));

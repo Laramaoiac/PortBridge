@@ -26,6 +26,11 @@ _IGNORED_PREFIXES = ("dyld_stub_binder", "__objc_empty_", "__dyld_")
 _IGNORED_NAMES = {"___CFConstantStringClassReference"}
 # Símbolos de classe Objective-C importados
 _CLASS_PREFIXES = ("_OBJC_CLASS_$_", "_OBJC_METACLASS_$_")
+# Recursos opcionais (loja, redes sociais, Game Center, anúncios, e-mail):
+# nos APKs do PortBridge o touchHLE roda com --lenient, então a falta deles
+# desliga o recurso em vez de fechar o jogo.
+_OPTIONAL_CLASS_PREFIXES = ("SK", "TW", "SL", "GK", "AD", "MF", "MK")
+_OPTIONAL_CLASSES = {"NSException"}   # só usada em caminhos de erro
 
 
 @lru_cache(maxsize=1)
@@ -71,6 +76,10 @@ def check_slice(sl: macho.MachOSlice) -> dict:
     elif not missing_funcs and not missing_classes and len(missing_sels) <= 3:
         verdict = "provável"
         reason = "tudo o que o app importa existe no touchHLE"
+    elif len(missing_funcs) <= 2 and all(_optional(c) for c in missing_classes):
+        verdict = "provável"
+        reason = ("o essencial existe no touchHLE; o que falta é opcional "
+                  "(loja, redes sociais etc.) e fica desativado no modo tolerante")
     elif len(missing_funcs) + len(missing_classes) <= 10:
         verdict = "parcial"
         reason = "faltam poucas APIs; o jogo pode abrir e parar em algum ponto"
@@ -87,9 +96,14 @@ def check_slice(sl: macho.MachOSlice) -> dict:
         "classes_used": sorted(used_classes),
         "missing_functions": sorted(missing_funcs),
         "missing_classes": sorted(missing_classes),
+        "optional_missing_classes": sorted(c for c in missing_classes if _optional(c)),
         "selectors_called": len(external),
         "missing_selectors": sorted(missing_sels),
     }
+
+
+def _optional(cls: str) -> bool:
+    return cls in _OPTIONAL_CLASSES or cls.startswith(_OPTIONAL_CLASS_PREFIXES)
 
 
 def check(mf: macho.MachOFile) -> dict:
@@ -105,6 +119,9 @@ def to_markdown(r: dict) -> str:
         f"- Veredito: **{r['verdict']}** — {r['reason']}",
         f"- Cobertura estimada: {r['coverage_percent']}% "
         f"({r['imports']} símbolos importados, {r['selectors_called']} métodos chamados)",
+        "- Nos APKs do PortBridge o touchHLE roda em modo tolerante (`--lenient`): "
+        "chamadas ao que falta são registradas no log e retornam nil/0 em vez de "
+        "fechar o jogo. Funções essenciais ausentes ainda podem quebrar a lógica.",
         "",
     ]
     for title, key in (("Funções/constantes ausentes", "missing_functions"),
