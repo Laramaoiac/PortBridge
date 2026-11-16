@@ -109,6 +109,7 @@ Param read_param(Reader& r, bool unicode) {
     size_t start = r.pos();
     uint16_t size = r.u16();
     Param p;
+    p.file_pos = uint32_t(start);
     p.code = r.i16();
     size_t end = start + size;
     switch (p.code) {
@@ -187,11 +188,13 @@ void read_events(Reader r, FrameEvents& ev, bool unicode) {
             r.i32();
         } else if (t == "ERev") {
             size_t end = r.pos() + r.i32();
+            size_t base = r.pos();
             while (r.pos() < end) {
                 size_t gstart = r.pos();
                 int size = -r.i16();
                 if (size <= 0) throw ParseError("grupo de eventos inválido");
                 EventGroup g;
+                g.offset = uint32_t(gstart);
                 int nc = r.u8(), na = r.u8();
                 g.flags = r.u16();
                 r.skip(8);

@@ -27,7 +27,12 @@ struct Options {
     bool headless = false, mute = false;
     int frames = 0, scale = 2;
     std::vector<std::pair<int, std::pair<int, int>>> clicks;  // (frame, (x, y))
+    std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> holds;  // ((de, até), (x, y))
     std::vector<int> shots;                                    // frames extras para capturar
+    std::vector<int> dumps;                                    // frames para listar o estado
+    int screen_w = 0, screen_h = 0;                            // --screen: simula uma tela (pixels)
+    int monkey = -1;                                           // a partir deste loop: toques aleatórios
+    int shot_every = 0;                                        // captura a cada N loops
 };
 
 bool parse_args(int argc, char** argv, Options& o) {
@@ -43,6 +48,14 @@ bool parse_args(int argc, char** argv, Options& o) {
         else if (a == "--log") o.log = next();
         else if (a == "--device") o.device = next();
         else if (a == "--shot-at") o.shots.push_back(std::atoi(next().c_str()));
+        else if (a == "--dump-at") o.dumps.push_back(std::atoi(next().c_str()));
+        else if (a == "--monkey") o.monkey = std::atoi(next().c_str());
+        else if (a == "--screen") std::sscanf(next().c_str(), "%dx%d", &o.screen_w, &o.screen_h);
+        else if (a == "--hold") {
+            int x = 0, y = 0, f = 0, g = 0;
+            if (std::sscanf(next().c_str(), "%d,%d@%d-%d", &x, &y, &f, &g) == 4) o.holds.push_back({{f, g}, {x, y}});
+        }
+        else if (a == "--shot-every") o.shot_every = std::atoi(next().c_str());
         else if (a == "--click") {
             int x = 0, y = 0, f = 0;
             if (std::sscanf(next().c_str(), "%d,%d@%d", &x, &y, &f) == 3) o.clicks.push_back({f, {x, y}});
@@ -66,6 +79,30 @@ bool save_png(SDL_Renderer* r, int w, int h, const std::string& path) {
     return f != nullptr;
 }
 
+// Estado do jogo num loop (modo de teste): globais e objetos visíveis.
+void dump_state(pb::App& app, int loop) {
+    pb::Frame* f = app.frame();
+    if (!f) return;
+    std::printf("=== loop %d  frame %d '%s'  scroll %.0f,%.0f  tamanho %dx%d  tempo %ums\n", loop, f->index,
+                f->def.name.c_str(), f->scroll_x, f->scroll_y, f->width, f->height, f->timer_ms);
+    std::printf("globais:");
+    for (size_t i = 0; i < app.global_values.size() && i < 80; ++i) {
+        const pb::Value& v = app.global_values[i];
+        if (!v.is_num()) std::printf(" g%zu=\"%s\"", i, v.str().c_str());
+        else if (v.num() != 0) std::printf(" g%zu=%g", i, v.num());
+    }
+    std::printf("\n");
+    for (auto& o : f->objects) {
+        if (o->destroyed && !o->dying) continue;
+        std::printf("  %-22s oi=%-4d (%6.1f,%6.1f) camada %d %s anim %d dir %d fr %d img %d esc %.2f",
+                    o->def ? o->def->name.c_str() : "?", o->oi, o->x, o->y, o->layer,
+                    o->visible ? "vis" : "oculto", o->anim, o->dir, o->frame, o->image, o->scale_x);
+        for (size_t i = 0; i < o->values.size() && i < 26; ++i)
+            if (o->values[i].num() != 0) std::printf(" v%zu=%g", i, o->values[i].num());
+        std::printf("\n");
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -74,6 +111,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "uso: portbridge-player <jogo.ipa | Application.cci> [--headless --frames N --screenshot out.png]\n");
         return 2;
     }
+    if (opt.shot_every > 0) opt.shots.push_back(-1);
     if (opt.headless) {
         SDL_SetHint(SDL_HINT_VIDEODRIVER, "offscreen");
         SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
@@ -118,6 +156,10 @@ int main(int argc, char** argv) {
     int gw = game->width, gh = game->height;
     // Orientação pelo formato do jogo (o Zorbié é retrato 320x480).
     SDL_SetHint(SDL_HINT_ORIENTATIONS, gw <= gh ? "Portrait PortraitUpsideDown" : "LandscapeLeft LandscapeRight");
+    // Área visível: no desktop, o tamanho do jogo (ou a tela simulada com --screen);
+    // no Android, recalculada abaixo pelo tamanho real da tela.
+    int vw = gw, vh = gh;
+    if (opt.screen_w > 0 && opt.screen_h > 0) pb::choose_view(*game, opt.screen_w, opt.screen_h, vw, vh);
     std::string title = pkg.display_name.empty() ? "PortBridge" : pkg.display_name;
 
     Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
@@ -127,7 +169,7 @@ int main(int argc, char** argv) {
     if (opt.headless) wflags = SDL_WINDOW_HIDDEN;
     int scale = opt.headless ? 1 : opt.scale;
     SDL_Window* win = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       gw * scale, gh * scale, wflags);
+                                       vw * scale, vh * scale, wflags);
     if (!win) {
         pb::diag_fatal(std::string("Falha ao criar a janela: ") + SDL_GetError());
         return 1;
@@ -139,14 +181,21 @@ int main(int argc, char** argv) {
         pb::diag_fatal(std::string("Falha ao iniciar os gráficos: ") + SDL_GetError());
         return 1;
     }
-    SDL_RenderSetLogicalSize(ren, gw, gh);
+#ifdef __ANDROID__
+    {
+        int ow = 0, oh = 0;
+        SDL_GetRendererOutputSize(ren, &ow, &oh);
+        pb::choose_view(*game, ow, oh, vw, vh);
+    }
+#endif
+    SDL_RenderSetLogicalSize(ren, vw, vh);
     {
         SDL_RendererInfo ri{};
         SDL_GetRendererInfo(ren, &ri);
         int ow = 0, oh = 0;
         SDL_GetRendererOutputSize(ren, &ow, &oh);
-        SDL_Log("vídeo: %s, renderizador %s, saída %dx%d, lógico %dx%d", SDL_GetCurrentVideoDriver(),
-                ri.name ? ri.name : "?", ow, oh, gw, gh);
+        SDL_Log("vídeo: %s, renderizador %s, saída %dx%d, jogo %dx%d, área visível %dx%d",
+                SDL_GetCurrentVideoDriver(), ri.name ? ri.name : "?", ow, oh, gw, gh, vw, vh);
     }
 
     std::string save = opt.save_dir;
@@ -164,6 +213,8 @@ int main(int argc, char** argv) {
     pb::Audio audio(*game);
     audio.set_muted(opt.mute || opt.headless);
     pb::App app(std::move(game), ren, &audio, save);
+    app.view_w = vw;
+    app.view_h = vh;
 
     auto step = [&]() -> bool {
         try {
@@ -203,6 +254,18 @@ int main(int argc, char** argv) {
                     break;
                 case SDL_APP_WILLENTERBACKGROUND: audio.pause_all(true); break;
                 case SDL_APP_DIDENTERFOREGROUND: audio.pause_all(false); app.resumed_flag = true; break;
+#ifdef __ANDROID__
+                case SDL_WINDOWEVENT:
+                    if (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                        // ex.: o aparelho estava deitado e girou para retrato
+                        int ow = 0, oh = 0;
+                        SDL_GetRendererOutputSize(ren, &ow, &oh);
+                        pb::choose_view(app.game(), ow, oh, app.view_w, app.view_h);
+                        SDL_RenderSetLogicalSize(ren, app.view_w, app.view_h);
+                        SDL_Log("tela %dx%d: área visível %dx%d", ow, oh, app.view_w, app.view_h);
+                    }
+                    break;
+#endif
                 case SDL_RENDER_DEVICE_RESET:
                 case SDL_RENDER_TARGETS_RESET:
                     SDL_Log("contexto gráfico recriado: recarregando texturas");
@@ -212,6 +275,39 @@ int main(int argc, char** argv) {
             }
         }
         if (opt.headless) {
+            // "Jogador automático" para testes longos: segura e arrasta na metade
+            // de baixo da tela (zona de controle do Zorbié), com pausas.
+            static uint32_t seed = 12345u;
+            static int hold = 0, rest = 0;
+            static double tx = 160, ty = 400;
+            auto rnd = [&](int n) { seed = seed * 1103515245u + 12345u; return int((seed >> 16) % uint32_t(n)); };
+            if (opt.monkey >= 0 && loops >= opt.monkey) {
+                if (hold > 0) {
+                    app.input.mouse_x += int((tx - app.input.mouse_x) * 0.2);
+                    app.input.mouse_y += int((ty - app.input.mouse_y) * 0.2);
+                    if (--hold == 0) app.input.down[0] = false;
+                } else if (rest > 0) {
+                    --rest;
+                } else {
+                    int VW = app.view_w, VH = app.view_h;
+                    app.input.mouse_x = rnd(VW);
+                    app.input.mouse_y = VH / 2 + 40 + rnd(VH / 2 - 40);
+                    tx = rnd(VW);
+                    ty = VH / 2 + 40 + rnd(VH / 2 - 40);
+                    app.input.clicked[0] = true;
+                    app.input.down[0] = true;
+                    hold = 5 + rnd(60);
+                    rest = rnd(30);
+                }
+            }
+            for (auto& [fg, xy] : opt.holds) {
+                if (loops == fg.first) { app.input.clicked[0] = true; app.input.down[0] = true; }
+                if (loops >= fg.first && loops <= fg.second) {
+                    app.input.mouse_x = xy.first;
+                    app.input.mouse_y = xy.second;
+                }
+                if (loops == fg.second + 1) app.input.down[0] = false;
+            }
             for (auto& [f, xy] : opt.clicks) {
                 if (f == loops) {
                     app.input.mouse_x = xy.first;
@@ -224,13 +320,15 @@ int main(int argc, char** argv) {
             }
             if (!step()) { running = false; break; }
             ++loops;
+            for (int d : opt.dumps)
+                if (d == loops) dump_state(app, loops);
             for (int s : opt.shots) {
-                if (s == loops) {
+                if (s == loops || (opt.shot_every > 0 && s == -1 && loops % opt.shot_every == 0)) {
                     app.draw();
                     std::string name = opt.screenshot.empty() ? "shot.png" : opt.screenshot;
                     auto dot = name.rfind('.');
-                    std::string path = name.substr(0, dot) + "_" + std::to_string(s) + name.substr(dot);
-                    save_png(ren, gw, gh, path);
+                    std::string path = name.substr(0, dot) + "_" + std::to_string(loops) + name.substr(dot);
+                    save_png(ren, app.view_w, app.view_h, path);
                 }
             }
             for (int b = 0; b < 3; ++b) app.input.clicked[b] = app.input.dbl[b] = false;
@@ -255,7 +353,7 @@ int main(int argc, char** argv) {
 
     if (opt.headless) {
         app.draw();
-        if (!opt.screenshot.empty() && !save_png(ren, gw, gh, opt.screenshot))
+        if (!opt.screenshot.empty() && !save_png(ren, app.view_w, app.view_h, opt.screenshot))
             std::fprintf(stderr, "falha ao salvar %s\n", opt.screenshot.c_str());
         pb::Frame* fr = app.frame();
         std::printf("loops %d  frame %d '%s'  objetos %zu  tempo %ums\n", loops, fr ? fr->index : -1,

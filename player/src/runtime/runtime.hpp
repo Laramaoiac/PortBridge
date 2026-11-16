@@ -138,6 +138,9 @@ public:
     std::unordered_map<int, std::vector<Obj*>> by_oi;
     std::vector<GroupInfo> groups;          // por índice de grupo de evento (só marcadores)
     std::multimap<int, int> group_by_id;    // id -> índice do NewGroup
+    // posição no arquivo -> índice do NewGroup. Os "group pointers" das ações
+    // apontam por posição (param + ponteiro): ids podem se repetir (behaviors).
+    std::unordered_map<uint32_t, int> group_by_offset;
     std::vector<EventState> event_state;
     std::map<int, std::vector<int>> qualifier_members;  // qualificador -> lista de oi
 
@@ -193,6 +196,10 @@ public:
     bool paused = false;
     bool resumed_flag = false;
     int frame_rate = 60;
+    // Área visível ("janela" do Clickteam) em unidades do jogo. Começa no tamanho
+    // declarado pelo jogo (ex.: 320x480) e pode crescer até o tamanho dos frames
+    // para acompanhar o formato da tela (ver choose_view).
+    int view_w = 0, view_h = 0;
     std::map<std::string, int> unimplemented;   // "Active.Foo" -> vezes (para relatório)
     void note_unimplemented(const std::string& what) {
         if (++unimplemented[what] == 1) SDL_Log("não implementado: %s", what.c_str());
@@ -210,6 +217,11 @@ private:
     std::unordered_map<int, std::vector<uint8_t>> masks_;
     std::mt19937 rng_{1234567u};
 };
+
+// Escolhe a área visível para uma tela de screen_w x screen_h pixels: mantém a
+// largura (jogo em retrato) ou a altura (paisagem) do jogo e estende o outro
+// lado até o maior frame, como o runtime do iOS faz no iPhone 5 e no iPad.
+void choose_view(const Game& g, int screen_w, int screen_h, int& view_w, int& view_h);
 
 // ---------------------------------------------------------------- eventos
 void run_events(Frame& f);

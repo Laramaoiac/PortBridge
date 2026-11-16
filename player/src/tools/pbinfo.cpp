@@ -54,7 +54,7 @@ static std::string param_str(const pb::Param& p) {
             return "pos (" + std::to_string(p.pos.x) + "," + std::to_string(p.pos.y) + ") parent=" + (p.pos.type_parent ? obj_name(p.pos.oi_parent) : std::string("frame"));
         case pb::P_SAMPLE: case pb::P_CNDSAMPLE: return "sample " + std::to_string(p.i0) + " '" + p.str + "'";
         case pb::P_GROUPTITLE: return "group '" + p.str + "' id=" + std::to_string(p.i1) + " flags=" + std::to_string(p.i0);
-        case pb::P_GROUPPOINTER: return "group id=" + std::to_string(p.i1);
+        case pb::P_GROUPPOINTER: return "group id=" + std::to_string(p.i1) + " ptr=" + std::to_string(p.i0);
         case pb::P_TIME: case pb::P_EVERY: return std::to_string(p.i0) + "ms";
         case pb::P_ZONE: return "zone(" + std::to_string(p.i0) + "," + std::to_string(p.i1) + ")-(" + std::to_string(p.i2) + "," + std::to_string(p.comparison) + ")";
         case pb::P_EXTENSION: return "ext data " + std::to_string(p.raw.size()) + "b";
@@ -65,7 +65,7 @@ static std::string param_str(const pb::Param& p) {
 static void dump_events(const pb::FrameDef& f, size_t from, size_t count) {
     for (size_t i = from; i < f.events.groups.size() && i < from + count; ++i) {
         auto& g = f.events.groups[i];
-        std::printf("#%zu flags=%04x\n", i, g.flags);
+        std::printf("#%zu flags=%04x @%u\n", i, g.flags, g.offset);
         for (auto* list : {&g.conditions, &g.actions}) {
             bool cond = list == &g.conditions;
             for (auto& it : *list) {
@@ -88,6 +88,31 @@ int main(int argc, char** argv) {
         pb::PackageInfo pkg = pb::open_package(argv[1]);
         auto g = pb::load_game(std::move(pkg.game_data));
         G = g.get();
+        if (argc > 3 && std::string(argv[2]) == "--group-pointers") {
+            // calibra a fórmula dos "group pointers": alvo = pos + ptr + k
+            int fi = std::atoi(argv[3]);
+            const auto& ev = g->frames[size_t(fi)].events;
+            std::map<uint32_t, size_t> starts;
+            for (size_t i = 0; i < ev.groups.size(); ++i) starts[ev.groups[i].offset] = i;
+            std::map<long, int> hits;
+            int total = 0;
+            for (size_t i = 0; i < ev.groups.size(); ++i)
+                for (auto& a : ev.groups[i].actions)
+                    for (auto& p : a.params)
+                        if (p.code == pb::P_GROUPPOINTER) {
+                            ++total;
+                            for (long k = -64; k <= 64; ++k) {
+                                auto it = starts.find(uint32_t(long(p.file_pos) + p.i0 + k));
+                                if (it != starts.end()) {
+                                    auto& c = ev.groups[it->second].conditions;
+                                    if (!c.empty() && c[0].type == -1 && c[0].num == -10) ++hits[k];
+                                }
+                            }
+                        }
+            std::printf("ponteiros: %d\n", total);
+            for (auto& [k, n] : hits) std::printf("k=%ld acertos=%d\n", k, n);
+            return 0;
+        }
         if (argc > 3 && std::string(argv[2]) == "--events") {
             int fi = std::atoi(argv[3]);
             size_t from = argc > 4 ? std::strtoul(argv[4], nullptr, 10) : 0;

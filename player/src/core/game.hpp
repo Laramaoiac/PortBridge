@@ -55,6 +55,7 @@ struct Param {
     int16_t oilist = -1, objtype = 0;
     std::string str;
     std::vector<uint8_t> raw;  // extensão
+    uint32_t file_pos = 0;     // posição absoluta do parâmetro no arquivo (group pointers)
 };
 
 struct EventItem {
@@ -74,6 +75,7 @@ enum GroupFlags : uint16_t {
 
 struct EventGroup {
     uint16_t flags = 0;
+    uint32_t offset = 0;   // posição em bytes dentro do bloco ERev (alvo dos "group pointers")
     std::vector<EventItem> conditions, actions;
 };
 

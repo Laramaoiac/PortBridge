@@ -295,7 +295,8 @@ bool condition(EvalContext& c, const EventItem& it, int gi) {
             }
             case -3: {
                 int a = p0 ? param_int(c, *p0) : 0;
-                return filter(c, it, [&](Obj* o) { return o->anim == a && !o->anim_stopped; });
+                // Uma animação com repetições finitas deixa de "tocar" quando termina.
+                return filter(c, it, [&](Obj* o) { return o->anim == a && !o->anim_stopped && !o->anim_done; });
             }
             case -4: return collision(c, it, gi, false);
             case -14: return collision(c, it, gi, true);
@@ -397,7 +398,9 @@ std::vector<Pos> resolve_position(EvalContext& c, const PositionParam& p) {
             }
         }
         int dir = (p.flags & 4) ? par->dir : (p.direction & 31);
-        out.push_back({bx + dx, by + dy, layer < 0 ? par->layer : layer, dir, par});
+        // relativo a um objeto: nasce na camada do objeto-pai (o valor de camada
+        // gravado no parâmetro vale só para posições relativas ao frame)
+        out.push_back({bx + dx, by + dy, par->layer, dir, par});
     }
     return out;
 }
@@ -428,13 +431,22 @@ void set_counter(Obj* o, double v) {
     o->counter = v;
 }
 
-void set_group(Frame& f, int id, bool active) {
-    auto range = f.group_by_id.equal_range(id);
-    for (auto it = range.first; it != range.second; ++it) {
-        GroupInfo& g = f.groups[size_t(it->second)];
+void set_group(Frame& f, const Param& p, bool active) {
+    auto apply = [&](int index) {
+        GroupInfo& g = f.groups[size_t(index)];
         if (active && !g.active) g.just_activated = true;
         g.active = active;
+    };
+    // O alvo real é a posição apontada (posição do parâmetro + ponteiro). O id
+    // não basta: os eventos de behaviors reaproveitam ids (0, 1, 2...) que
+    // também existem nos grupos do frame.
+    auto at = f.group_by_offset.find(uint32_t(int64_t(p.file_pos) + p.i0));
+    if (at != f.group_by_offset.end()) {
+        apply(at->second);
+        return;
     }
+    auto range = f.group_by_id.equal_range(p.i1);
+    for (auto it = range.first; it != range.second; ++it) apply(it->second);
 }
 
 std::vector<Obj*> create_objects(EvalContext& c, const Param& p) {
@@ -526,7 +538,18 @@ void object_action(EvalContext& c, const EventItem& it, Obj* o) {
         case 15: o->anim_stopped = true; return;
         case 16: o->anim_stopped = false; return;
         case 17:
-            if (p0) { o->forced_anim = param_int(c, *p0); o->anim_stopped = false; }
+            if (p0) {
+                int a = param_int(c, *p0);
+                // forçar de novo uma animação que já terminou recomeça do início
+                if (o->anim_done && (o->forced_anim == a || o->anim == a)) {
+                    o->frame = 0;
+                    o->anim_counter = 0;
+                    o->anim_loops = 0;
+                    o->anim_done = false;
+                }
+                o->forced_anim = a;
+                o->anim_stopped = false;
+            }
             return;
         case 18: if (p0) o->forced_dir = direction_param(c, *p0); return;
         case 19: if (p0) o->forced_speed = std::clamp(param_int(c, *p0), 0, 100); return;
@@ -635,7 +658,7 @@ void action(EvalContext& c, const EventItem& it) {
                         set_global(app, size_t(param_int(c, *p0)), eval_expr(c, p1->expr), mode);
                     }
                     return;
-                case 6: case 7: if (p0) set_group(f, p0->i1, it.num == 6); return;
+                case 6: case 7: if (p0) set_group(f, *p0, it.num == 6); return;
                 case 19:
                     if (p0 && p1) {
                         size_t idx = size_t(param_int(c, *p0));

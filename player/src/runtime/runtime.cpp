@@ -26,6 +26,25 @@ App::App(std::unique_ptr<Game> game, SDL_Renderer* renderer, Audio* audio, std::
     score = game_->initial_score;
     lives = game_->initial_lives;
     frame_rate = game_->frame_rate;
+    view_w = game_->width;
+    view_h = game_->height;
+}
+
+void choose_view(const Game& g, int screen_w, int screen_h, int& view_w, int& view_h) {
+    view_w = g.width;
+    view_h = g.height;
+    if (screen_w <= 0 || screen_h <= 0 || g.width <= 0 || g.height <= 0) return;
+    int max_w = g.width, max_h = g.height;
+    for (const FrameDef& f : g.frames) {
+        max_w = std::max(max_w, int(f.width));
+        max_h = std::max(max_h, int(f.height));
+    }
+    double screen = double(screen_h) / screen_w, game = double(g.height) / g.width;
+    if (screen > game) {   // tela mais alta que o jogo: mostra mais em cima/embaixo
+        view_h = std::clamp(int(std::lround(g.width * screen)), g.height, max_h);
+    } else {               // tela mais larga: mostra mais dos lados
+        view_w = std::clamp(int(std::lround(g.height / screen)), g.width, max_w);
+    }
 }
 
 App::~App() {
@@ -128,6 +147,7 @@ void Frame::build_group_tree() {
             g.parent = stack.empty() ? -1 : stack.back();
             g.end = int(gs.size()) - 1;
             group_by_id.emplace(g.id, i);
+            group_by_offset.emplace(gs[size_t(i)].offset, i);
             stack.push_back(i);
         } else if (c0.num == -11 && !stack.empty()) {
             groups[size_t(stack.back())].end = i;
@@ -136,8 +156,16 @@ void Frame::build_group_tree() {
     }
 }
 
+// Frame menor que a área visível fica centralizado (rolagem negativa).
+static double clamp_scroll(double want, int frame, int view) {
+    if (frame <= view) return (frame - view) / 2.0;
+    return std::clamp(want, 0.0, double(frame - view));
+}
+
 void Frame::start() {
     build_group_tree();
+    scroll_x = clamp_scroll(0, width, app.view_w);
+    scroll_y = clamp_scroll(0, height, app.view_h);
     for (auto& [h, o] : app.game().objects) {
         for (int16_t q : o.qualifiers)
             if (q >= 0) qualifier_members[q].push_back(h);
@@ -224,13 +252,11 @@ void Frame::destroy(Obj* o) {
 }
 
 void Frame::center_display_x(double x) {
-    int ww = app.game().width;
-    scroll_x = std::clamp(x - ww / 2.0, 0.0, std::max(0.0, double(width - ww)));
+    scroll_x = clamp_scroll(x - app.view_w / 2.0, width, app.view_w);
 }
 
 void Frame::center_display_y(double y) {
-    int wh = app.game().height;
-    scroll_y = std::clamp(y - wh / 2.0, 0.0, std::max(0.0, double(height - wh)));
+    scroll_y = clamp_scroll(y - app.view_h / 2.0, height, app.view_h);
 }
 
 void Frame::update_objects() {

@@ -212,7 +212,17 @@ Sub-chunks:
 
 Pastas de eventos (grupos) aparecem como condição `(−1, −10)` e fecham com `(−1, −11)`.
 O parâmetro do grupo traz `flags` (bit 0 = **inativo no início**, bit 1 = recolhido no
-editor) e o `id` que as ações Ativar/Desativar grupo (`(−1, 6)`/`(−1, 7)`) referenciam.
+editor) e um `id`.
+
+As ações Ativar/Desativar grupo (`(−1, 6)`/`(−1, 7)`) usam o parâmetro 39
+(*group pointer*): `i32 ponteiro · i16 id`. **O grupo-alvo é o que começa em
+`posição do parâmetro + ponteiro`** (posição absoluta do início do parâmetro no
+arquivo; conferido em 2.071 de 2.071 ponteiros do frame de jogo do Zorbié e 8 de 8 da
+introdução). **O `id` não serve para achar o grupo**: os eventos de *behaviors* (listas
+de eventos presas a um objeto, gravadas no meio dos eventos do frame) numeram os seus
+grupos de novo a partir de 0, então ids se repetem. No Zorbié, um behavior que alterna
+os "grupos 0 a 5" a cada quadro desligaria o grupo `system` (id 2) do frame se o alvo
+fosse procurado pelo id, e a partida nunca começaria.
 
 Regras confirmadas ao rodar o Zorbié no player:
 
@@ -227,6 +237,16 @@ Regras confirmadas ao rodar o Zorbié no player:
   sobre nenhuma instância, inclusive quando X não existe no frame.
 - **Tecla virtual** (parâmetro 44) também codifica botões do mouse: 1 = esquerdo,
   2 = direito, 4 = meio.
+- **"Animação X está tocando"** é falso depois que uma animação com repetições
+  finitas termina (ela fica parada no último quadro). Forçar de novo a mesma animação
+  recomeça do início.
+- **Criar objeto relativo a outro objeto**: o novo objeto nasce na **camada do
+  objeto-pai**; o campo de camada da posição só vale para posições relativas ao frame.
+- **Área visível maior que 320×480**: o runtime do iOS aumenta a "janela" no iPhone 5
+  (320×568) e no iPad (384×512) e o jogo se adapta lendo `XRightFrame`/`YBottomFrame`
+  (expressões `(−3, 3)`/`(−3, 5)` = rolagem + tamanho da área visível). O player faz o
+  mesmo pela proporção da tela, até o tamanho do maior frame. Frame menor que a área
+  visível fica centralizado, com faixas pretas.
 
 ### 0x6666 Images (específico do iOS)
 

@@ -221,7 +221,7 @@ struct Parser {
     Value special_expression(const Expr& e) {
         Frame& f = c.f;
         App& app = f.app;
-        int ww = app.game().width, wh = app.game().height;
+        int ww = app.view_w, wh = app.view_h;
         switch (e.type) {
             case OBJ_GAME:
                 switch (e.num) {

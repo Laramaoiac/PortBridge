@@ -49,7 +49,11 @@ Estado com o Zorbié:
   "não implementados" nos testes);
 - APK Android 64 bits (`arm64-v8a`, mais `armeabi-v7a` e `x86_64`), targetSdk 35,
   bibliotecas alinhadas a 16 KB;
-- testado num aparelho real (Galaxy S23 Ultra, Android 17): abre e chega à partida;
+- testado num aparelho real (Galaxy S23 Ultra, Android 17): abria mas parava em
+  "STAGE / Now Zorbing…". Causa e correções (ponteiros de grupo, animações finitas,
+  camada de objetos relativos, área visível pela proporção da tela) em
+  [ZORBIE_RECEITA.md](ZORBIE_RECEITA.md); no servidor, 10 minutos de jogo automático
+  sem erros nos layouts 320×480 e 320×600;
 - ainda não validado: jogabilidade completa e textos (objetos Text ainda não são
   desenhados).
 

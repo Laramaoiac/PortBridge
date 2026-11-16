@@ -51,8 +51,12 @@ void draw_counter(App& app, SDL_Renderer* r, const Obj& o, double ox, double oy)
 }  // namespace
 
 void Frame::draw(SDL_Renderer* r) {
-    SDL_SetRenderDrawColor(r, Uint8(background >> 16), Uint8(background >> 8), Uint8(background), 255);
+    // fora do frame (e nas faixas do letterbox): preto; dentro: cor de fundo do frame
+    SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
     SDL_RenderClear(r);
+    SDL_SetRenderDrawColor(r, Uint8(background >> 16), Uint8(background >> 8), Uint8(background), 255);
+    SDL_FRect area{float(-scroll_x), float(-scroll_y), float(width), float(height)};
+    SDL_RenderFillRectF(r, &area);
     std::vector<Obj*> list;
     for (int layer = 0; layer < int(def.layers.size()); ++layer) {
         const Layer& L = def.layers[size_t(layer)];
