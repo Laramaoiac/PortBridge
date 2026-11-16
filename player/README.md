@@ -28,6 +28,9 @@ src/runtime/    interpretador (SDL2)
   audio         mixer com canais, volume, loop, pausa e frequência (WAV/MP3)
   render        camadas com paralaxe, escala, rotação, transparência, contadores;
                 área visível adaptada à proporção da tela (choose_view)
+  screen        composição na tela do aparelho: jogo centralizado sem deformar e
+                faixas com continuação desfocada da borda; toques convertidos para o
+                jogo (inclusive nas faixas)
 src/platform/   JNI do app Android
 src/tools/      pbinfo (inspeção e listagem de eventos)
 third_party/    SDL2 (submódulo), miniz, dr_wav/dr_mp3 — todos de licença permissiva
@@ -96,7 +99,8 @@ cmake --build build --config Release
     --click 160,440@800 --screenshot out.png --shot-at 300 --shot-at 1290
 # mostra o resultado de cada condição dos grupos 594 e 596
 PB_TRACE=594,596 ./build/portbridge-player Jogo.ipa --headless --frames 1300
-# simula a tela de um celular (a área visível segue a proporção, como no Android)
+# simula a tela de um celular (a área visível segue a proporção, como no Android;
+# as capturas saem no formato da tela, com as faixas)
 ./build/portbridge-player Jogo.ipa --headless --screen 1440x3088 --frames 1000 \
     --click 160,500@200 --click 160,500@600 --screenshot out.png --shot-at 700
 # globais e objetos (posição, animação, valores alteráveis) num loop

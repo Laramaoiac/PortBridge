@@ -19,6 +19,7 @@
 #include "runtime/audio.hpp"
 #include "runtime/diag.hpp"
 #include "runtime/runtime.hpp"
+#include "runtime/screen.hpp"
 
 namespace {
 
@@ -168,8 +169,16 @@ int main(int argc, char** argv) {
 #endif
     if (opt.headless) wflags = SDL_WINDOW_HIDDEN;
     int scale = opt.headless ? 1 : opt.scale;
+    int win_w = vw * scale, win_h = vh * scale;
+    if (opt.headless && opt.screen_w > 0 && opt.screen_h > 0) {
+        // testes: a janela invisível tem o formato da tela simulada (reduzida),
+        // para as capturas mostrarem a composição completa (faixas incluídas)
+        int f = std::max(1, (opt.screen_h + 1199) / 1200);
+        win_w = opt.screen_w / f;
+        win_h = opt.screen_h / f;
+    }
     SDL_Window* win = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       vw * scale, vh * scale, wflags);
+                                       win_w, win_h, wflags);
     if (!win) {
         pb::diag_fatal(std::string("Falha ao criar a janela: ") + SDL_GetError());
         return 1;
@@ -188,14 +197,16 @@ int main(int argc, char** argv) {
         pb::choose_view(*game, ow, oh, vw, vh);
     }
 #endif
-    SDL_RenderSetLogicalSize(ren, vw, vh);
+    pb::Screen screen(ren);
+    screen.configure(vw, vh);
     {
         SDL_RendererInfo ri{};
         SDL_GetRendererInfo(ren, &ri);
         int ow = 0, oh = 0;
         SDL_GetRendererOutputSize(ren, &ow, &oh);
-        SDL_Log("vídeo: %s, renderizador %s, saída %dx%d, jogo %dx%d, área visível %dx%d",
-                SDL_GetCurrentVideoDriver(), ri.name ? ri.name : "?", ow, oh, gw, gh, vw, vh);
+        SDL_Log("vídeo: %s, renderizador %s, saída %dx%d, jogo %dx%d, área visível %dx%d em %dx%d+%d+%d",
+                SDL_GetCurrentVideoDriver(), ri.name ? ri.name : "?", ow, oh, gw, gh, vw, vh,
+                screen.game_rect.w, screen.game_rect.h, screen.game_rect.x, screen.game_rect.y);
     }
 
     std::string save = opt.save_dir;
@@ -216,6 +227,13 @@ int main(int argc, char** argv) {
     app.view_w = vw;
     app.view_h = vh;
 
+    auto render = [&]() {
+        screen.begin();
+        app.draw();
+        screen.end();
+    };
+    auto output_size = [&](int& w, int& h) { SDL_GetRendererOutputSize(ren, &w, &h); };
+
     auto step = [&]() -> bool {
         try {
             app.step();
@@ -235,12 +253,14 @@ int main(int argc, char** argv) {
         while (SDL_PollEvent(&ev)) {
             switch (ev.type) {
                 case SDL_QUIT: running = false; break;
-                case SDL_MOUSEMOTION: app.input.mouse_x = ev.motion.x; app.input.mouse_y = ev.motion.y; break;
+                // toques/mouse em pixels da janela -> unidades do jogo (também nas faixas)
+                case SDL_MOUSEMOTION:
+                    screen.to_game(ev.motion.x, ev.motion.y, win, app.input.mouse_x, app.input.mouse_y);
+                    break;
                 case SDL_MOUSEBUTTONDOWN:
                 case SDL_MOUSEBUTTONUP: {
                     int b = ev.button.button == SDL_BUTTON_RIGHT ? 2 : ev.button.button == SDL_BUTTON_MIDDLE ? 1 : 0;
-                    app.input.mouse_x = ev.button.x;
-                    app.input.mouse_y = ev.button.y;
+                    screen.to_game(ev.button.x, ev.button.y, win, app.input.mouse_x, app.input.mouse_y);
                     bool down = ev.type == SDL_MOUSEBUTTONDOWN;
                     if (down) {
                         app.input.clicked[b] = true;
@@ -254,22 +274,24 @@ int main(int argc, char** argv) {
                     break;
                 case SDL_APP_WILLENTERBACKGROUND: audio.pause_all(true); break;
                 case SDL_APP_DIDENTERFOREGROUND: audio.pause_all(false); app.resumed_flag = true; break;
-#ifdef __ANDROID__
                 case SDL_WINDOWEVENT:
                     if (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                        // ex.: o aparelho estava deitado e girou para retrato
                         int ow = 0, oh = 0;
-                        SDL_GetRendererOutputSize(ren, &ow, &oh);
+                        output_size(ow, oh);
+#ifdef __ANDROID__
+                        // ex.: o aparelho estava deitado e girou para retrato
                         pb::choose_view(app.game(), ow, oh, app.view_w, app.view_h);
-                        SDL_RenderSetLogicalSize(ren, app.view_w, app.view_h);
+#endif
+                        screen.configure(app.view_w, app.view_h);
                         SDL_Log("tela %dx%d: área visível %dx%d", ow, oh, app.view_w, app.view_h);
                     }
                     break;
-#endif
                 case SDL_RENDER_DEVICE_RESET:
                 case SDL_RENDER_TARGETS_RESET:
                     SDL_Log("contexto gráfico recriado: recarregando texturas");
                     app.reset_textures();
+                    if (ev.type == SDL_RENDER_DEVICE_RESET) screen.release();
+                    screen.configure(app.view_w, app.view_h);
                     break;
                 default: break;
             }
@@ -324,11 +346,13 @@ int main(int argc, char** argv) {
                 if (d == loops) dump_state(app, loops);
             for (int s : opt.shots) {
                 if (s == loops || (opt.shot_every > 0 && s == -1 && loops % opt.shot_every == 0)) {
-                    app.draw();
+                    render();
                     std::string name = opt.screenshot.empty() ? "shot.png" : opt.screenshot;
                     auto dot = name.rfind('.');
                     std::string path = name.substr(0, dot) + "_" + std::to_string(loops) + name.substr(dot);
-                    save_png(ren, app.view_w, app.view_h, path);
+                    int ow = 0, oh = 0;
+                    output_size(ow, oh);
+                    save_png(ren, ow, oh, path);
                 }
             }
             for (int b = 0; b < 3; ++b) app.input.clicked[b] = app.input.dbl[b] = false;
@@ -346,14 +370,16 @@ int main(int argc, char** argv) {
             acc -= tick_ms;
             ++steps;
         }
-        app.draw();
+        render();
         SDL_RenderPresent(ren);
         if (opt.frames && ++loops >= opt.frames) break;
     }
 
     if (opt.headless) {
-        app.draw();
-        if (!opt.screenshot.empty() && !save_png(ren, app.view_w, app.view_h, opt.screenshot))
+        render();
+        int ow = 0, oh = 0;
+        output_size(ow, oh);
+        if (!opt.screenshot.empty() && !save_png(ren, ow, oh, opt.screenshot))
             std::fprintf(stderr, "falha ao salvar %s\n", opt.screenshot.c_str());
         pb::Frame* fr = app.frame();
         std::printf("loops %d  frame %d '%s'  objetos %zu  tempo %ums\n", loops, fr ? fr->index : -1,
@@ -362,6 +388,7 @@ int main(int argc, char** argv) {
         for (auto& [k, v] : app.unimplemented) std::printf("  %-40s %d\n", k.c_str(), v);
     }
     pb::diag_close();
+    screen.release();
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
     SDL_Quit();

@@ -33,6 +33,11 @@ No Android, o player escolhe a área visível pela proporção da tela, até o t
 maior frame (320×600 num celular 19,5:9). O jogo então ativa sozinho o layout de
 tela comprida. Antes ele recebia sempre 320×480 e sobravam faixas grandes.
 
+Num celular mais comprido que 320×600 (ex.: 1080×2316), o que sobra em cima e embaixo
+não fica preto: o player preenche com uma continuação desfocada e escurecida do céu e
+do painel TOUCHPAD, e o toque também vale na faixa de baixo (a zona de controle do
+jogo vai até y = 812).
+
 ## Estado do jogo
 
 Valor global `g1`: `0` = título, `1` = em jogo, `2` = fim de partida (quando a vida do

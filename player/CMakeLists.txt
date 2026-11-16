@@ -45,6 +45,7 @@ if(PB_BUILD_PLAYER)
     set(PB_RUNTIME_SOURCES
         src/runtime/audio.cpp src/runtime/runtime.cpp src/runtime/events.cpp
         src/runtime/expressions.cpp src/runtime/movements.cpp src/runtime/render.cpp
+        src/runtime/screen.cpp
         src/runtime/extensions.cpp src/runtime/diag.cpp src/main.cpp)
 
     if(ANDROID)
