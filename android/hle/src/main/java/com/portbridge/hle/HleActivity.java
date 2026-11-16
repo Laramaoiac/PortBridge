@@ -1,9 +1,6 @@
 package com.portbridge.hle;
 
-import android.app.AlertDialog;
-import android.content.Intent;
 import android.content.pm.PackageInfo;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -32,28 +29,37 @@ import java.util.List;
  */
 public class HleActivity extends SDLActivity {
     private static final String TAG = "PortBridge";
-    private static final String[] ERROR_MARKERS = {
-        "Panic at", "Panic:", "touchHLE errored", "PortBridge: ERRO",
-    };
+    private boolean exitReportShown;
 
     @Override
     protected void onCreate(Bundle state) {
-        String previous = read(logFile());
+        File log = Report.logFile(this);
+        String previous = Report.readTail(log);
         super.onCreate(state);
-        if (previous != null && hasError(previous)) {
-            showReport(previous);
+        Report.installShortcut(this);
+        if (Report.hasFatalError(previous) && !Report.alreadyShown(this, log)) {
+            Report.markShown(this, log);
+            Report.show(this, "O jogo fechou com erro na última vez", previous, null);
         }
     }
 
-    private File logFile() {
-        // SDL_AndroidGetExternalStoragePath() == getExternalFilesDir(null)
-        File base = getExternalFilesDir(null);
-        return new File(base != null ? base : getFilesDir(), "touchHLE_log.txt");
-    }
-
-    private static boolean hasError(String log) {
-        for (String m : ERROR_MARKERS) if (log.contains(m)) return true;
-        return false;
+    /**
+     * O SDL chama finish() quando o touchHLE termina. Se terminou com erro,
+     * mostra o relatório na hora, antes de fechar.
+     */
+    @Override
+    public void finish() {
+        if (!exitReportShown) {
+            File log = Report.logFile(this);
+            String text = Report.readTail(log);
+            if (Report.hasFatalError(text)) {
+                exitReportShown = true;
+                Report.markShown(this, log);
+                Report.show(this, "O jogo fechou com erro", text, super::finish);
+                return;
+            }
+        }
+        super.finish();
     }
 
     @Override
@@ -76,6 +82,9 @@ public class HleActivity extends SDLActivity {
         // O que o touchHLE ainda não implementa (loja, redes sociais...) vira
         // "nada" com aviso no log, em vez de fechar o jogo.
         args.add("--lenient");
+        // O relatório do PortBridge substitui a janela de erro do touchHLE
+        // (cujo botão "Open touchHLE directory" não funciona no APK gerado).
+        args.add("--no-error-popup");
         // Opções extras por jogo (o conversor pode gravar em assets/portbridge.json)
         try (InputStream in = getAssets().open("portbridge.json")) {
             JSONObject cfg = new JSONObject(new String(readAll(in), StandardCharsets.UTF_8));
@@ -111,48 +120,16 @@ public class HleActivity extends SDLActivity {
     }
 
     private void appendLog(String line) {
-        try (OutputStream out = new FileOutputStream(logFile(), true)) {
+        try (OutputStream out = new FileOutputStream(Report.logFile(this), true)) {
             out.write((line + "\n").getBytes(StandardCharsets.UTF_8));
         } catch (Exception ignored) {
         }
-    }
-
-    private void showReport(String text) {
-        String device = Build.MANUFACTURER + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE
-                + " (API " + Build.VERSION.SDK_INT + ")";
-        String full = "Aparelho: " + device + "\n\n" + text;
-        String tail = full.length() > 6000 ? full.substring(full.length() - 6000) : full;
-        runOnUiThread(() -> new AlertDialog.Builder(this)
-                .setTitle("O jogo fechou com erro na última vez")
-                .setMessage(tail)
-                .setNegativeButton("Fechar", null)
-                .setPositiveButton("Compartilhar relatório", (d, w) -> {
-                    Intent i = new Intent(Intent.ACTION_SEND);
-                    i.setType("text/plain");
-                    i.putExtra(Intent.EXTRA_SUBJECT, "Relatório do PortBridge (touchHLE)");
-                    i.putExtra(Intent.EXTRA_TEXT, full);
-                    startActivity(Intent.createChooser(i, "Compartilhar relatório"));
-                }).show());
     }
 
     private static String readSmall(File f) {
         if (!f.exists()) return null;
         try (InputStream in = new FileInputStream(f)) {
             return new String(readAll(in), StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static String read(File f) {
-        if (!f.exists()) return null;
-        try (InputStream in = new FileInputStream(f)) {
-            long len = f.length(), max = 64 * 1024;
-            if (len > max) in.skip(len - max);   // o fim do log é o que importa
-            byte[] b = new byte[(int) Math.min(len, max)];
-            int off = 0, n;
-            while (off < b.length && (n = in.read(b, off, b.length - off)) > 0) off += n;
-            return off > 0 ? new String(b, 0, off, StandardCharsets.UTF_8) : null;
         } catch (Exception e) {
             return null;
         }

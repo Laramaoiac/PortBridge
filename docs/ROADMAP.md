@@ -49,8 +49,9 @@ Estado com o Zorbié:
   "não implementados" nos testes);
 - APK Android 64 bits (`arm64-v8a`, mais `armeabi-v7a` e `x86_64`), targetSdk 35,
   bibliotecas alinhadas a 16 KB;
-- ainda não validado: jogabilidade completa (testes automáticos só simulam toques curtos),
-  textos (objetos Text ainda não são desenhados) e testes num aparelho real.
+- testado num aparelho real (Galaxy S23 Ultra, Android 17): abre e chega à partida;
+- ainda não validado: jogabilidade completa e textos (objetos Text ainda não são
+  desenhados).
 
 As opções analisadas antes da escolha ficam registradas abaixo.
 
@@ -124,9 +125,13 @@ ARC (`objc_retain`, `objc_storeStrong`, referências fracas…), runtime de *blo
 literais do iOS 6 (`array[i]`, `dict[k]`, `@{}`), `NSOrderedSet`, `currentMode`,
 `presentViewController:animated:completion:` e o modo tolerante (`--lenient`).
 
-Ainda não validado: o Ninja Striker não foi executado aqui (o ambiente de
-desenvolvimento não permite rodar o código do app); a validação é no aparelho, com o
-relatório de erro que o APK mostra.
+Teste no aparelho (Galaxy S23 Ultra, Android 17): o jogo abre em paisagem e mostra
+a tela da Q-Cumber Factory, depois parava em `ExtAudioFileGetProperty('#frm')`
+(tamanho do som em quadros; os 65 sons do jogo são MP3, decodificados para PCM pelo
+touchHLE). Corrigido: `kExtAudioFileProperty_FileLengthFrames`, `ClientDataFormat`
+e `AudioFile` em `ExtAudioFileGetProperty`, `ExtAudioFileSeek/Tell`, e propriedades
+desconhecidas devolvem erro em vez de fechar o app. O ambiente de desenvolvimento
+não permite executar o código do app, então cada etapa é validada no aparelho.
 
 ## Próximas tarefas da ferramenta
 

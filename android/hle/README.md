@@ -14,18 +14,24 @@ e assina.
 
 1. `HleActivity` (extends `SDLActivity`) copia `assets/game.ipa` para
    `files/game.ipa` na primeira execução e a cada atualização do APK.
-2. Chama o touchHLE com `files/game.ipa --fullscreen --lenient` (mais `hle_args` de
-   `assets/portbridge.json`, se houver).
+2. Chama o touchHLE com `files/game.ipa --fullscreen --lenient --no-error-popup`
+   (mais `hle_args` de `assets/portbridge.json`, se houver).
 3. O log fica em `Android/data/<pacote>/files/touchHLE_log.txt` e os dados do jogo
    (saves) em `Android/data/<pacote>/files/touchHLE_sandbox/`.
-4. Se a execução anterior terminou com erro (`Panic`, `touchHLE errored`), o app
-   mostra o fim do log ao abrir e oferece **Compartilhar relatório**. É isso que
-   precisa ser enviado quando um jogo não roda.
+4. Se o jogo fecha com erro (`Panic`, `touchHLE errored`), o app mostra na hora o
+   fim do log com **Compartilhar relatório** (e, se não deu para ver, de novo na
+   próxima abertura). Se o jogo travar sem fechar, tocar e segurar o ícone →
+   **Relatório** mostra o log da última execução. É isso que precisa ser enviado
+   quando um jogo não roda.
 
 `--lenient` é uma opção do patch do PortBridge: em vez de fechar o app quando ele
 chama uma função, classe ou método que o touchHLE ainda não tem, registra um aviso
 (uma vez) e devolve 0/nil. Recursos como loja In-App, Twitter e Game Center ficam
-simplesmente sem efeito.
+simplesmente sem efeito. Também cobre erros internos de funções já implementadas
+(um `unimplemented!()` para um parâmetro raro, por exemplo): o estado da CPU é
+restaurado ao de antes da chamada, ela devolve 0 e o log registra
+`PortBridge (lenient): recovered from an error`. Erros da CPU emulada (acesso
+inválido à memória etc.) continuam fechando o jogo.
 
 ## Patch do PortBridge
 

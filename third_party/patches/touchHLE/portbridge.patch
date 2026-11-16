@@ -46,6 +46,281 @@ index 71b8d00..c79b9ee 100644
          panic!("Call to unimplemented function {symbol}");
      }
  
+diff --git a/src/environment.rs b/src/environment.rs
+index 131c45d..aabf270 100644
+--- a/src/environment.rs
++++ b/src/environment.rs
+@@ -1608,7 +1608,21 @@ impl Environment {
+                             svc_pc,
+                             svc,
+                         ) {
+-                            f.call_from_guest(self);
++                            if crate::objc::is_lenient() {
++                                // PortBridge: a panic inside the host function
++                                // becomes "returned 0" with the CPU state as it
++                                // was before the call.
++                                let saved_regs = *self.cpu.regs();
++                                let saved_cpsr = self.cpu.cpsr();
++                                if crate::objc::run_guarded(|| f.call_from_guest(self)).is_err() {
++                                    self.cpu.regs_mut().copy_from_slice(&saved_regs);
++                                    self.cpu.set_cpsr(saved_cpsr);
++                                    self.cpu.regs_mut()[0] = 0;
++                                    self.cpu.regs_mut()[1] = 0;
++                                }
++                            } else {
++                                f.call_from_guest(self);
++                            }
+                             if let Some(len) = self.options.zero_stack_after_guest_to_host_call {
+                                 log_once!("Applying zeroing of stack after guest to host call.");
+                                 let start = self.cpu.regs()[cpu::Cpu::SP] - len;
+diff --git a/src/frameworks/audio_toolbox/extended_audio_file.rs b/src/frameworks/audio_toolbox/extended_audio_file.rs
+index f973abf..88e1d90 100644
+--- a/src/frameworks/audio_toolbox/extended_audio_file.rs
++++ b/src/frameworks/audio_toolbox/extended_audio_file.rs
+@@ -55,6 +55,52 @@ type ExtAudioFileRef = MutPtr<OpaqueExtAudioFile>;
+ type ExtAudioFilePropertyID = u32;
+ const kExtAudioFileProperty_FileDataFormat: ExtAudioFilePropertyID = fourcc(b"ffmt");
+ const kExtAudioFileProperty_ClientDataFormat: ExtAudioFilePropertyID = fourcc(b"cfmt");
++// PortBridge: more properties (values from the public ExtendedAudioFile.h docs).
++const kExtAudioFileProperty_FileLengthFrames: ExtAudioFilePropertyID = fourcc(b"#frm");
++const kExtAudioFileProperty_AudioFile: ExtAudioFilePropertyID = fourcc(b"afil");
++const kExtAudioFileError_InvalidProperty: OSStatus = -66561;
++
++/// PortBridge: the file's data format, as touchHLE exposes it (always linear
++/// PCM: compressed formats are decoded when the file is opened).
++fn file_data_format(env: &Environment, ext: ExtAudioFileRef) -> AudioStreamBasicDescription {
++    let host_object = env
++        .framework_state
++        .audio_toolbox
++        .extended_audio_file
++        .extended_audio_files
++        .get(&ext)
++        .unwrap();
++    let audio_file = &env
++        .framework_state
++        .audio_toolbox
++        .audio_file
++        .audio_files
++        .get(&host_object.guest_audio_file)
++        .unwrap()
++        .audio_file;
++    AudioStreamBasicDescription::from_audio_description(audio_file.audio_description())
++}
++
++/// PortBridge: length of the file in sample frames.
++fn file_length_frames(env: &Environment, ext: ExtAudioFileRef) -> i64 {
++    let host_object = env
++        .framework_state
++        .audio_toolbox
++        .extended_audio_file
++        .extended_audio_files
++        .get(&ext)
++        .unwrap();
++    let audio_file = &env
++        .framework_state
++        .audio_toolbox
++        .audio_file
++        .audio_files
++        .get(&host_object.guest_audio_file)
++        .unwrap()
++        .audio_file;
++    let desc = audio_file.audio_description();
++    (audio_file.packet_count() * u64::from(desc.frames_per_packet.max(1))) as i64
++}
+ 
+ fn ExtAudioFileOpenURL(
+     env: &mut Environment,
+@@ -111,12 +157,67 @@ fn ExtAudioFileGetProperty(
+ ) -> OSStatus {
+     return_if_null!(in_ext_audio_file);
+ 
++    // PortBridge: properties answered directly.
++    match in_property_id {
++        kExtAudioFileProperty_FileLengthFrames => {
++            if env.mem.read(io_property_data_size) < guest_size_of::<i64>() {
++                return kAudioFileBadPropertySizeError;
++            }
++            let frames = file_length_frames(env, in_ext_audio_file);
++            env.mem.write(out_property_data.cast(), frames);
++            env.mem.write(io_property_data_size, guest_size_of::<i64>());
++            return 0;
++        }
++        kExtAudioFileProperty_ClientDataFormat => {
++            if env.mem.read(io_property_data_size) < guest_size_of::<AudioStreamBasicDescription>() {
++                return kAudioFileBadPropertySizeError;
++            }
++            let client = env
++                .framework_state
++                .audio_toolbox
++                .extended_audio_file
++                .extended_audio_files
++                .get(&in_ext_audio_file)
++                .unwrap()
++                .client_data_format;
++            let desc = match client {
++                Some(desc) => desc,
++                None => file_data_format(env, in_ext_audio_file),
++            };
++            env.mem.write(out_property_data.cast(), desc);
++            env.mem.write(
++                io_property_data_size,
++                guest_size_of::<AudioStreamBasicDescription>(),
++            );
++            return 0;
++        }
++        kExtAudioFileProperty_AudioFile => {
++            if env.mem.read(io_property_data_size) < guest_size_of::<AudioFileID>() {
++                return kAudioFileBadPropertySizeError;
++            }
++            let audio_file = env
++                .framework_state
++                .audio_toolbox
++                .extended_audio_file
++                .extended_audio_files
++                .get(&in_ext_audio_file)
++                .unwrap()
++                .guest_audio_file;
++            env.mem.write(out_property_data.cast(), audio_file);
++            return 0;
++        }
++        _ => (),
++    }
++
+     let audio_file_property_id = match in_property_id {
+         kExtAudioFileProperty_FileDataFormat => kAudioFilePropertyDataFormat,
+-        _ => unimplemented!(
+-            "Unimplemented property ID: {}",
+-            debug_fourcc(in_property_id)
+-        ),
++        _ => {
++            log!(
++                "Warning: ExtAudioFileGetProperty: unimplemented property {}",
++                debug_fourcc(in_property_id)
++            );
++            return kExtAudioFileError_InvalidProperty;
++        }
+     };
+ 
+     let required_size = property_size(audio_file_property_id);
+@@ -151,7 +252,13 @@ fn ExtAudioFileSetProperty(
+ ) -> OSStatus {
+     return_if_null!(in_ext_audio_file);
+ 
+-    assert_eq!(in_property_id, kExtAudioFileProperty_ClientDataFormat);
++    if in_property_id != kExtAudioFileProperty_ClientDataFormat {
++        log!(
++            "Warning: ExtAudioFileSetProperty: ignoring unimplemented property {}",
++            debug_fourcc(in_property_id)
++        );
++        return kExtAudioFileError_InvalidProperty;
++    }
+     assert_eq!(
+         in_property_data_size,
+         guest_size_of::<AudioStreamBasicDescription>()
+@@ -171,7 +278,7 @@ fn ExtAudioFileSetProperty(
+         .extended_audio_files
+         .get_mut(&in_ext_audio_file)
+         .unwrap();
+-    assert!(host_object.client_data_format.is_none());
++    // PortBridge: setting it again (same or new format) just replaces it.
+     host_object.client_data_format = Some(client_audio_desc);
+ 
+     let host_object = env
+@@ -192,7 +299,18 @@ fn ExtAudioFileSetProperty(
+         other_host_object.audio_file.audio_description(),
+     );
+     // TODO: support audio format conversions
+-    assert_eq!(audio_desc, client_audio_desc);
++    if audio_desc != client_audio_desc {
++        if crate::objc::is_lenient() {
++            log!(
++                "Warning: ExtAudioFileSetProperty: format conversion is not implemented \
++                 (file {:?}, client {:?}); audio will be read unconverted",
++                audio_desc,
++                client_audio_desc
++            );
++        } else {
++            assert_eq!(audio_desc, client_audio_desc);
++        }
++    }
+ 
+     0 // success
+ }
+@@ -208,6 +326,7 @@ fn ExtAudioFileRead(
+     let mut audio_buffer_list = env.mem.read(io_data);
+     let num_buffers = audio_buffer_list.number_buffers;
+     assert_eq!(num_buffers, 1);
++    let file_format = file_data_format(env, in_ext_audio_file);
+ 
+     let host_object = env
+         .framework_state
+@@ -218,10 +337,10 @@ fn ExtAudioFileRead(
+         .unwrap();
+ 
+     audio_buffer_list.buffers[0].number_channels =
+-        host_object.client_data_format.unwrap().channels_per_frame;
++        host_object.client_data_format.unwrap_or(file_format).channels_per_frame;
+ 
+     let number_frames = env.mem.read(io_number_frames);
+-    let bytes_per_frame = host_object.client_data_format.unwrap().bytes_per_frame;
++    let bytes_per_frame = host_object.client_data_format.unwrap_or(file_format).bytes_per_frame;
+     let number_of_bytes = number_frames.checked_mul(bytes_per_frame).unwrap();
+     let number_of_bytes_ptr = env.mem.alloc_and_write(number_of_bytes);
+     let res = AudioFileReadBytes(
+@@ -268,6 +387,45 @@ fn ExtAudioFileRead(
+     0 // success
+ }
+ 
++/// PortBridge: position in sample frames of the client format.
++fn ExtAudioFileSeek(env: &mut Environment, in_ext_audio_file: ExtAudioFileRef, in_frame_offset: i64) -> OSStatus {
++    return_if_null!(in_ext_audio_file);
++    let file_format = file_data_format(env, in_ext_audio_file);
++    let host_object = env
++        .framework_state
++        .audio_toolbox
++        .extended_audio_file
++        .extended_audio_files
++        .get_mut(&in_ext_audio_file)
++        .unwrap();
++    let bytes_per_frame = host_object
++        .client_data_format
++        .unwrap_or(file_format)
++        .bytes_per_frame;
++    host_object.current_bytes_read = in_frame_offset.max(0) * i64::from(bytes_per_frame);
++    0 // success
++}
++
++fn ExtAudioFileTell(env: &mut Environment, in_ext_audio_file: ExtAudioFileRef, out_frame_offset: MutPtr<i64>) -> OSStatus {
++    return_if_null!(in_ext_audio_file);
++    let file_format = file_data_format(env, in_ext_audio_file);
++    let host_object = env
++        .framework_state
++        .audio_toolbox
++        .extended_audio_file
++        .extended_audio_files
++        .get(&in_ext_audio_file)
++        .unwrap();
++    let bytes_per_frame = host_object
++        .client_data_format
++        .unwrap_or(file_format)
++        .bytes_per_frame
++        .max(1);
++    let frames = host_object.current_bytes_read / i64::from(bytes_per_frame);
++    env.mem.write(out_frame_offset, frames);
++    0 // success
++}
++
+ fn ExtAudioFileDispose(env: &mut Environment, in_ext_audio_file: ExtAudioFileRef) -> OSStatus {
+     return_if_null!(in_ext_audio_file);
+ 
+@@ -299,5 +457,7 @@ pub const FUNCTIONS: FunctionExports = &[
+     export_c_func!(ExtAudioFileGetProperty(_, _, _, _)),
+     export_c_func!(ExtAudioFileSetProperty(_, _, _, _)),
+     export_c_func!(ExtAudioFileRead(_, _, _)),
++    export_c_func!(ExtAudioFileSeek(_, _)),
++    export_c_func!(ExtAudioFileTell(_, _)),
+     export_c_func!(ExtAudioFileDispose(_)),
+ ];
 diff --git a/src/frameworks/foundation.rs b/src/frameworks/foundation.rs
 index 441c507..d112ca7 100644
 --- a/src/frameworks/foundation.rs
@@ -439,7 +714,7 @@ index d0a73bc..e7c803a 100644
      log!("TODO: [(UIViewController*){:?} dismissModalViewControllerAnimated:{}]", this, animated); // TODO
  }
 diff --git a/src/lib.rs b/src/lib.rs
-index fcfec3f..ba9d530 100644
+index fcfec3f..061fe41 100644
 --- a/src/lib.rs
 +++ b/src/lib.rs
 @@ -87,8 +87,18 @@ pub extern "C" fn SDL_main(
@@ -463,20 +738,23 @@ index fcfec3f..ba9d530 100644
          Ok(_) => echo!("touchHLE finished"),
          Err(e) => echo!("touchHLE errored: {e:?}"),
      }
-@@ -339,7 +349,10 @@ pub fn main<T: Iterator<Item = String>>(mut args: T) -> Result<(), String> {
+@@ -339,7 +349,13 @@ pub fn main<T: Iterator<Item = String>>(mut args: T) -> Result<(), String> {
      }
  
      let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
 -        Environment::new(bundle, fs, options.clone(), app_args.unwrap_or_default())
 +        {
 +            objc::set_lenient(options.lenient);
++            if options.lenient {
++                objc::install_panic_hook_filter();
++            }
 +            Environment::new(bundle, fs, options.clone(), app_args.unwrap_or_default())
 +        }
      }));
      let env = match res {
          Ok(ret) => match ret {
 diff --git a/src/objc.rs b/src/objc.rs
-index 065cd62..fef2a41 100644
+index 065cd62..e7826ad 100644
 --- a/src/objc.rs
 +++ b/src/objc.rs
 @@ -27,6 +27,7 @@ mod classes;
@@ -487,12 +765,13 @@ index 065cd62..fef2a41 100644
  mod properties;
  mod selectors;
  mod synchronization;
-@@ -42,9 +43,10 @@ pub use objects::{
+@@ -42,9 +43,11 @@ pub use objects::{
  };
  pub use properties::todo_objc_setter;
  pub use selectors::{selector, SEL};
 +pub use portbridge_compat::{
-+    call_block_void, is_lenient, set_lenient, warn_once, UNIMPLEMENTED_FUNCTION,
++    call_block_void, install_panic_hook_filter, is_lenient, run_guarded, set_lenient, warn_once,
++    UNIMPLEMENTED_FUNCTION,
 +};
  
 -use crate::mem::ConstVoidPtr;
@@ -500,7 +779,7 @@ index 065cd62..fef2a41 100644
  use classes::{
      class_getInstanceSize, class_getMethodImplementation, class_getProperty, class_getSuperclass,
      class_replaceMethod, objc_getClass, ClassHostObject, FakeClass, UnimplementedClass,
-@@ -106,9 +108,9 @@ impl ObjC {
+@@ -106,9 +109,9 @@ impl ObjC {
  pub const DYLIB: HostDylib = HostDylib {
      path: "/usr/lib/libobjc.A.dylib",
      aliases: &["/usr/lib/libobjc.dylib"],
@@ -513,7 +792,7 @@ index 065cd62..fef2a41 100644
  };
  
  const CONSTANTS: ConstantExports = &[
-@@ -119,21 +121,6 @@ const CONSTANTS: ConstantExports = &[
+@@ -119,21 +122,6 @@ const CONSTANTS: ConstantExports = &[
      ("__objc_empty_cache", HostConstant::NullPtr),
  ];
  
@@ -535,7 +814,7 @@ index 065cd62..fef2a41 100644
  const FUNCTIONS: FunctionExports = &[
      export_c_func!(class_getInstanceSize(_)),
      export_c_func!(class_getSuperclass(_)),
-@@ -151,5 +138,4 @@ const FUNCTIONS: FunctionExports = &[
+@@ -151,5 +139,4 @@ const FUNCTIONS: FunctionExports = &[
      export_c_func!(objc_sync_exit(_)),
      export_c_func!(object_getClass(_)),
      export_c_func!(sel_registerName(_)),
@@ -595,10 +874,10 @@ index 03a6f99..b499606 100644
                  name,
 diff --git a/src/objc/portbridge_compat.rs b/src/objc/portbridge_compat.rs
 new file mode 100644
-index 0000000..176a96a
+index 0000000..85bc17c
 --- /dev/null
 +++ b/src/objc/portbridge_compat.rs
-@@ -0,0 +1,705 @@
+@@ -0,0 +1,744 @@
 +/*
 + * This Source Code Form is subject to the terms of the Mozilla Public
 + * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -651,6 +930,45 @@ index 0000000..176a96a
 +    if WARNED.lock().unwrap().insert(message.clone()) {
 +        log!("Warning (lenient): {}", message);
 +    }
++}
++
++thread_local! {
++    static GUARD_DEPTH: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
++}
++
++/// Lenient mode: runs a host function, turning a panic inside it (e.g. an
++/// `unimplemented!()` for some rarely used parameter) into `Err(())`. The
++/// caller restores the guest CPU state and returns 0 to the app.
++pub fn run_guarded<F: FnOnce()>(f: F) -> Result<(), ()> {
++    GUARD_DEPTH.with(|d| d.set(d.get() + 1));
++    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
++    GUARD_DEPTH.with(|d| d.set(d.get() - 1));
++    result.map_err(|_| ())
++}
++
++/// Lenient mode: panics that [run_guarded] will catch are logged as recovered
++/// errors instead of going through the normal (fatal) panic hook.
++pub fn install_panic_hook_filter() {
++    let previous = std::panic::take_hook();
++    std::panic::set_hook(Box::new(move |info| {
++        if GUARD_DEPTH.with(|d| d.get()) == 0 {
++            previous(info);
++            return;
++        }
++        let payload = if let Some(s) = info.payload().downcast_ref::<&str>() {
++            s.to_string()
++        } else if let Some(s) = info.payload().downcast_ref::<String>() {
++            s.clone()
++        } else {
++            "(non-string payload)".to_string()
++        };
++        let location = info.location().map(|l| l.to_string()).unwrap_or_default();
++        log!(
++            "PortBridge (lenient): recovered from an error at {}: {} (the call returns 0)",
++            location,
++            payload
++        );
++    }));
 +}
 +
 +/// Host function linked in place of a missing C function in lenient mode.

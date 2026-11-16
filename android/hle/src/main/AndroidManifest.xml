@@ -31,5 +31,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- atalho "Relatório" (tocar e segurar o ícone): log da última execução -->
+        <activity
+            android:name="com.portbridge.hle.ReportActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>
