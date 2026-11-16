@@ -44,11 +44,18 @@ void Screen::configure(int view_w, int view_h) {
     int gw = std::max(1, int(std::lround(view_w_ * s)));
     int gh = std::max(1, int(std::lround(view_h_ * s)));
     game_rect = {(out_w_ - gw) / 2, (out_h_ - gh) / 2, gw, gh};
-    if (!game_ || gw != tex_w_ || gh != tex_h_) {
+    // O jogo é desenhado numa escala INTEIRA (ex.: 4x) e depois reduzido para o
+    // tamanho da tela. Escalar direto por um fator quebrado (3,375x) deixa linhas
+    // de 1 pixel com espessuras alternadas (moiré nas listras da introdução do
+    // Zorbié); com escala inteira toda linha fica igual e a redução final é suave.
+    int k = std::max(1, int(std::ceil(s - 1e-6)));
+    k = std::min(k, 8);
+    int tw = view_w_ * k, th = view_h_ * k;
+    if (!game_ || tw != tex_w_ || th != tex_h_) {
         release();
-        game_ = make_target(r_, gw, gh);
-        tex_w_ = gw;
-        tex_h_ = gh;
+        game_ = make_target(r_, tw, th);
+        tex_w_ = tw;
+        tex_h_ = th;
     }
 }
 
@@ -58,16 +65,18 @@ void Screen::begin() {
     SDL_RenderSetScale(r_, float(tex_w_) / view_w_, float(tex_h_) / view_h_);
 }
 
-void Screen::band(const SDL_Rect& src, const SDL_Rect& dst, bool flip_v, bool flip_h, Chain& chain) {
+// Faixa de preenchimento: pega uma tira fina encostada na borda do jogo,
+// desfoca só ao longo da borda (reduções pela metade) e estica até a faixa,
+// de modo que as cores da borda continuem até a beira da tela.
+void Screen::band(const SDL_Rect& src, const SDL_Rect& dst, bool along_x, Chain& chain) {
     if (src.w <= 0 || src.h <= 0 || dst.w <= 0 || dst.h <= 0) return;
-    // tamanhos: metade, metade da metade... até ~16 px (desfoque forte)
     std::vector<SDL_Point> sizes;
     int w = src.w, h = src.h;
     do {
-        w = std::max(1, w / 2);
-        h = std::max(1, h / 2);
+        if (along_x) w = std::max(1, w / 2);
+        else h = std::max(1, h / 2);
         sizes.push_back({w, h});
-    } while ((w > 16 || h > 16) && sizes.size() < 9);
+    } while ((along_x ? w : h) > 24 && sizes.size() < 10);
     bool same = sizes.size() == chain.size.size();
     for (size_t i = 0; same && i < sizes.size(); ++i)
         same = sizes[i].x == chain.size[i].x && sizes[i].y == chain.size[i].y;
@@ -85,8 +94,29 @@ void Screen::band(const SDL_Rect& src, const SDL_Rect& dst, bool flip_v, bool fl
         SDL_RenderCopy(r_, chain.tex[i - 1], nullptr, nullptr);
     }
     SDL_SetRenderTarget(r_, nullptr);
-    int flip = (flip_v ? SDL_FLIP_VERTICAL : 0) | (flip_h ? SDL_FLIP_HORIZONTAL : 0);
-    SDL_RenderCopyEx(r_, chain.tex.back(), nullptr, &dst, 0, nullptr, SDL_RendererFlip(flip));
+    SDL_RenderCopy(r_, chain.tex.back(), nullptr, &dst);
+}
+
+// Escurece a faixa aos poucos: transparente junto do jogo, mais escura na beira.
+static void fade(SDL_Renderer* r, const SDL_Rect& bar, int edge /*0 cima 1 baixo 2 esq 3 dir*/) {
+    const int steps = 24;
+    bool vertical = edge < 2;
+    int len = vertical ? bar.h : bar.w;
+    for (int i = 0; i < steps; ++i) {
+        int a0 = len * i / steps, a1 = len * (i + 1) / steps;
+        if (a1 <= a0) continue;
+        // i = 0 encosta no jogo
+        Uint8 alpha = Uint8(20 + 170 * i / (steps - 1));
+        SDL_Rect s;
+        switch (edge) {
+            case 0: s = {bar.x, bar.y + bar.h - a1, bar.w, a1 - a0}; break;
+            case 1: s = {bar.x, bar.y + a0, bar.w, a1 - a0}; break;
+            case 2: s = {bar.x + bar.w - a1, bar.y, a1 - a0, bar.h}; break;
+            default: s = {bar.x + a0, bar.y, a1 - a0, bar.h}; break;
+        }
+        SDL_SetRenderDrawColor(r, 0, 0, 0, alpha);
+        SDL_RenderFillRect(r, &s);
+    }
 }
 
 void Screen::end() {
@@ -101,59 +131,23 @@ void Screen::end() {
     if (game_rect.y <= 2 && out_h_ - (game_rect.y + game_rect.h) <= 2) { game_rect.y = 0; game_rect.h = out_h_; }
     if (game_rect.x <= 2 && out_w_ - (game_rect.x + game_rect.w) <= 2) { game_rect.x = 0; game_rect.w = out_w_; }
     const SDL_Rect& g = game_rect;
-    std::vector<SDL_Rect> bars;
     if (ambient) {
-        // Amostra ~1/6 do jogo junto de cada borda, espelhada para a linha encostada
-        // no jogo continuar a borda dele.
-        int sh = std::max(1, tex_h_ / 6), sw = std::max(1, tex_w_ / 6);
-        if (g.y > 0) {
-            SDL_Rect top{0, 0, out_w_, g.y};
-            band({0, 0, tex_w_, sh}, top, true, false, chains_[0]);
-            bars.push_back(top);
-        }
-        int below = out_h_ - (g.y + g.h);
-        if (below > 0) {
-            SDL_Rect bottom{0, g.y + g.h, out_w_, below};
-            band({0, tex_h_ - sh, tex_w_, sh}, bottom, true, false, chains_[1]);
-            bars.push_back(bottom);
-        }
-        if (g.x > 0) {
-            SDL_Rect left{0, 0, g.x, out_h_};
-            band({0, 0, sw, tex_h_}, left, false, true, chains_[2]);
-            bars.push_back(left);
-        }
-        int right = out_w_ - (g.x + g.w);
-        if (right > 0) {
-            SDL_Rect r{g.x + g.w, 0, right, out_h_};
-            band({tex_w_ - sw, 0, sw, tex_h_}, r, false, true, chains_[3]);
-            bars.push_back(r);
-        }
-        // escurece as faixas e faz uma sombra suave encostada no jogo
+        // tira de ~2 linhas do jogo junto de cada borda
+        int th = std::max(1, tex_h_ / 200), tw = std::max(1, tex_w_ / 200);
+        int below = out_h_ - (g.y + g.h), right = out_w_ - (g.x + g.w);
+        SDL_Rect bars[4] = {{0, 0, out_w_, g.y},
+                            {0, g.y + g.h, out_w_, below},
+                            {0, 0, g.x, out_h_},
+                            {g.x + g.w, 0, right, out_h_}};
+        if (g.y > 0) band({0, 0, tex_w_, th}, bars[0], true, chains_[0]);
+        if (below > 0) band({0, tex_h_ - th, tex_w_, th}, bars[1], true, chains_[1]);
+        if (g.x > 0) band({0, 0, tw, tex_h_}, bars[2], false, chains_[2]);
+        if (right > 0) band({tex_w_ - tw, 0, tw, tex_h_}, bars[3], false, chains_[3]);
         SDL_SetRenderDrawBlendMode(r_, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(r_, 0, 0, 0, 150);
-        for (const SDL_Rect& b : bars) SDL_RenderFillRect(r_, &b);
-        int depth = std::max(2, std::min(out_w_, out_h_) / 40), steps = 8;
-        for (int i = 0; i < steps; ++i) {
-            Uint8 a = Uint8(110 * (steps - i) / steps);
-            int t = std::max(1, depth / steps), off = i * t;
-            SDL_SetRenderDrawColor(r_, 0, 0, 0, a);
-            if (g.y > 0) {
-                SDL_Rect s1{0, g.y - off - t, out_w_, t};
-                SDL_RenderFillRect(r_, &s1);
-            }
-            if (below > 0) {
-                SDL_Rect s2{0, g.y + g.h + off, out_w_, t};
-                SDL_RenderFillRect(r_, &s2);
-            }
-            if (g.x > 0) {
-                SDL_Rect s3{g.x - off - t, 0, t, out_h_};
-                SDL_RenderFillRect(r_, &s3);
-            }
-            if (right > 0) {
-                SDL_Rect s4{g.x + g.w + off, 0, t, out_h_};
-                SDL_RenderFillRect(r_, &s4);
-            }
-        }
+        if (g.y > 0) fade(r_, bars[0], 0);
+        if (below > 0) fade(r_, bars[1], 1);
+        if (g.x > 0) fade(r_, bars[2], 2);
+        if (right > 0) fade(r_, bars[3], 3);
         SDL_SetRenderDrawBlendMode(r_, SDL_BLENDMODE_NONE);
     }
     SDL_RenderCopy(r_, game_, nullptr, &game_rect);

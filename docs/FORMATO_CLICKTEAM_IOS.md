@@ -240,6 +240,11 @@ Regras confirmadas ao rodar o Zorbié no player:
 - **"Animação X está tocando"** é falso depois que uma animação com repetições
   finitas termina (ela fica parada no último quadro). Forçar de novo a mesma animação
   recomeça do início.
+- **Coeficientes de camada (paralaxe)** valem a partir da rolagem do início do frame
+  (depois dos eventos "início do frame"): deslocamento = base + (rolagem − base) ×
+  coeficiente. No Zorbié a "Layer 1" tem coeficiente x = 0 e y = 0,5, e os eventos de
+  início fazem `CenterDisplayX(192)`; aplicando o coeficiente desde a rolagem 0, a
+  introdução e o fundo ficavam 32 px à direita, com os créditos cortados.
 - **Criar objeto relativo a outro objeto**: o novo objeto nasce na **camada do
   objeto-pai**; o campo de camada da posição só vale para posições relativas ao frame.
 - **Área visível maior que 320×480**: o runtime do iOS aumenta a "janela" no iPhone 5

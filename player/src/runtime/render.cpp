@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <vector>
+#include <cstdlib>
 
 #include "runtime/runtime.hpp"
 
@@ -21,6 +23,21 @@ void draw_image(App& app, SDL_Renderer* r, int handle, double x, double y, float
     SDL_SetTextureColorMod(tex, Uint8(rgb >> 16), Uint8(rgb >> 8), Uint8(rgb));
     SDL_SetTextureBlendMode(tex, (ink & 0xFFFF) == 9 ? SDL_BLENDMODE_ADD : SDL_BLENDMODE_BLEND);
     SDL_RenderCopyExF(r, tex, nullptr, &dst, -double(angle), &center, SDL_RendererFlip(flip));
+}
+
+// PB_HIDE="116,554": não desenha esses objetos (depuração de camadas/sobreposição).
+bool hidden_for_debug(int oi) {
+    static const std::vector<int> list = [] {
+        std::vector<int> v;
+        if (const char* t = std::getenv("PB_HIDE"))
+            for (const char* p = t; *p;) {
+                v.push_back(std::atoi(p));
+                while (*p && *p != ',') ++p;
+                if (*p) ++p;
+            }
+        return v;
+    }();
+    return !list.empty() && std::find(list.begin(), list.end(), oi) != list.end();
 }
 
 void draw_counter(App& app, SDL_Renderer* r, const Obj& o, double ox, double oy) {
@@ -61,10 +78,13 @@ void Frame::draw(SDL_Renderer* r) {
     for (int layer = 0; layer < int(def.layers.size()); ++layer) {
         const Layer& L = def.layers[size_t(layer)];
         if (!(L.flags & 0x10)) continue;  // camada oculta
-        double ox = scroll_x * L.x_coef, oy = scroll_y * L.y_coef;
+        double ox = 0, oy = 0;
+        layer_offset(layer, ox, oy);
+        (void)L;
         list.clear();
         for (auto& o : objects) {
             if (o->layer != layer || !o->visible) continue;
+            if (hidden_for_debug(o->oi)) continue;
             if (o->destroyed && !o->dying) continue;
             list.push_back(o.get());
         }

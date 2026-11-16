@@ -130,6 +130,14 @@ public:
     int width, height;
     uint32_t background;            // 0xRRGGBB
     double scroll_x = 0, scroll_y = 0;
+    // Rolagem logo depois do início do frame (eventos "início do frame" já
+    // rodaram). Camadas com coeficiente de paralaxe se movem a partir daqui:
+    // deslocamento = base + (rolagem - base) * coeficiente. Assim uma camada
+    // com coeficiente 0 fica onde estava quando o frame apareceu (no Zorbié, a
+    // introdução e o fundo ficam centralizados depois do CenterDisplayX).
+    double base_x = 0, base_y = 0;
+    bool base_set = false;
+    void layer_offset(int layer, double& ox, double& oy) const;
     uint32_t timer_ms = 0;          // tempo desde o início do frame
     double timer_acc = 0;
     int64_t loop = 0;

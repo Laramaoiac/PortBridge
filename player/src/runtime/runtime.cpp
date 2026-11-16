@@ -251,6 +251,16 @@ void Frame::destroy(Obj* o) {
     }
 }
 
+void Frame::layer_offset(int layer, double& ox, double& oy) const {
+    ox = scroll_x;
+    oy = scroll_y;
+    if (layer < 0 || size_t(layer) >= def.layers.size()) return;
+    const Layer& L = def.layers[size_t(layer)];
+    double bx = base_set ? base_x : scroll_x, by = base_set ? base_y : scroll_y;
+    ox = bx + (scroll_x - bx) * L.x_coef;
+    oy = by + (scroll_y - by) * L.y_coef;
+}
+
 void Frame::center_display_x(double x) {
     scroll_x = clamp_scroll(x - app.view_w / 2.0, width, app.view_w);
 }
@@ -293,6 +303,11 @@ void Frame::step() {
     update_objects();
     g_diag.stage = "eventos";
     run_events(*this);
+    if (!base_set) {
+        base_x = scroll_x;
+        base_y = scroll_y;
+        base_set = true;
+    }
     g_diag.stage = "limpeza";
     cleanup();
     g_diag.stage = "desenho";

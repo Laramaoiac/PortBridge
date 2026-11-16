@@ -88,6 +88,15 @@ int main(int argc, char** argv) {
         pb::PackageInfo pkg = pb::open_package(argv[1]);
         auto g = pb::load_game(std::move(pkg.game_data));
         G = g.get();
+        if (argc > 2 && std::string(argv[2]) == "--layers") {
+            for (size_t fi = 0; fi < g->frames.size(); ++fi) {
+                const auto& f = g->frames[fi];
+                std::printf("frame %zu '%s' %dx%d\n", fi, f.name.c_str(), f.width, f.height);
+                for (const auto& l : f.layers)
+                    std::printf("   %-10s flags %#06x  coef x %.3f  y %.3f\n", l.name.c_str(), l.flags, l.x_coef, l.y_coef);
+            }
+            return 0;
+        }
         if (argc > 3 && std::string(argv[2]) == "--group-pointers") {
             // calibra a fórmula dos "group pointers": alvo = pos + ptr + k
             int fi = std::atoi(argv[3]);

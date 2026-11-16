@@ -118,7 +118,9 @@ bool collision(EvalContext& c, const EventItem& it, int gi, bool edge) {
 
 bool mouse_over(App& app, Obj* o) {
     Frame* f = app.frame();
-    double mx = app.input.mouse_x + f->scroll_x, my = app.input.mouse_y + f->scroll_y;
+    double ox = 0, oy = 0;
+    f->layer_offset(o->layer, ox, oy);   // mesma posição em que o objeto é desenhado
+    double mx = app.input.mouse_x + ox, my = app.input.mouse_y + oy;
     if (!o->visible) return false;
     Rect r = obj_rect(app, *o);
     return mx >= r.x1 && mx < r.x2 && my >= r.y1 && my < r.y2;

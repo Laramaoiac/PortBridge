@@ -1,9 +1,10 @@
 // Composição do jogo na tela do aparelho.
 //
-// O jogo é desenhado numa textura do tamanho que ele ocupa na tela (mesma nitidez
-// de desenhar direto) e colocado no centro, sem deformar. As sobras (faixas em
-// cima/embaixo ou dos lados, quando o formato da tela não bate com o do jogo) não
-// ficam pretas: recebem uma continuação desfocada e escurecida da borda do jogo.
+// O jogo é desenhado numa textura em escala inteira (sem moiré em linhas finas),
+// reduzido para o tamanho que ocupa na tela e colocado no centro, sem deformar.
+// As sobras (faixas em cima/embaixo ou dos lados, quando o formato da tela não
+// bate com o do jogo) não ficam pretas: continuam as cores da borda do jogo,
+// escurecendo aos poucos até a beira da tela.
 // Os toques são convertidos para coordenadas do jogo, inclusive nas faixas.
 #pragma once
 
@@ -36,7 +37,7 @@ private:
         std::vector<SDL_Texture*> tex;
         std::vector<SDL_Point> size;
     };
-    void band(const SDL_Rect& src, const SDL_Rect& dst, bool flip_v, bool flip_h, Chain& chain);
+    void band(const SDL_Rect& src, const SDL_Rect& dst, bool along_x, Chain& chain);
     static void free_chain(Chain& c);
 
     SDL_Renderer* r_;

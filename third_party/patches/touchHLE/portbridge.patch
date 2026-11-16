@@ -913,6 +913,67 @@ index 99906b0..bcbb17f 100644
                  log_dbg!("ShiftJIS decoded {:?}", cow);
                  StringHostObject::Utf8(Cow::Owned(cow.to_string()))
              }
+diff --git a/src/frameworks/opengles/gles_guest.rs b/src/frameworks/opengles/gles_guest.rs
+index 9c86ac4..2e4d7af 100644
+--- a/src/frameworks/opengles/gles_guest.rs
++++ b/src/frameworks/opengles/gles_guest.rs
+@@ -154,6 +154,7 @@ fn glGetError(env: &mut Environment) -> GLenum {
+     })
+ }
+ fn glEnable(env: &mut Environment, cap: GLenum) {
++    crate::objc::trace_once((4u64 << 60) | cap as u64, || format!("glEnable {cap:#x}"));
+     with_ctx_and_mem(env, |gles, _mem| {
+         unsafe { gles.Enable(cap) };
+     });
+@@ -162,6 +163,7 @@ fn glIsEnabled(env: &mut Environment, cap: GLenum) -> GLboolean {
+     with_ctx_and_mem(env, |gles, _mem| unsafe { gles.IsEnabled(cap) })
+ }
+ fn glDisable(env: &mut Environment, cap: GLenum) {
++    crate::objc::trace_once((5u64 << 60) | cap as u64, || format!("glDisable {cap:#x}"));
+     with_ctx_and_mem(env, |gles, _mem| {
+         unsafe { gles.Disable(cap) };
+     });
+@@ -304,6 +306,9 @@ fn glAlphaFuncx(env: &mut Environment, func: GLenum, ref_: GLclampx) {
+     with_ctx_and_mem(env, |gles, _mem| unsafe { gles.AlphaFuncx(func, ref_) })
+ }
+ fn glBlendFunc(env: &mut Environment, sfactor: GLenum, dfactor: GLenum) {
++    crate::objc::trace_once((2u64 << 60) | ((sfactor as u64) << 32) | dfactor as u64, || {
++        format!("glBlendFunc {sfactor:#x} {dfactor:#x}")
++    });
+     with_ctx_and_mem(env, |gles, _mem| unsafe {
+         gles.BlendFunc(sfactor, dfactor)
+     })
+@@ -1061,6 +1066,20 @@ fn glTexImage2D(
+             let size = image_size_estimate(pixel_count, format, type_);
+             mem.ptr_at(pixels.cast::<u8>(), size).cast::<GLvoid>()
+         };
++        // PortBridge diagnostics: texture formats and how many texels are
++        // transparent (for 5551 color-keyed sprites).
++        {
++            let key = (1u64 << 60) | ((internalformat as u64 & 0xffff) << 32) | ((format as u64) << 16) | type_ as u64;
++            crate::objc::trace_once(key, || {
++                let mut transparent = 0usize;
++                if !pixels.is_null() && type_ == 0x8034 {
++                    let n = (width * height) as usize;
++                    let px = std::slice::from_raw_parts(pixels as *const u16, n);
++                    transparent = px.iter().filter(|v| **v & 1 == 0).count();
++                }
++                format!("glTexImage2D internal {internalformat:#x} {width}x{height} format {format:#x} type {type_:#x} (transparent texels in this one: {transparent})")
++            });
++        }
+         gles.TexImage2D(
+             target,
+             level,
+@@ -1167,6 +1186,9 @@ fn glTexEnvx(env: &mut Environment, target: GLenum, pname: GLenum, param: GLfixe
+     })
+ }
+ fn glTexEnvi(env: &mut Environment, target: GLenum, pname: GLenum, param: GLint) {
++    crate::objc::trace_once((3u64 << 60) | ((pname as u64) << 32) | param as u32 as u64, || {
++        format!("glTexEnvi {target:#x} {pname:#x} {param:#x}")
++    });
+     with_ctx_and_mem(env, |gles, _mem| unsafe {
+         gles.TexEnvi(target, pname, param)
+     })
 diff --git a/src/frameworks/uikit/ui_screen.rs b/src/frameworks/uikit/ui_screen.rs
 index 840d763..d11c51a 100644
 --- a/src/frameworks/uikit/ui_screen.rs
@@ -1191,6 +1252,117 @@ index d0a73bc..e7c803a 100644
  - (())dismissModalViewControllerAnimated:(bool)animated {
      log!("TODO: [(UIViewController*){:?} dismissModalViewControllerAnimated:{}]", this, animated); // TODO
  }
+diff --git a/src/gles/gles1_native.rs b/src/gles/gles1_native.rs
+index 8b0fd9d..8a94fee 100644
+--- a/src/gles/gles1_native.rs
++++ b/src/gles/gles1_native.rs
+@@ -21,6 +21,46 @@ use crate::window::{GLContext, GLVersion, Window};
+ use std::ffi::CStr;
+ use std::marker::PhantomData;
+ 
++/// PortBridge: expands 16-bit packed RGBA texels (5551 or 4444) to RGBA8888.
++/// Some Android GLES 1.1 drivers mishandle the 1-bit alpha of 5551 textures
++/// (color-keyed sprites showed their key color); RGBA8888 is universal.
++/// `pixels` holds `height` rows of `width` texels, each row padded to the
++/// current GL_UNPACK_ALIGNMENT.
++unsafe fn expand_packed_rgba(
++    type_: GLenum,
++    width: GLsizei,
++    height: GLsizei,
++    pixels: *const GLvoid,
++) -> Option<Vec<u8>> {
++    if type_ != gles11::UNSIGNED_SHORT_5_5_5_1 && type_ != gles11::UNSIGNED_SHORT_4_4_4_4 {
++        return None;
++    }
++    if pixels.is_null() || width <= 0 || height <= 0 {
++        return None;
++    }
++    let mut alignment: GLint = 4;
++    gles11::GetIntegerv(gles11::UNPACK_ALIGNMENT, &mut alignment);
++    let alignment = alignment.max(1) as usize;
++    let (w, h) = (width as usize, height as usize);
++    let stride = (w * 2).div_ceil(alignment) * alignment;
++    let src = std::slice::from_raw_parts(pixels as *const u8, stride * (h - 1) + w * 2);
++    let mut out = Vec::with_capacity(w * h * 4);
++    for y in 0..h {
++        for x in 0..w {
++            let i = y * stride + x * 2;
++            let v = u16::from_ne_bytes([src[i], src[i + 1]]);
++            if type_ == gles11::UNSIGNED_SHORT_5_5_5_1 {
++                let c5 = |s: u16| (((v >> s) & 31) as u32 * 255 / 31) as u8;
++                out.extend_from_slice(&[c5(11), c5(6), c5(1), if v & 1 != 0 { 255 } else { 0 }]);
++            } else {
++                let c4 = |s: u16| (((v >> s) & 15) as u8) * 17;
++                out.extend_from_slice(&[c4(12), c4(8), c4(4), c4(0)]);
++            }
++        }
++    }
++    Some(out)
++}
++
+ pub struct GLES1NativeContext {
+     gl_ctx: GLContext,
+     is_loaded: bool,
+@@ -510,6 +550,32 @@ impl GLES for GLES1Native<'_> {
+             // https://android-review.googlesource.com/c/platform/external/qemu/+/974666
+             internalformat = gles11::BGRA_EXT as GLint
+         }
++        if format == gles11::RGBA
++            && (type_ == gles11::UNSIGNED_SHORT_5_5_5_1 || type_ == gles11::UNSIGNED_SHORT_4_4_4_4)
++        {
++            let expanded = expand_packed_rgba(type_, width, height, pixels);
++            let old_alignment = {
++                let mut a: GLint = 4;
++                gles11::GetIntegerv(gles11::UNPACK_ALIGNMENT, &mut a);
++                a
++            };
++            gles11::PixelStorei(gles11::UNPACK_ALIGNMENT, 4);
++            gles11::TexImage2D(
++                target,
++                level,
++                gles11::RGBA as GLint,
++                width,
++                height,
++                border,
++                gles11::RGBA,
++                gles11::UNSIGNED_BYTE,
++                expanded
++                    .as_ref()
++                    .map_or(std::ptr::null(), |v| v.as_ptr() as *const GLvoid),
++            );
++            gles11::PixelStorei(gles11::UNPACK_ALIGNMENT, old_alignment);
++            return;
++        }
+         gles11::TexImage2D(
+             target,
+             level,
+@@ -534,6 +600,26 @@ impl GLES for GLES1Native<'_> {
+         type_: GLenum,
+         pixels: *const GLvoid,
+     ) {
++        if format == gles11::RGBA {
++            if let Some(expanded) = expand_packed_rgba(type_, width, height, pixels) {
++                let mut old_alignment: GLint = 4;
++                gles11::GetIntegerv(gles11::UNPACK_ALIGNMENT, &mut old_alignment);
++                gles11::PixelStorei(gles11::UNPACK_ALIGNMENT, 4);
++                gles11::TexSubImage2D(
++                    target,
++                    level,
++                    xoffset,
++                    yoffset,
++                    width,
++                    height,
++                    gles11::RGBA,
++                    gles11::UNSIGNED_BYTE,
++                    expanded.as_ptr() as *const GLvoid,
++                );
++                gles11::PixelStorei(gles11::UNPACK_ALIGNMENT, old_alignment);
++                return;
++            }
++        }
+         gles11::TexSubImage2D(
+             target, level, xoffset, yoffset, width, height, format, type_, pixels,
+         )
 diff --git a/src/image.rs b/src/image.rs
 index 3afe2c2..360a3d6 100644
 --- a/src/image.rs
@@ -1292,7 +1464,7 @@ index fcfec3f..061fe41 100644
      let env = match res {
          Ok(ret) => match ret {
 diff --git a/src/objc.rs b/src/objc.rs
-index 065cd62..83e3dec 100644
+index 065cd62..97bcec9 100644
 --- a/src/objc.rs
 +++ b/src/objc.rs
 @@ -27,6 +27,7 @@ mod classes;
@@ -1308,8 +1480,8 @@ index 065cd62..83e3dec 100644
  pub use properties::todo_objc_setter;
  pub use selectors::{selector, SEL};
 +pub use portbridge_compat::{
-+    call_block_void, install_panic_hook_filter, is_lenient, run_guarded, set_lenient, warn_once,
-+    UNIMPLEMENTED_FUNCTION,
++    call_block_void, install_panic_hook_filter, is_lenient, run_guarded, set_lenient, trace_once,
++    warn_once, UNIMPLEMENTED_FUNCTION,
 +};
  
 -use crate::mem::ConstVoidPtr;
@@ -1443,10 +1615,10 @@ index 03a6f99..b503001 100644
  pub(crate) fn objc_msgSend(env: &mut Environment, receiver: id, selector: SEL) {
 diff --git a/src/objc/portbridge_compat.rs b/src/objc/portbridge_compat.rs
 new file mode 100644
-index 0000000..85bc17c
+index 0000000..4eddc26
 --- /dev/null
 +++ b/src/objc/portbridge_compat.rs
-@@ -0,0 +1,744 @@
+@@ -0,0 +1,758 @@
 +/*
 + * This Source Code Form is subject to the terms of the Mozilla Public
 + * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -1538,6 +1710,20 @@ index 0000000..85bc17c
 +            payload
 +        );
 +    }));
++}
++
++static TRACED: LazyLock<Mutex<HashSet<u64>>> = LazyLock::new(Default::default);
++
++/// PortBridge diagnostics: in lenient mode (generated APKs), logs `text()` the
++/// first time `key` is seen. Cheap enough for per-draw GL state calls, and the
++/// result ends up in the report the APK shares.
++pub fn trace_once(key: u64, text: impl FnOnce() -> String) {
++    if !is_lenient() {
++        return;
++    }
++    if TRACED.lock().unwrap().insert(key) {
++        log!("PortBridge trace: {}", text());
++    }
 +}
 +
 +/// Host function linked in place of a missing C function in lenient mode.

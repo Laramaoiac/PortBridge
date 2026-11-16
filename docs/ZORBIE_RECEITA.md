@@ -34,9 +34,17 @@ maior frame (320×600 num celular 19,5:9). O jogo então ativa sozinho o layout 
 tela comprida. Antes ele recebia sempre 320×480 e sobravam faixas grandes.
 
 Num celular mais comprido que 320×600 (ex.: 1080×2316), o que sobra em cima e embaixo
-não fica preto: o player preenche com uma continuação desfocada e escurecida do céu e
-do painel TOUCHPAD, e o toque também vale na faixa de baixo (a zona de controle do
-jogo vai até y = 812).
+não fica preto: o player continua as cores da borda do jogo (céu em cima, painel
+TOUCHPAD embaixo), escurecendo até a beira da tela, e o toque também vale na faixa de
+baixo (a zona de controle do jogo vai até y = 812).
+
+O jogo é desenhado em escala inteira (4× nesse aparelho) e reduzido para a tela. Com
+escala quebrada (3,375×), as linhas de 1 px do efeito de listras da introdução saíam
+com espessuras alternadas (moiré).
+
+A camada do fundo e da introdução ("Layer 1") tem paralaxe x = 0 e y = 0,5. O
+coeficiente vale a partir da rolagem do início do frame (depois do
+`CenterDisplayX(192)`), senão a introdução e o fundo ficam 32 px à direita.
 
 ## Estado do jogo
 

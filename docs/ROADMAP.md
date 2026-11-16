@@ -151,7 +151,14 @@ corrigidos:
 | Ref de áudio inválida derrubava | o jogo usa o `ExtAudioFileRef` mesmo depois de falhar ao abrir | devolve erro (`-50`) |
 
 Resultado no servidor: título, seleção de fase e partida (corrida, moedas, inimigos,
-combo, pontuação) sem erros no log. O modo tolerante passou a dizer em qual função
+combo, pontuação) sem erros no log.
+
+No celular, os sprites ainda mostravam o verde da cor-chave (no servidor, não). O
+servidor usa a camada GLES1-sobre-GL2 do touchHLE; o Android usa o OpenGL ES 1.1 do
+aparelho, e o jogo envia as texturas em RGBA5551 (1 bit de alfa). O patch agora
+converte 5551/4444 para RGBA8888 no caminho nativo e registra no log (uma vez cada)
+os formatos de textura e os estados de mistura, para o relatório do APK mostrar o que
+acontece se o problema continuar. Falta confirmar no aparelho. O modo tolerante passou a dizer em qual função
 (ou `[Classe método]`) cada erro recuperado aconteceu.
 
 ## Próximas tarefas da ferramenta
