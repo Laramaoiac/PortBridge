@@ -1,6 +1,6 @@
 .gradle/
 build/
-app/build/
-app/.cxx/
+*/build/
+*/.cxx/
 local.properties
 *.keystore
