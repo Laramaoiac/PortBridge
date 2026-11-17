@@ -953,11 +953,34 @@ index 99906b0..bcbb17f 100644
                  log_dbg!("ShiftJIS decoded {:?}", cow);
                  StringHostObject::Utf8(Cow::Owned(cow.to_string()))
              }
+diff --git a/src/frameworks/foundation/ns_timer.rs b/src/frameworks/foundation/ns_timer.rs
+index 68fc992..e978cdf 100644
+--- a/src/frameworks/foundation/ns_timer.rs
++++ b/src/frameworks/foundation/ns_timer.rs
+@@ -66,6 +66,18 @@ pub const CLASSES: ClassExports = objc_classes! {
+     });
+     let new = env.objc.alloc_object(this, host_object, &mut env.mem);
+ 
++    // PortBridge: repeating timers usually drive the game loop, so their
++    // interval (e.g. 1/60 s or 1/30 s) is worth having in the log.
++    if repeats {
++        log!(
++            "New repeating timer {:?}, interval {}s ({:.1}/s), target [{:?} {}]",
++            new,
++            ns_interval,
++            1.0 / ns_interval,
++            target,
++            selector.as_str(&env.mem),
++        );
++    }
+     log_dbg!(
+         "New {} timer {:?}, interval {}s, target [{:?} {}], user info {:?}",
+         if repeats { "repeating" } else { "single-use" },
 diff --git a/src/frameworks/opengles/eagl.rs b/src/frameworks/opengles/eagl.rs
-index 32a0b5c..fc65735 100644
+index 32a0b5c..322c4af 100644
 --- a/src/frameworks/opengles/eagl.rs
 +++ b/src/frameworks/opengles/eagl.rs
-@@ -67,6 +67,10 @@ pub(super) struct EAGLContextHostObject {
+@@ -67,6 +67,13 @@ pub(super) struct EAGLContextHostObject {
      fps_counter: Option<FpsCounter>,
      next_frame_due: Option<Instant>,
      pub mapped_buffers: HashMap<GLuint, (MutPtr<GLvoid>, *mut GLvoid)>,
@@ -965,19 +988,45 @@ index 32a0b5c..fc65735 100644
 +    /// to draw frames on the window (see [present_renderbuffer]).
 +    presenter: Option<Box<dyn GLESContext>>,
 +    presenter_failed: bool,
++    /// PortBridge: frames presented since `stat_since` (logged every 30 s).
++    stat_since: Option<Instant>,
++    stat_frames: u32,
  }
  impl HostObject for EAGLContextHostObject {}
  
-@@ -83,6 +87,8 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -83,6 +90,10 @@ pub const CLASSES: ClassExports = objc_classes! {
          fps_counter: None,
          next_frame_due: None,
          mapped_buffers: HashMap::new(),
 +        presenter: None,
 +        presenter_failed: false,
++        stat_since: None,
++        stat_frames: 0,
      });
      env.objc.alloc_object(this, host_object, &mut env.mem)
  }
-@@ -542,11 +548,159 @@ unsafe fn read_renderbuffer(gles: &mut dyn GLES, mut pixel_buffer: Vec<u8>) -> (
+@@ -268,6 +279,20 @@ pub const CLASSES: ClassExports = objc_classes! {
+     // delayed, so this needs to be checked before returning.
+     let sleep_for = limit_framerate(&mut env.objc.borrow_mut::<EAGLContextHostObject>(this).next_frame_due, &env.options);
+ 
++    // PortBridge: the real frame rate goes to the log (and the APK report).
++    {
++        let host = env.objc.borrow_mut::<EAGLContextHostObject>(this);
++        let now = Instant::now();
++        let since = *host.stat_since.get_or_insert(now);
++        host.stat_frames += 1;
++        let secs = now.saturating_duration_since(since).as_secs_f64();
++        if secs >= 30.0 {
++            log!("PortBridge: {:.1} quadros/s", f64::from(host.stat_frames) / secs);
++            host.stat_since = Some(now);
++            host.stat_frames = 0;
++        }
++    }
++
+     if env.options.print_fps {
+         env
+             .objc
+@@ -542,11 +567,159 @@ unsafe fn read_renderbuffer(gles: &mut dyn GLES, mut pixel_buffer: Vec<u8>) -> (
      (pixel_buffer, width_u32, height_u32)
  }
  
@@ -1525,7 +1574,7 @@ index b222877..c090760 100644
 +    gles1_ctx
  }
 diff --git a/src/gles/gles1_native.rs b/src/gles/gles1_native.rs
-index 8b0fd9d..8a94fee 100644
+index 8b0fd9d..6edb618 100644
 --- a/src/gles/gles1_native.rs
 +++ b/src/gles/gles1_native.rs
 @@ -21,6 +21,46 @@ use crate::window::{GLContext, GLVersion, Window};
@@ -1575,7 +1624,23 @@ index 8b0fd9d..8a94fee 100644
  pub struct GLES1NativeContext {
      gl_ctx: GLContext,
      is_loaded: bool,
-@@ -510,6 +550,32 @@ impl GLES for GLES1Native<'_> {
+@@ -50,8 +90,13 @@ impl GLESContext for GLES1NativeContext {
+         unsafe {
+             window.make_gl_context_current(&self.gl_ctx);
+         }
+-        gles11::load_with(|s| window.gl_get_proc_address(s));
+-        self.is_loaded = true;
++        // PortBridge: EGL function pointers do not depend on the context, so
++        // they are loaded once per context instead of on every switch (frames
++        // are now presented through a second context, two switches a frame).
++        if !self.is_loaded {
++            gles11::load_with(|s| window.gl_get_proc_address(s));
++            self.is_loaded = true;
++        }
+         Box::new(GLES1Native {
+             _gl_lifetime: PhantomData,
+         })
+@@ -510,6 +555,32 @@ impl GLES for GLES1Native<'_> {
              // https://android-review.googlesource.com/c/platform/external/qemu/+/974666
              internalformat = gles11::BGRA_EXT as GLint
          }
@@ -1608,7 +1673,7 @@ index 8b0fd9d..8a94fee 100644
          gles11::TexImage2D(
              target,
              level,
-@@ -534,6 +600,26 @@ impl GLES for GLES1Native<'_> {
+@@ -534,6 +605,26 @@ impl GLES for GLES1Native<'_> {
          type_: GLenum,
          pixels: *const GLvoid,
      ) {
@@ -2723,3 +2788,25 @@ index ff5a09d..73fa275 100644
      if GITHUB_RUN_ID.is_none() {
          return "";
      }
+diff --git a/src/window.rs b/src/window.rs
+index d4eae99..be120db 100644
+--- a/src/window.rs
++++ b/src/window.rs
+@@ -1266,6 +1266,17 @@ impl Window {
+     /// Swap front-buffer and back-buffer so the result of OpenGL rendering is
+     /// presented.
+     pub fn swap_window(&self) {
++        // PortBridge: on Android, EGL's default swap interval (1) makes the
++        // swap wait for v-sync on top of touchHLE's own 60 fps limiter. The
++        // two clocks drift apart and frames miss their slot (judder, less than
++        // 60 fps). Let the limiter alone set the pace; Android composites the
++        // frames without tearing.
++        #[cfg(target_os = "android")]
++        {
++            let _ = self
++                .video_ctx
++                .gl_set_swap_interval(sdl2::video::SwapInterval::Immediate);
++        }
+         self.window.gl_swap_window();
+     }
+ 

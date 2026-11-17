@@ -33,6 +33,7 @@ void Screen::release() {
 }
 
 void Screen::configure(int view_w, int view_h) {
+    band_tick_ = 0;   // refaz as faixas no próximo quadro
     view_w_ = std::max(1, view_w);
     view_h_ = std::max(1, view_h);
     SDL_GetRendererOutputSize(r_, &out_w_, &out_h_);
@@ -68,7 +69,7 @@ void Screen::begin() {
 // Faixa de preenchimento: pega uma tira fina encostada na borda do jogo,
 // desfoca só ao longo da borda (reduções pela metade) e estica até a faixa,
 // de modo que as cores da borda continuem até a beira da tela.
-void Screen::band(const SDL_Rect& src, const SDL_Rect& dst, bool along_x, Chain& chain) {
+void Screen::band(const SDL_Rect& src, const SDL_Rect& dst, bool along_x, Chain& chain, bool refresh) {
     if (src.w <= 0 || src.h <= 0 || dst.w <= 0 || dst.h <= 0) return;
     std::vector<SDL_Point> sizes;
     int w = src.w, h = src.h;
@@ -87,13 +88,17 @@ void Screen::band(const SDL_Rect& src, const SDL_Rect& dst, bool along_x, Chain&
     }
     for (SDL_Texture* t : chain.tex)
         if (!t) return;
-    SDL_SetRenderTarget(r_, chain.tex[0]);
-    SDL_RenderCopy(r_, game_, &src, nullptr);
-    for (size_t i = 1; i < chain.tex.size(); ++i) {
-        SDL_SetRenderTarget(r_, chain.tex[i]);
-        SDL_RenderCopy(r_, chain.tex[i - 1], nullptr, nullptr);
+    // O desfoque só é refeito de tempos em tempos (a borda muda devagar e
+    // borrada); nos outros quadros a última versão é reaproveitada.
+    if (refresh || !same) {
+        SDL_SetRenderTarget(r_, chain.tex[0]);
+        SDL_RenderCopy(r_, game_, &src, nullptr);
+        for (size_t i = 1; i < chain.tex.size(); ++i) {
+            SDL_SetRenderTarget(r_, chain.tex[i]);
+            SDL_RenderCopy(r_, chain.tex[i - 1], nullptr, nullptr);
+        }
+        SDL_SetRenderTarget(r_, nullptr);
     }
-    SDL_SetRenderTarget(r_, nullptr);
     SDL_RenderCopy(r_, chain.tex.back(), nullptr, &dst);
 }
 
@@ -139,10 +144,11 @@ void Screen::end() {
                             {0, g.y + g.h, out_w_, below},
                             {0, 0, g.x, out_h_},
                             {g.x + g.w, 0, right, out_h_}};
-        if (g.y > 0) band({0, 0, tex_w_, th}, bars[0], true, chains_[0]);
-        if (below > 0) band({0, tex_h_ - th, tex_w_, th}, bars[1], true, chains_[1]);
-        if (g.x > 0) band({0, 0, tw, tex_h_}, bars[2], false, chains_[2]);
-        if (right > 0) band({tex_w_ - tw, 0, tw, tex_h_}, bars[3], false, chains_[3]);
+        bool refresh = band_tick_++ % 3 == 0;
+        if (g.y > 0) band({0, 0, tex_w_, th}, bars[0], true, chains_[0], refresh);
+        if (below > 0) band({0, tex_h_ - th, tex_w_, th}, bars[1], true, chains_[1], refresh);
+        if (g.x > 0) band({0, 0, tw, tex_h_}, bars[2], false, chains_[2], refresh);
+        if (right > 0) band({tex_w_ - tw, 0, tw, tex_h_}, bars[3], false, chains_[3], refresh);
         SDL_SetRenderDrawBlendMode(r_, SDL_BLENDMODE_BLEND);
         if (g.y > 0) fade(r_, bars[0], 0);
         if (below > 0) fade(r_, bars[1], 1);

@@ -1,12 +1,17 @@
 package com.portbridge.hle;
 
+import android.content.Context;
 import android.content.pm.PackageInfo;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Surface;
+import android.view.SurfaceHolder;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.libsdl.app.SDLActivity;
+import org.libsdl.app.SDLSurface;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -68,6 +73,29 @@ public class HleActivity extends SDLActivity {
     }
 
     /** Chamado na thread do SDL (não na de UI), então a cópia do IPA não trava a tela. */
+    // O jogo desenha 60 quadros/s: pede ao sistema a tela a 60 Hz. Em aparelhos
+    // de 120 Hz isso evita a tela trabalhando no dobro do ritmo do jogo (menos
+    // bateria e menos calor) e casa cada quadro com uma atualização da tela.
+    @Override
+    protected SDLSurface createSDLSurface(Context context) {
+        SDLSurface surface = super.createSDLSurface(context);
+        surface.getHolder().addCallback(new SurfaceHolder.Callback() {
+            @Override public void surfaceCreated(SurfaceHolder h) { request60Hz(h); }
+            @Override public void surfaceChanged(SurfaceHolder h, int f, int w, int ht) { request60Hz(h); }
+            @Override public void surfaceDestroyed(SurfaceHolder h) { }
+        });
+        return surface;
+    }
+
+    private static void request60Hz(SurfaceHolder holder) {
+        if (Build.VERSION.SDK_INT < 30) return;
+        try {
+            holder.getSurface().setFrameRate(60f, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
+        } catch (RuntimeException e) {
+            // superfície já liberada: a próxima chamada (surfaceChanged) resolve
+        }
+    }
+
     @Override
     protected String[] getArguments() {
         List<String> args = new ArrayList<>();

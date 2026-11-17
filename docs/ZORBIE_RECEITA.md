@@ -42,6 +42,10 @@ O jogo é desenhado em escala inteira (4× nesse aparelho) e reduzido para a tel
 escala quebrada (3,375×), as linhas de 1 px do efeito de listras da introdução saíam
 com espessuras alternadas (moiré).
 
+O player só redesenha quando o jogo avança um passo (60 por segundo), mesmo numa tela
+de 120 Hz, e o desfoque das faixas é refeito a cada 3 quadros: o mesmo resultado na
+tela com menos trabalho da GPU (numa tela de 120 Hz, a metade; o celular esquentava).
+
 A camada do fundo e da introdução ("Layer 1") tem paralaxe x = 0 e y = 0,5. O
 coeficiente vale a partir da rolagem do início do frame (depois do
 `CenterDisplayX(192)`), senão a introdução e o fundo ficam 32 px à direita.

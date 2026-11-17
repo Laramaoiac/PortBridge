@@ -171,6 +171,25 @@ mais alterado nem restaurado; se o contexto extra não puder ser criado, o camin
 antigo continua valendo. Testado no servidor com o OpenGL ES 1.1 nativo (Mesa
 compilado com GLES1, o mesmo caminho do Android) e com a camada GLES1-sobre-GL2.
 
+**Ritmo de 60 quadros/s.** O jogo não tem laço próprio: um `NSTimer` de 1 ms chama
+`renderScene`, e quem segura o ritmo é a apresentação do quadro (no iPhone, o v-sync
+de `presentRenderbuffer:`). A lógica anda um passo por quadro, então quadro perdido é
+jogo mais lento. No Android havia dois relógios: o limitador de 60 fps do touchHLE e o
+v-sync do EGL (intervalo 1, o padrão), e quando eles saíam de fase o quadro perdia a
+vez. Agora o Android troca a tela sem esperar o v-sync (intervalo 0) e o limitador
+manda sozinho; o app pede a tela a 60 Hz (`Surface.setFrameRate`), e as funções GL
+são carregadas uma vez por contexto, não a cada troca. O log (e o relatório do APK)
+mostra a taxa real a cada 30 s (`PortBridge: 59.9 quadros/s`) e o intervalo dos
+temporizadores repetitivos.
+
+**Memória e calor.** Medido no servidor: Ninja ~200 MB de RAM, Zorbié ~210 MB, os dois
+estáveis (sem vazamento em 60 s de jogo). O calor vinha de trabalho de GPU, não de
+memória: o player do Zorbié redesenhava a cada v-sync (120 vezes por segundo numa tela
+de 120 Hz, para um jogo de 60) e refazia o desfoque das faixas a cada quadro. Agora
+ele só desenha quando o jogo avança (60/s, dormindo entre um passo e outro), refaz as
+faixas a cada 3 quadros e também pede a tela a 60 Hz. O log do player mostra
+`desempenho: N quadros/s, N passos do jogo/s` a cada 30 s.
+
 O patch também converte texturas 5551/4444 para RGBA8888 no caminho nativo e registra
 no log (uma vez cada) os formatos de textura e os estados de mistura. O modo tolerante
 diz em qual função (ou `[Classe método]`) cada erro recuperado aconteceu.

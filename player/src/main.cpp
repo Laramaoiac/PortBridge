@@ -248,6 +248,12 @@ int main(int argc, char** argv) {
     Uint64 last = SDL_GetPerformanceCounter();
     int loops = 0;
     bool running = true;
+    // Só redesenha quando o jogo avançou: numa tela de 120 Hz o vsync pediria
+    // 120 quadros por segundo para um jogo de 60, o dobro de trabalho da GPU
+    // (e de calor) para mostrar a mesma imagem duas vezes.
+    bool redraw = true;
+    Uint64 stat_t0 = last;
+    int stat_frames = 0, stat_steps = 0;
     while (running && !app.finished()) {
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
@@ -285,6 +291,7 @@ int main(int argc, char** argv) {
                         screen.configure(app.view_w, app.view_h);
                         SDL_Log("tela %dx%d: área visível %dx%d", ow, oh, app.view_w, app.view_h);
                     }
+                    redraw = true;
                     break;
                 case SDL_RENDER_DEVICE_RESET:
                 case SDL_RENDER_TARGETS_RESET:
@@ -292,6 +299,7 @@ int main(int argc, char** argv) {
                     app.reset_textures();
                     if (ev.type == SDL_RENDER_DEVICE_RESET) screen.release();
                     screen.configure(app.view_w, app.view_h);
+                    redraw = true;
                     break;
                 default: break;
             }
@@ -370,8 +378,23 @@ int main(int argc, char** argv) {
             acc -= tick_ms;
             ++steps;
         }
+        if (steps == 0 && !redraw) {
+            // nada novo para mostrar: dorme até perto do próximo passo do jogo
+            double wait = tick_ms - acc;
+            SDL_Delay(wait > 2.0 ? Uint32(wait - 1.0) : 1);
+            continue;
+        }
+        redraw = false;
         render();
         SDL_RenderPresent(ren);
+        stat_steps += steps;
+        ++stat_frames;
+        if (double(now - stat_t0) >= 30.0 * double(SDL_GetPerformanceFrequency())) {
+            double secs = double(now - stat_t0) / double(SDL_GetPerformanceFrequency());
+            SDL_Log("desempenho: %.1f quadros/s, %.1f passos do jogo/s", stat_frames / secs, stat_steps / secs);
+            stat_t0 = now;
+            stat_frames = stat_steps = 0;
+        }
         if (opt.frames && ++loops >= opt.frames) break;
     }
 

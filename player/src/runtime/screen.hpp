@@ -37,13 +37,14 @@ private:
         std::vector<SDL_Texture*> tex;
         std::vector<SDL_Point> size;
     };
-    void band(const SDL_Rect& src, const SDL_Rect& dst, bool along_x, Chain& chain);
+    void band(const SDL_Rect& src, const SDL_Rect& dst, bool along_x, Chain& chain, bool refresh);
     static void free_chain(Chain& c);
 
     SDL_Renderer* r_;
     SDL_Texture* game_ = nullptr;
     int tex_w_ = 0, tex_h_ = 0, view_w_ = 0, view_h_ = 0, out_w_ = 0, out_h_ = 0;
     Chain chains_[4];   // cima, baixo, esquerda, direita
+    unsigned band_tick_ = 0;
 };
 
 }  // namespace pb
