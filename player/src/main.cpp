@@ -252,6 +252,13 @@ int main(int argc, char** argv) {
     // 120 quadros por segundo para um jogo de 60, o dobro de trabalho da GPU
     // (e de calor) para mostrar a mesma imagem duas vezes.
     bool redraw = true;
+    // Toque curto entre dois passos do jogo: o "apertado" vale por pelo menos um passo.
+    bool press_seen[3] = {true, true, true}, release_pending[3] = {false, false, false};
+    // Folga no ritmo: com a tela a 60 Hz, cada v-sync chega ~16,7 ms depois do
+    // anterior, praticamente igual ao passo do jogo. Exigir o passo inteiro fazia
+    // um v-sync "adiantado" por décimos de ms ficar sem passo, e o quadro seguinte
+    // esperava mais uma volta da tela (tremida, menos de 60 quadros/s).
+    const double slack = tick_ms * 0.25;
     Uint64 stat_t0 = last;
     int stat_frames = 0, stat_steps = 0;
     while (running && !app.finished()) {
@@ -271,8 +278,16 @@ int main(int argc, char** argv) {
                     if (down) {
                         app.input.clicked[b] = true;
                         app.input.dbl[b] = ev.button.clicks >= 2;
+                        app.input.down[b] = true;
+                        press_seen[b] = false;
+                        release_pending[b] = false;
+                    } else if (!press_seen[b]) {
+                        // toque rápido: soltou antes de o jogo ver o dedo apertado.
+                        // Segura o "apertado" até o próximo passo, senão o toque se perde.
+                        release_pending[b] = true;
+                    } else {
+                        app.input.down[b] = false;
                     }
-                    app.input.down[b] = down;
                     break;
                 }
                 case SDL_KEYDOWN:
@@ -372,15 +387,22 @@ int main(int argc, char** argv) {
         last = now;
         if (acc > 250) acc = 250;
         int steps = 0;
-        while (acc >= tick_ms && steps < 4) {
+        while (acc >= tick_ms - slack && steps < 4) {
             if (!step()) { running = false; break; }
-            for (int b = 0; b < 3; ++b) app.input.clicked[b] = app.input.dbl[b] = false;
+            for (int b = 0; b < 3; ++b) {
+                app.input.clicked[b] = app.input.dbl[b] = false;
+                if (app.input.down[b]) press_seen[b] = true;
+                if (release_pending[b]) {
+                    app.input.down[b] = false;
+                    release_pending[b] = false;
+                }
+            }
             acc -= tick_ms;
             ++steps;
         }
         if (steps == 0 && !redraw) {
             // nada novo para mostrar: dorme até perto do próximo passo do jogo
-            double wait = tick_ms - acc;
+            double wait = tick_ms - slack - acc;
             SDL_Delay(wait > 2.0 ? Uint32(wait - 1.0) : 1);
             continue;
         }

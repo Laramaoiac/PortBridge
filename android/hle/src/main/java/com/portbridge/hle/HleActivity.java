@@ -5,6 +5,7 @@ import android.content.pm.PackageInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
@@ -79,6 +80,11 @@ public class HleActivity extends SDLActivity {
     @Override
     protected SDLSurface createSDLSurface(Context context) {
         SDLSurface surface = super.createSDLSurface(context);
+        // Toques entregues assim que chegam, sem esperar o lote do próximo quadro
+        // da tela (o Android agrupa os eventos por quadro): o jogo vê o dedo antes.
+        if (Build.VERSION.SDK_INT >= 30) {
+            surface.requestUnbufferedDispatch(InputDevice.SOURCE_CLASS_POINTER);
+        }
         surface.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override public void surfaceCreated(SurfaceHolder h) { request60Hz(h); }
             @Override public void surfaceChanged(SurfaceHolder h, int f, int w, int ht) { request60Hz(h); }

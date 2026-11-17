@@ -190,6 +190,11 @@ ele só desenha quando o jogo avança (60/s, dormindo entre um passo e outro), r
 faixas a cada 3 quadros e também pede a tela a 60 Hz. O log do player mostra
 `desempenho: N quadros/s, N passos do jogo/s` a cada 30 s.
 
+**Toque.** Os dois tipos de APK pedem ao Android os toques sem lote por quadro
+(`requestUnbufferedDispatch`, Android 11+), o que tira até um quadro de atraso; no
+player Clickteam, um toque solto antes do passo seguinte ainda conta como apertado
+durante um passo.
+
 O patch também converte texturas 5551/4444 para RGBA8888 no caminho nativo e registra
 no log (uma vez cada) os formatos de textura e os estados de mistura. O modo tolerante
 diz em qual função (ou `[Classe método]`) cada erro recuperado aconteceu.

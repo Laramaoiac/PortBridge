@@ -45,6 +45,13 @@ com espessuras alternadas (moiré).
 O player só redesenha quando o jogo avança um passo (60 por segundo), mesmo numa tela
 de 120 Hz, e o desfoque das faixas é refeito a cada 3 quadros: o mesmo resultado na
 tela com menos trabalho da GPU (numa tela de 120 Hz, a metade; o celular esquentava).
+O passo aceita uma folga de 1/4 de passo, para o v-sync de 60 Hz (que chega quase
+junto com o passo de 16,7 ms) nunca ficar sem passo.
+
+Toque: no Android os eventos de toque chegam sem esperar o lote do próximo quadro da
+tela (`requestUnbufferedDispatch`), e um toque rápido, solto antes de o jogo dar o
+próximo passo, continua "apertado" durante um passo. Sem isso, condições como
+`WhileMousePressed` (andar até o dedo) não viam toques muito curtos.
 
 A camada do fundo e da introdução ("Layer 1") tem paralaxe x = 0 e y = 0,5. O
 coeficiente vale a partir da rolagem do início do frame (depois do
