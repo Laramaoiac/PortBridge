@@ -182,7 +182,25 @@ são carregadas uma vez por contexto, não a cada troca. O log (e o relatório d
 mostra a taxa real a cada 30 s (`PortBridge: 59.9 quadros/s`) e o intervalo dos
 temporizadores repetitivos.
 
-**Memória e calor.** Medido no servidor: Ninja ~200 MB de RAM, Zorbié ~210 MB, os dois
+**Vibração.** A opção "VIBRATION EFFECT" (NONE, MILD, NORMAL, STRONG) do jogo é um
+tremor de tela: a versão de iPhone não chama nenhuma API de vibração (não importa
+`AudioServicesPlaySystemSound`). Achado no binário (1.05): o nível fica no objeto
+global do jogo (`0x21a950 + 0x251fc`; 0 = NORMAL, 1 = STRONG, 2 = NONE, 3 = MILD), e
+os golpes chamam o objeto de tremor (estático em `0x21a8d0`, vtable `0x1d4c88`) com
+duração de 20 quadros e amplitude ±10 (STRONG/NORMAL) ou ±5 (MILD); o campo `+0x24`
+conta os quadros que faltam. No Android, cada tremor que começa agora também vibra o
+celular, pelo tempo do tremor e com força proporcional à amplitude
+(`portbridge_haptics.rs`, pela API de vibração do SDL). Com NONE o jogo não treme, e
+o celular também não vibra. O gancho só liga se o identificador do app e a vtable
+baterem. `AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)`, usado por outros
+jogos, também passou a vibrar.
+
+**Apresentação.** A textura e o framebuffer usados para mostrar o quadro são
+reaproveitados (antes eram criados e apagados a cada quadro, o que custa caro em
+alguns drivers). O log de 30 em 30 s mostra também o tempo gasto apresentando cada
+quadro, para separar lentidão do jogo de lentidão da apresentação no aparelho.
+
+ Medido no servidor: Ninja ~200 MB de RAM, Zorbié ~210 MB, os dois
 estáveis (sem vazamento em 60 s de jogo). O calor vinha de trabalho de GPU, não de
 memória: o player do Zorbié redesenhava a cada v-sync (120 vezes por segundo numa tela
 de 120 Hz, para um jogo de 60) e refazia o desfoque das faixas a cada quadro. Agora
