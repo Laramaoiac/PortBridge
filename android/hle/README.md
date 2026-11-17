@@ -98,6 +98,25 @@ DISPLAY=:91 xdotool mousemove --window "$(DISPLAY=:91 xdotool search --name touc
 O log fica em `touchHLE_log.txt` na pasta de teste. No modo tolerante, cada erro
 recuperado vem com a função (ou `[Classe método]`) onde aconteceu.
 
+No computador o touchHLE usa a camada GLES1-sobre-GL2; no Android, o OpenGL ES 1.1
+do aparelho. Para testar o caminho do Android, compile um Mesa com GLES1 (o Mesa das
+distribuições costuma vir sem) e rode com `--gles1=gles1_native`:
+
+```bash
+apt-get source mesa   # precisa de deb-src; ou o tarball do Mesa
+meson setup build --prefix=$PWD/inst -Dplatforms=x11 -Degl=enabled -Dgles1=enabled \
+    -Dgles2=enabled -Dglx=disabled -Dglvnd=disabled -Dgbm=disabled \
+    -Dgallium-drivers=softpipe -Dvulkan-drivers= -Dllvm=disabled -Dvideo-codecs= \
+    -Dxmlconfig=disabled -Dbuild-tests=false
+ninja -C build install
+DISPLAY=:91 LD_LIBRARY_PATH=$PWD/inst/lib/x86_64-linux-gnu SDL_VIDEO_X11_FORCE_EGL=1 \
+    .../touchHLE Jogo.ipa --gles1=gles1_native --lenient --no-error-popup
+```
+
+O log mostra `Driver info: OpenGL ES-CM 1.1 Mesa …`. Os quadros são apresentados por
+um contexto GL separado, que compartilha os objetos com o do jogo, para não mexer no
+estado GL do jogo (ver o estudo de caso do Ninja Striker em `docs/ROADMAP.md`).
+
 ## Checar um IPA antes
 
 ```bash

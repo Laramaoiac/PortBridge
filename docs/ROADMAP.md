@@ -149,17 +149,31 @@ corrigidos:
 | Textos japoneses | `initWithCString:encoding:` recusava Shift-JIS | Shift-JIS aceito; Latin-1 e MacRoman de verdade |
 | Som `HEAL1.mp3` | é um WAV com MP3 dentro (formato 0x55) | extrai e decodifica o MP3 |
 | Ref de áudio inválida derrubava | o jogo usa o `ExtAudioFileRef` mesmo depois de falhar ao abrir | devolve erro (`-50`) |
+| Verde atrás dos sprites só no celular | a apresentação do quadro mexia no estado GL do jogo e o restaurava lendo o driver; no aparelho a mistura de cores se perdia | quadro apresentado por um contexto GL compartilhado, sem tocar no estado do jogo |
 
 Resultado no servidor: título, seleção de fase e partida (corrida, moedas, inimigos,
 combo, pontuação) sem erros no log.
 
-No celular, os sprites ainda mostravam o verde da cor-chave (no servidor, não). O
-servidor usa a camada GLES1-sobre-GL2 do touchHLE; o Android usa o OpenGL ES 1.1 do
-aparelho, e o jogo envia as texturas em RGBA5551 (1 bit de alfa). O patch agora
-converte 5551/4444 para RGBA8888 no caminho nativo e registra no log (uma vez cada)
-os formatos de textura e os estados de mistura, para o relatório do APK mostrar o que
-acontece se o problema continuar. Falta confirmar no aparelho. O modo tolerante passou a dizer em qual função
-(ou `[Classe método]`) cada erro recuperado aconteceu.
+No celular, os sprites ainda mostravam o verde da cor-chave (no servidor, não).
+Causa: o jogo liga a mistura de cores (`glEnable(GL_BLEND)` e `glBlendFunc`) **uma vez**
+na abertura e nunca mais. A cada quadro, o touchHLE desenhava a imagem na janela
+usando o próprio contexto do jogo: desligava as capacidades e depois as restaurava
+com os valores lidos do driver (`glGetBooleanv`). Num driver que responde errado a
+essa leitura (Samsung, Android 17; o S23 provavelmente usa o ANGLE), a mistura fica
+desligada depois do primeiro quadro, e o texel transparente aparece com a cor que
+guarda, o verde da cor-chave (`0x07C0` = verde com alfa 0). Simulando essa leitura
+errada no servidor, a tela fica idêntica à do celular.
+
+Correção: os quadros agora são apresentados por um **segundo contexto GL, que
+compartilha os objetos com o do jogo** (o renderbuffer do jogo é copiado para uma
+textura nesse contexto e desenhado na janela). O estado do contexto do jogo não é
+mais alterado nem restaurado; se o contexto extra não puder ser criado, o caminho
+antigo continua valendo. Testado no servidor com o OpenGL ES 1.1 nativo (Mesa
+compilado com GLES1, o mesmo caminho do Android) e com a camada GLES1-sobre-GL2.
+
+O patch também converte texturas 5551/4444 para RGBA8888 no caminho nativo e registra
+no log (uma vez cada) os formatos de textura e os estados de mistura. O modo tolerante
+diz em qual função (ou `[Classe método]`) cada erro recuperado aconteceu.
 
 ## Próximas tarefas da ferramenta
 
