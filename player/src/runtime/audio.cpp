@@ -3,6 +3,7 @@
 #include "runtime/audio.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
 
 #include "dr_mp3.h"
@@ -29,17 +30,65 @@ Audio::Audio(const Game& game) : game_(game) {
     }
     rate_ = have.freq;
     SDL_PauseAudioDevice(dev_, 0);
+    thread_ = std::thread([this] { worker(); });
 }
 
 Audio::~Audio() {
+    {
+        std::lock_guard<std::mutex> lk(qm_);
+        quit_ = true;
+    }
+    qcv_.notify_all();
+    if (thread_.joinable()) thread_.join();
     if (dev_) SDL_CloseAudioDevice(dev_);
 }
 
-std::shared_ptr<Audio::Clip> Audio::clip(int handle) {
+// Acima disso o som é decodificado em segundo plano (MP3 de ~6 s ou mais).
+static constexpr size_t kAsyncBytes = 96 * 1024;
+// Sons longos decodificados que ficam na memória sem tocar (os mais antigos saem).
+static constexpr size_t kKeepLong = 3;
+
+void Audio::worker() {
+    for (;;) {
+        int handle;
+        {
+            std::unique_lock<std::mutex> lk(qm_);
+            qcv_.wait(lk, [this] { return quit_ || !queue_.empty(); });
+            if (quit_) return;
+            handle = queue_.front();
+            queue_.pop_front();
+        }
+        if (cached(handle)) continue;
+        auto c = clip(handle, true);
+        if (c) store(handle, c);
+    }
+}
+
+std::shared_ptr<Audio::Clip> Audio::cached(int handle) {
+    std::lock_guard<std::mutex> lk(m_);
     auto it = cache_.find(handle);
-    if (it != cache_.end()) return it->second;
+    return it == cache_.end() ? nullptr : it->second;
+}
+
+void Audio::store(int handle, std::shared_ptr<Clip> c) {
+    std::lock_guard<std::mutex> lk(m_);
+    cache_[handle] = c;
+    // Limita a memória: só os kKeepLong sons longos mais recentes ficam
+    // guardados quando não estão tocando (uma música pode ter dezenas de MB).
+    if (c->pcm.size() * 2 < kAsyncBytes * 8) return;
+    std::vector<int> idle;
+    for (auto& [h, cl] : cache_)
+        if (h != handle && cl->pcm.size() * 2 >= kAsyncBytes * 8 && cl.use_count() == 1) idle.push_back(h);
+    while (idle.size() >= kKeepLong) {
+        cache_.erase(idle.front());
+        idle.erase(idle.begin());
+    }
+}
+
+std::shared_ptr<Audio::Clip> Audio::clip(int handle, bool background) {
     auto si = game_.sounds.find(handle);
     if (si == game_.sounds.end()) return nullptr;
+    Uint64 t0 = SDL_GetPerformanceCounter();
     const uint8_t* data = game_.buf.data() + si->second.offset;
     size_t size = si->second.size;
     auto c = std::make_shared<Clip>();
@@ -71,14 +120,40 @@ std::shared_ptr<Audio::Clip> Audio::clip(int handle) {
         }
     }
     c->rate = rate ? int(rate) : 44100;
-    cache_[handle] = c;
+    double ms = double(SDL_GetPerformanceCounter() - t0) * 1000.0 / double(SDL_GetPerformanceFrequency());
+    std::lock_guard<std::mutex> lk(qm_);  // a thread de decodificação também passa aqui
+    if (background) {
+        bg_decode_ms += ms;
+        ++bg_decodes;
+        if (ms > bg_worst_ms) { bg_worst_ms = ms; bg_worst = handle; }
+    } else {
+        decode_ms += ms;
+        ++decodes;
+        if (ms > worst_decode_ms) { worst_decode_ms = ms; worst_decode = handle; }
+    }
     return c;
 }
 
 void Audio::play(int handle, int channel, int loops) {
     if (!dev_) return;
-    auto c = clip(handle);
-    if (!c || c->pcm.empty()) return;
+    auto c = cached(handle);
+    bool wait = false;
+    if (!c) {
+        auto si = game_.sounds.find(handle);
+        if (si == game_.sounds.end()) return;
+        if (si->second.size <= kAsyncBytes) {
+            c = clip(handle);  // efeito curto: decodifica na hora (rápido)
+            if (c) store(handle, c);
+        } else {
+            wait = true;  // música: decodifica em segundo plano e começa quando estiver pronta
+            {
+                std::lock_guard<std::mutex> lk(qm_);
+                queue_.push_back(handle);
+            }
+            qcv_.notify_one();
+        }
+    }
+    if (!wait && (!c || c->pcm.empty())) return;
     std::lock_guard<std::mutex> lk(m_);
     int idx = channel - 1;
     if (channel <= 0 || channel > kChannels) {
@@ -94,6 +169,7 @@ void Audio::play(int handle, int channel, int loops) {
     ch.loops_left = loops;
     ch.paused = false;
     ch.active = true;
+    ch.waiting = wait;
 }
 
 void Audio::stop_channel(int c) {
@@ -155,6 +231,14 @@ void Audio::mix(int16_t* out, int frames) {
     {
         std::lock_guard<std::mutex> lk(m_);
         for (auto& ch : ch_) {
+            if (ch.active && ch.waiting) {  // decodificação terminou?
+                auto it = cache_.find(ch.handle);
+                if (it != cache_.end()) {
+                    ch.clip = it->second;
+                    ch.waiting = false;
+                    if (ch.clip->pcm.empty()) ch.active = false;
+                }
+            }
             if (!ch.active || ch.paused || !ch.clip) continue;
             const auto& pcm = ch.clip->pcm;
             size_t n = pcm.size() / 2;

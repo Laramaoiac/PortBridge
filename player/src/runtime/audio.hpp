@@ -2,8 +2,11 @@
 #pragma once
 #include <SDL.h>
 
+#include <condition_variable>
+#include <deque>
 #include <memory>
 #include <mutex>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -13,6 +16,10 @@ namespace pb {
 
 class Audio {
 public:
+    // Custo de decodificar sons (relatório de auditoria).
+    // no passo do jogo (efeitos curtos) e na thread de fundo (músicas)
+    double decode_ms = 0, worst_decode_ms = 0, bg_decode_ms = 0, bg_worst_ms = 0;
+    int decodes = 0, worst_decode = -1, bg_decodes = 0, bg_worst = -1;
     explicit Audio(const Game& game);
     ~Audio();
     bool ok() const { return dev_ != 0; }
@@ -45,9 +52,13 @@ private:
         double pos = 0;
         int loops_left = 1;  // 0 = infinito
         bool paused = false, active = false;
+        bool waiting = false;  // som longo sendo decodificado em segundo plano
         int volume = 100, freq = 0;
     };
-    std::shared_ptr<Clip> clip(int handle);
+    std::shared_ptr<Clip> clip(int handle, bool background = false);  // decodifica (sem trava do mixer)
+    std::shared_ptr<Clip> cached(int handle);  // só o que já está pronto
+    void worker();
+    void store(int handle, std::shared_ptr<Clip> c);
     static void callback(void* self, Uint8* stream, int len);
     void mix(int16_t* out, int frames);
 
@@ -58,6 +69,13 @@ private:
     Chan ch_[kChannels];
     std::unordered_map<int, std::shared_ptr<Clip>> cache_;
     bool muted_ = false;
+    // Sons longos (músicas) são decodificados numa thread: decodificar um MP3
+    // inteiro no passo do jogo travava a tela (68 ms no PC, bem mais no celular).
+    std::mutex qm_;
+    std::condition_variable qcv_;
+    std::deque<int> queue_;
+    bool quit_ = false;
+    std::thread thread_;
 };
 
 }  // namespace pb

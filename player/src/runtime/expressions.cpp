@@ -272,7 +272,7 @@ struct Parser {
             for (int m : c.f.expand_oi(oi))
                 if (m == c.current->oi) return c.current;
         }
-        return first_target(c, oi);
+        return paired_target(c, oi);
     }
 
     Value object_expression(const Expr& e) {

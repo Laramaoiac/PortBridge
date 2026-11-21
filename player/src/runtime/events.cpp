@@ -43,6 +43,10 @@ bool in_zone(double x, double y, const Param& z) {
 }
 
 // Filtra as instâncias de `it.oi` com um predicado (respeitando "NOT").
+// Com "NOT" e nenhuma instância (o objeto não existe), a condição é verdadeira,
+// como no Clickteam: nenhum objeto satisfaz a condição positiva. Ex.: na loja do
+// Zorbié, "NOT descrição sobrepondo o botão" com a descrição ainda inexistente
+// precisa ser verdadeiro para o item poder ser escolhido (senão a loja trava).
 template <class Pred>
 bool filter(EvalContext& c, const EventItem& it, Pred pred) {
     bool any = false;
@@ -51,15 +55,17 @@ bool filter(EvalContext& c, const EventItem& it, Pred pred) {
         if (c.s.touched.count(oi)) cand = c.s.sel[oi];
         else cand = c.f.instances(oi);
         std::vector<Obj*> kept;
+        bool live = false;
         for (Obj* o : cand) {
             if (o->destroyed) continue;
+            live = true;
             c.current = o;
             c.current_oi = oi;
             bool r = pred(o);
             if (it.negated()) r = !r;
             if (r) kept.push_back(o);
         }
-        any |= !kept.empty();
+        any |= !kept.empty() || (it.negated() && !live);
         c.s.sel[oi] = std::move(kept);
         c.s.touched.insert(oi);
     }
@@ -81,8 +87,10 @@ bool collision(EvalContext& c, const EventItem& it, int gi, bool edge) {
     for (int oi : c.f.expand_oi(it.oi)) {
         std::vector<Obj*> cand = c.s.touched.count(oi) ? c.s.sel[oi] : c.f.instances(oi);
         std::vector<Obj*> kept;
+        bool live = false;
         for (Obj* a : cand) {
             if (a->destroyed) continue;
+            live = true;
             bool hit = false;
             for (Obj* b : others) {
                 if (b == a || b->destroyed) continue;
@@ -100,7 +108,7 @@ bool collision(EvalContext& c, const EventItem& it, int gi, bool edge) {
             if (it.negated()) hit = !hit;
             if (hit) kept.push_back(a);
         }
-        any |= !kept.empty();
+        any |= !kept.empty() || (it.negated() && !live);  // NOT sem instâncias: verdadeiro
         c.s.sel[oi] = std::move(kept);
         c.s.touched.insert(oi);
     }
@@ -434,8 +442,15 @@ void set_counter(Obj* o, double v) {
 }
 
 void set_group(Frame& f, const Param& p, bool active) {
+    // PB_GROUPS=1: registra cada mudança de grupo com o nome (depuração).
+    static const bool log_groups = std::getenv("PB_GROUPS") != nullptr;
     auto apply = [&](int index) {
         GroupInfo& g = f.groups[size_t(index)];
+        if (log_groups && g.active != active) {
+            const auto& c0 = f.def.events.groups[size_t(index)].conditions;
+            SDL_Log("grupo %s frame %d passo %lld: #%d '%s'", active ? "ligado" : "desligado", f.index,
+                    (long long)f.loop, index, c0.empty() || c0[0].params.empty() ? "" : c0[0].params[0].str.c_str());
+        }
         if (active && !g.active) g.just_activated = true;
         g.active = active;
     };
@@ -505,7 +520,11 @@ void object_action(EvalContext& c, const EventItem& it, Obj* o) {
         case 1:
             if (p0) {
                 auto pos = resolve_position(c, p0->pos);
-                if (!pos.empty()) { o->x = pos[0].x; o->y = pos[0].y; }
+                if (!pos.empty()) {
+                    const Pos& q = pos[size_t(std::max(0, c.loop_index)) % pos.size()];
+                    o->x = q.x;
+                    o->y = q.y;
+                }
             }
             return;
         case 2: if (p0) o->x = eval_expr(c, p0->expr).num(); return;
@@ -529,7 +548,8 @@ void object_action(EvalContext& c, const EventItem& it, Obj* o) {
             if (p0) {
                 auto pos = resolve_position(c, p0->pos);
                 if (!pos.empty()) {
-                    double a = std::atan2(-(pos[0].y - o->y), pos[0].x - o->x) * 180.0 / kPi;
+                    const Pos& q = pos[size_t(std::max(0, c.loop_index)) % pos.size()];
+                    double a = std::atan2(-(q.y - o->y), q.x - o->x) * 180.0 / kPi;
                     if (a < 0) a += 360;
                     int d = int(std::lround(a / 11.25)) & 31;
                     o->dir = d;
@@ -630,7 +650,8 @@ void object_action(EvalContext& c, const EventItem& it, Obj* o) {
             case 82: if (p0) set_counter(o, o->counter - eval_expr(c, p0->expr).num()); return;
             case 83: if (p0) { o->counter_min = eval_expr(c, p0->expr).num(); set_counter(o, o->counter); } return;
             case 84: if (p0) { o->counter_max = eval_expr(c, p0->expr).num(); set_counter(o, o->counter); } return;
-            case 85: case 86: return;  // cores de barra: o Zorbié só usa contadores com imagens
+            case 85: if (p0) o->bar_color1 = colorref_to_rgb(uint32_t(p0->expr.empty() ? p0->i0 : param_int(c, *p0))); return;
+            case 86: if (p0) o->bar_color2 = colorref_to_rgb(uint32_t(p0->expr.empty() ? p0->i0 : param_int(c, *p0))); return;
             default: break;
         }
     } else if (o->type == OBJ_TEXT) {
@@ -758,15 +779,18 @@ void action(EvalContext& c, const EventItem& it) {
             return;
         }
         std::vector<Obj*> tg = targets(c, it.oi);
+        int k = 0;
         for (Obj* o : tg) {
             if (o->destroyed && it.num != 24) continue;
             c.current = o;
             c.current_oi = o->oi;
+            c.loop_index = k++;
             if (it.type >= OBJ_EXTENSION_BASE && it.num >= 80) ext_action(c, it, o);
             else object_action(c, it, o);
         }
         c.current = nullptr;
         c.current_oi = -1;
+        c.loop_index = -1;
         return;
     }
     app.note_unimplemented(item_name(ItemKind::Action, it.type, it.num));
@@ -833,6 +857,11 @@ void eval_group(Frame& f, int gi) {
         any = true;
     }
     if (!any) return;
+    if (f.app.audit.on) {
+        auto& v = f.app.audit.fired[f.index];
+        if (v.size() < f.def.events.groups.size()) v.resize(f.def.events.groups.size());
+        ++v[size_t(gi)];
+    }
     EvalContext c{f, sel};
     for (const EventItem& a : g.actions) {
         action(c, a);
@@ -854,6 +883,19 @@ std::vector<Obj*> targets(EvalContext& c, int oi) {
         }
     }
     return out;
+}
+
+// Pareamento do Clickteam: numa ação que roda em várias instâncias de A, uma
+// referência a outro objeto B (posição relativa, X/Y/ângulo de B...) usa a
+// k-ésima instância de B para a k-ésima de A, voltando ao começo se B tiver
+// menos instâncias. Na loja do Zorbié, as 3 barras ("Set position relativa a
+// shop_gauge_shape") iam todas para a primeira linha.
+Obj* paired_target(EvalContext& c, int oi) {
+    if (c.loop_index <= 0) return first_target(c, oi);
+    std::vector<Obj*> list = targets(c, oi);
+    list.erase(std::remove_if(list.begin(), list.end(), [](Obj* o) { return o->destroyed; }), list.end());
+    if (list.empty()) return nullptr;
+    return list[size_t(c.loop_index) % list.size()];
 }
 
 Obj* first_target(EvalContext& c, int oi) {

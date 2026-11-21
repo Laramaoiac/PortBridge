@@ -20,19 +20,27 @@
 #include "runtime/diag.hpp"
 #include "runtime/runtime.hpp"
 #include "runtime/screen.hpp"
+#include "runtime/tweaks.hpp"
+#include "runtime/text.hpp"
 
 namespace {
 
 struct Options {
     std::string path, screenshot, save_dir, log, device;
-    bool headless = false, mute = false;
+    bool headless = false, mute = false, no_tweaks = false;
     int frames = 0, scale = 2;
     std::vector<std::pair<int, std::pair<int, int>>> clicks;  // (frame, (x, y))
     std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> holds;  // ((de, até), (x, y))
     std::vector<int> shots;                                    // frames extras para capturar
     std::vector<int> dumps;                                    // frames para listar o estado
+    std::vector<int> resumes;                                  // simula a volta do segundo plano
     int screen_w = 0, screen_h = 0;                            // --screen: simula uma tela (pixels)
     int monkey = -1;                                           // a partir deste loop: toques aleatórios
+    bool monkey_all = false;                                   // toques na tela inteira (menus, loja)
+    unsigned seed = 12345u;
+    int start_frame = -1;                                      // começa direto neste frame (testes)
+    std::string audit;                                         // relatório de auditoria (arquivo)
+    std::string text_test;                                     // desenha textos de exemplo neste PNG e sai
     int shot_every = 0;                                        // captura a cada N loops
 };
 
@@ -42,6 +50,12 @@ bool parse_args(int argc, char** argv, Options& o) {
         auto next = [&]() -> std::string { return i + 1 < argc ? argv[++i] : ""; };
         if (a == "--headless") o.headless = true;
         else if (a == "--mute") o.mute = true;
+        else if (a == "--no-tweaks") o.no_tweaks = true;  // jogo exatamente como o original
+        else if (a == "--monkey-all") o.monkey_all = true;
+        else if (a == "--seed") o.seed = unsigned(std::strtoul(next().c_str(), nullptr, 10));
+        else if (a == "--start-frame") o.start_frame = std::atoi(next().c_str());
+        else if (a == "--audit") o.audit = next();
+        else if (a == "--text-test") o.text_test = next();
         else if (a == "--frames") o.frames = std::atoi(next().c_str());
         else if (a == "--scale") o.scale = std::max(1, std::atoi(next().c_str()));
         else if (a == "--screenshot") o.screenshot = next();
@@ -50,6 +64,7 @@ bool parse_args(int argc, char** argv, Options& o) {
         else if (a == "--device") o.device = next();
         else if (a == "--shot-at") o.shots.push_back(std::atoi(next().c_str()));
         else if (a == "--dump-at") o.dumps.push_back(std::atoi(next().c_str()));
+        else if (a == "--resume-at") o.resumes.push_back(std::atoi(next().c_str()));
         else if (a == "--monkey") o.monkey = std::atoi(next().c_str());
         else if (a == "--screen") std::sscanf(next().c_str(), "%dx%d", &o.screen_w, &o.screen_h);
         else if (a == "--hold") {
@@ -149,6 +164,8 @@ int main(int argc, char** argv) {
                 game->height, game->frame_rate, game->frames.size(), game->objects.size(),
                 game->warnings.size());
         for (size_t i = 0; i < game->warnings.size() && i < 20; ++i) SDL_Log("aviso: %s", game->warnings[i].c_str());
+        if (!opt.no_tweaks)
+            for (const std::string& t : pb::apply_game_tweaks(*game, pkg.bundle_id)) SDL_Log("ajuste: %s", t.c_str());
     } catch (const std::exception& e) {
         pb::diag_fatal(std::string("Não foi possível abrir o jogo: ") + e.what());
         std::fprintf(stderr, "erro: %s\n", e.what());
@@ -198,6 +215,32 @@ int main(int argc, char** argv) {
     }
 #endif
     pb::Screen screen(ren);
+    if (!opt.text_test.empty()) {
+        // Teste do texto: frases do Zorbié no estilo do objeto "String" (Arial 13 negrito, branco).
+        screen.configure(vw, vh);
+        screen.begin();
+        SDL_SetRenderDrawColor(ren, 40, 60, 120, 255);
+        SDL_RenderClear(ren);
+        const pb::FontInfo* bold = nullptr;
+        for (const auto& f : game->fonts) if (f.weight >= 600) bold = &f;
+        const char* lines[] = {"Zorbiéééé!!!", "I've been in prizon 12 times.", "Gordolex is hiding something...",
+                               "You're an arcade game löver.", "No, it's not the end, pleaze wait for futures updates. ;)"};
+        std::vector<std::shared_ptr<void>> caches(5);
+        for (int i = 0; i < 5; ++i) {
+            pb::TextStyle st;
+            st.font = bold;
+            SDL_FRect box{20, 40.0f + 60.0f * i, 216, 32};
+            SDL_SetRenderDrawColor(ren, 255, 255, 255, 60);
+            SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+            SDL_RenderDrawRectF(ren, &box);
+            pb::draw_text(ren, caches[size_t(i)], lines[i], st, box);
+        }
+        screen.end();
+        int ow = 0, oh = 0;
+        SDL_GetRendererOutputSize(ren, &ow, &oh);
+        save_png(ren, ow, oh, opt.text_test);
+        return 0;
+    }
     screen.configure(vw, vh);
     {
         SDL_RendererInfo ri{};
@@ -226,6 +269,8 @@ int main(int argc, char** argv) {
     pb::App app(std::move(game), ren, &audio, save);
     app.view_w = vw;
     app.view_h = vh;
+    app.audit.on = !opt.audit.empty();
+    if (opt.start_frame >= 0) app.request_frame(opt.start_frame);
 
     auto render = [&]() {
         screen.begin();
@@ -243,7 +288,8 @@ int main(int argc, char** argv) {
             return false;
         }
     };
-    const double tick_ms = 1000.0 / std::max(1, app.frame_rate);
+    // O jogo pode mudar a taxa (Zorbié: 40 ou 45 quadros/s na qualidade baixa).
+    double tick_ms = 1000.0 / std::max(1, app.frame_rate);
     double acc = 0;
     Uint64 last = SDL_GetPerformanceCounter();
     int loops = 0;
@@ -258,7 +304,7 @@ int main(int argc, char** argv) {
     // anterior, praticamente igual ao passo do jogo. Exigir o passo inteiro fazia
     // um v-sync "adiantado" por décimos de ms ficar sem passo, e o quadro seguinte
     // esperava mais uma volta da tela (tremida, menos de 60 quadros/s).
-    const double slack = tick_ms * 0.25;
+    double slack = tick_ms * 0.25;
     Uint64 stat_t0 = last;
     int stat_frames = 0, stat_steps = 0;
     while (running && !app.finished()) {
@@ -293,8 +339,12 @@ int main(int argc, char** argv) {
                 case SDL_KEYDOWN:
                     if (ev.key.keysym.sym == SDLK_AC_BACK || ev.key.keysym.sym == SDLK_ESCAPE) running = false;
                     break;
-                case SDL_APP_WILLENTERBACKGROUND: audio.pause_all(true); break;
-                case SDL_APP_DIDENTERFOREGROUND: audio.pause_all(false); app.resumed_flag = true; break;
+                case SDL_APP_WILLENTERBACKGROUND: audio.pause_all(true); pb::flush_ini_files(); break;
+                case SDL_APP_DIDENTERFOREGROUND:
+                    audio.pause_all(false);
+                    app.interrupted_flag = true;
+                    app.resume_pending = true;
+                    break;
                 case SDL_WINDOWEVENT:
                     if (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
                         int ow = 0, oh = 0;
@@ -322,7 +372,7 @@ int main(int argc, char** argv) {
         if (opt.headless) {
             // "Jogador automático" para testes longos: segura e arrasta na metade
             // de baixo da tela (zona de controle do Zorbié), com pausas.
-            static uint32_t seed = 12345u;
+            static uint32_t seed = opt.seed;
             static int hold = 0, rest = 0;
             static double tx = 160, ty = 400;
             auto rnd = [&](int n) { seed = seed * 1103515245u + 12345u; return int((seed >> 16) % uint32_t(n)); };
@@ -336,9 +386,9 @@ int main(int argc, char** argv) {
                 } else {
                     int VW = app.view_w, VH = app.view_h;
                     app.input.mouse_x = rnd(VW);
-                    app.input.mouse_y = VH / 2 + 40 + rnd(VH / 2 - 40);
+                    app.input.mouse_y = opt.monkey_all ? rnd(VH) : VH / 2 + 40 + rnd(VH / 2 - 40);
                     tx = rnd(VW);
-                    ty = VH / 2 + 40 + rnd(VH / 2 - 40);
+                    ty = opt.monkey_all ? rnd(VH) : VH / 2 + 40 + rnd(VH / 2 - 40);
                     app.input.clicked[0] = true;
                     app.input.down[0] = true;
                     hold = 5 + rnd(60);
@@ -363,6 +413,11 @@ int main(int argc, char** argv) {
                     app.input.down[0] = false;
                 }
             }
+            for (int r : opt.resumes)
+                if (r == loops) {
+                    app.interrupted_flag = true;
+                    app.resume_pending = true;
+                }
             if (!step()) { running = false; break; }
             ++loops;
             for (int d : opt.dumps)
@@ -387,6 +442,8 @@ int main(int argc, char** argv) {
         last = now;
         if (acc > 250) acc = 250;
         int steps = 0;
+        tick_ms = 1000.0 / std::max(1, app.frame_rate);
+        slack = tick_ms * 0.25;
         while (acc >= tick_ms - slack && steps < 4) {
             if (!step()) { running = false; break; }
             for (int b = 0; b < 3; ++b) {
@@ -409,6 +466,7 @@ int main(int argc, char** argv) {
         redraw = false;
         render();
         SDL_RenderPresent(ren);
+        app.prefetch(3.0);  // depois de mostrar o quadro: usa a folga até o próximo
         stat_steps += steps;
         ++stat_frames;
         if (double(now - stat_t0) >= 30.0 * double(SDL_GetPerformanceFrequency())) {
@@ -431,7 +489,40 @@ int main(int argc, char** argv) {
                     fr ? fr->def.name.c_str() : "", fr ? fr->objects.size() : 0, fr ? fr->timer_ms : 0);
         std::printf("não implementados (%zu):\n", app.unimplemented.size());
         for (auto& [k, v] : app.unimplemented) std::printf("  %-40s %d\n", k.c_str(), v);
+        if (app.audit.on) {
+            if (FILE* af = std::fopen(opt.audit.c_str(), "w")) {
+                auto& A = app.audit;
+                std::fprintf(af, "decodificacoes %d, total %.1f ms, pior %.1f ms (imagem %d)\n", A.decodes,
+                             A.decode_ms, A.worst_decode_ms, A.worst_decode);
+                std::fprintf(af, "sons decodificados no passo do jogo %d, total %.1f ms, pior %.1f ms (som %d)\n",
+                             audio.decodes, audio.decode_ms, audio.worst_decode_ms, audio.worst_decode);
+                std::fprintf(af, "sons decodificados em segundo plano %d, total %.1f ms, pior %.1f ms (som %d)\n",
+                             audio.bg_decodes, audio.bg_decode_ms, audio.bg_worst_ms, audio.bg_worst);
+                for (auto& [fi, n] : A.loops)
+                    std::fprintf(af, "frame %d: %llu passos, pico de %zu objetos\n", fi, (unsigned long long)n,
+                                 A.max_objects[fi]);
+                for (auto& s : A.slow) std::fprintf(af, "lento: %s\n", s.c_str());
+                for (auto& [fi, v] : A.fired) {
+                    std::fprintf(af, "disparos frame %d:", fi);
+                    for (size_t g = 0; g < v.size(); ++g)
+                        if (v[g]) std::fprintf(af, " %zu:%u", g, v[g]);
+                    std::fprintf(af, "\n");
+                }
+                for (auto& [k, v] : app.unimplemented) std::fprintf(af, "nao implementado: %s %d\n", k.c_str(), v);
+                if (pb::Frame* fr = app.frame()) {
+                    std::map<std::string, int> count;
+                    for (auto& o : fr->objects) count[o->def ? o->def->name : "?"]++;
+                    std::vector<std::pair<int, std::string>> top;
+                    for (auto& [n, k] : count) top.push_back({k, n});
+                    std::sort(top.rbegin(), top.rend());
+                    for (size_t i = 0; i < top.size() && i < 12; ++i)
+                        std::fprintf(af, "objetos no fim: %s %d\n", top[i].second.c_str(), top[i].first);
+                }
+                std::fclose(af);
+            }
+        }
     }
+    pb::flush_ini_files();
     pb::diag_close();
     screen.release();
     SDL_DestroyRenderer(ren);

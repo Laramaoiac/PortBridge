@@ -33,7 +33,8 @@ src/runtime/    interpretador (SDL2)
                 jogo (inclusive nas faixas)
 src/platform/   JNI do app Android
 src/tools/      pbinfo (inspeção e listagem de eventos)
-third_party/    SDL2 (submódulo), miniz, dr_wav/dr_mp3 — todos de licença permissiva
+third_party/    SDL2 (submódulo), miniz, dr_wav/dr_mp3, stb_truetype — licenças permissivas;
+                fonts/: Liberation Sans (OFL), para os textos dos jogos
 ```
 
 ## Compilar
@@ -110,13 +111,29 @@ PB_TRACE=594,596 ./build/portbridge-player Jogo.ipa --headless --frames 1300
 # "jogador automático" por 10 minutos de jogo, com captura a cada 3000 loops
 ./build/portbridge-player Jogo.ipa --headless --frames 36000 --monkey 700 \
     --shot-every 3000 --screenshot s.png
+# toques na tela inteira (menus, loja), semente fixa, save separado e relatório de
+# auditoria: passos lentos, pico de objetos, decodificação de imagens e sons,
+# grupos que dispararam e objetos que sobraram
+./build/portbridge-player Jogo.ipa --headless --frames 36000 --monkey 60 --monkey-all \
+    --seed 3 --save-dir save --audit relatorio.txt
+# simula a volta do app do segundo plano no loop 600 (pausa automática)
+./build/portbridge-player Jogo.ipa --headless --frames 900 --resume-at 600 --shot-at 660
+# começa direto num frame; roda o jogo sem os ajustes por jogo (tweaks.cpp)
+./build/portbridge-player Jogo.ipa --headless --start-frame 4 --no-tweaks --frames 600
+# grupos ligados e desligados durante o jogo
+PB_GROUPS=1 ./build/portbridge-player Jogo.ipa --headless --frames 1300
 # eventos com a posição de cada grupo (@) e o alvo dos ponteiros de grupo (ptr)
 ./build/pbinfo Jogo.ipa --events 1
 ./build/pbinfo Jogo.ipa --group-pointers 1    # confere a fórmula dos ponteiros
+# fontes, contadores e textos; detalhes de um objeto; instâncias de um frame
+./build/pbinfo Jogo.ipa --objects
+./build/pbinfo Jogo.ipa --objects player_col
+./build/pbinfo Jogo.ipa --instances 1
 ```
 
 A análise completa do Zorbié feita com essas ferramentas está em
-[docs/ZORBIE_RECEITA.md](../docs/ZORBIE_RECEITA.md).
+[docs/ZORBIE_RECEITA.md](../docs/ZORBIE_RECEITA.md) e
+[docs/ZORBIE_ANALISE.md](../docs/ZORBIE_ANALISE.md).
 
 No fim de cada execução `--headless`, o player lista as condições, ações e expressões que
 o jogo usou e que ainda não estão implementadas. Para outros jogos Clickteam, essa lista

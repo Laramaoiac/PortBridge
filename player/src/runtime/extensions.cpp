@@ -6,6 +6,7 @@
 #include <cmath>
 #include <fstream>
 #include <map>
+#include <set>
 #include <sstream>
 
 #include "runtime/runtime.hpp"
@@ -13,12 +14,37 @@
 namespace pb {
 namespace {
 
+struct Ini;
+// INIs com alterações ainda não gravadas (ver flush_ini_files).
+std::set<Ini*>& dirty_inis() {
+    static std::set<Ini*> s;
+    return s;
+}
+
+// Gravação adiada: o Zorbié grava dezenas de chaves no mesmo passo (ex.: 8 a
+// cada compra na loja, muito mais ao fim da partida). Regravar o arquivo
+// inteiro a cada chave travava o jogo por dezenas de ms (bem mais no celular).
+// Agora as chaves mudam na memória e o arquivo é gravado uma vez no fim do
+// passo, ao trocar de frame, ao pausar e ao sair.
 struct Ini {
     std::string path, group, item;
     std::map<std::string, std::map<std::string, std::string>> data;
-    bool loaded = false;
+    bool loaded = false, dirty = false;
+
+    ~Ini() { flush(); }
+    void flush() {
+        if (!dirty) return;
+        dirty = false;
+        dirty_inis().erase(this);
+        save();
+    }
+    void mark() {
+        dirty = true;
+        dirty_inis().insert(this);
+    }
 
     void load(const std::string& p) {
+        flush();  // não perde o que ainda não foi gravado
         path = p;
         data.clear();
         loaded = true;
@@ -49,8 +75,10 @@ struct Ini {
         return ki == gi->second.end() ? std::string() : ki->second;
     }
     void set(const std::string& g, const std::string& k, const std::string& v) {
-        data[g][k] = v;
-        save();
+        auto& slot = data[g][k];
+        if (slot == v && !path.empty()) return;  // mesmo valor: nada a gravar
+        slot = v;
+        mark();
     }
 };
 
@@ -91,8 +119,21 @@ bool is_ios_stub(const std::string& n) {
 
 }  // namespace
 
+void flush_ini_files() {
+    std::vector<Ini*> list(dirty_inis().begin(), dirty_inis().end());
+    for (Ini* ini : list) ini->flush();
+}
+
 bool ext_condition(EvalContext& c, const EventItem& it, Obj* o, bool& handled) {
     std::string n = ext_name(c, it.type);
+    if (n == "iOS") {
+        // Condições 1 e 2 do objeto iOS: o app foi interrompido (ligação, outro
+        // app). O Zorbié abre a pausa com elas; aqui valem no passo em que o app
+        // volta do segundo plano.
+        handled = true;
+        const int idx = -it.num - 81;
+        return (idx == 1 || idx == 2) && c.f.app.interrupted_flag;
+    }
     if (is_ios_stub(n)) { handled = true; return false; }
     if (n == "AdvDir") { handled = true; return false; }
     (void)o;
@@ -113,9 +154,9 @@ void ext_action(EvalContext& c, const EventItem& it, Obj* o) {
             case 6: ini.load(c.f.app.save_dir + "/" + clean_filename(arg(c, it, 0).str())); return;
             case 7: case 9: ini.set(ini.group, arg(c, it, 0).str(), arg(c, it, 1).str()); return;
             case 8: case 10: ini.set(arg(c, it, 0).str(), arg(c, it, 1).str(), arg(c, it, 2).str()); return;
-            case 11: ini.data[ini.group].erase(arg(c, it, 0).str()); ini.save(); return;
-            case 12: ini.data[arg(c, it, 0).str()].erase(arg(c, it, 1).str()); ini.save(); return;
-            case 13: ini.data.erase(arg(c, it, 0).str()); ini.save(); return;
+            case 11: ini.data[ini.group].erase(arg(c, it, 0).str()); ini.mark(); return;
+            case 12: ini.data[arg(c, it, 0).str()].erase(arg(c, it, 1).str()); ini.mark(); return;
+            case 13: ini.data.erase(arg(c, it, 0).str()); ini.mark(); return;
             default: break;
         }
     }

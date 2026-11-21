@@ -147,13 +147,19 @@ struct ObjectDef {
     int32_t counter_init = 0, counter_min = 0, counter_max = 0;
     int32_t counter_w = 0, counter_h = 0;
     int16_t counter_display = 0, counter_font = 0;
+    uint16_t counter_flags = 0;         // barra: 0x100 = cresce ao contrário
     std::vector<uint16_t> counter_frames;
+    // barra / texto: forma (cores no formato Windows 0x00BBGGRR)
+    int16_t counter_fill = 0;           // 0 nenhum, 1 sólido, 2 degradê
+    uint32_t counter_color1 = 0, counter_color2 = 0;
+    bool counter_vgradient = false;
     // texto
     int32_t text_w = 0, text_h = 0;
     std::vector<TextParagraph> paragraphs;
     std::string parse_warning;
 
     bool visible_at_start() const { return flags2 & 0x0008; }
+    bool fill_is_gradient() const { return counter_fill == 2; }
     bool create_at_start() const { return !(oe_flags & 0x20000); }
     bool is_extension() const { return type >= OBJ_EXTENSION_BASE; }
 };

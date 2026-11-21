@@ -53,10 +53,39 @@ App::~App() {
         if (t) SDL_DestroyTexture(t);
 }
 
+void App::queue_prefetch(const FrameDef& fd) {
+    prefetch_.clear();
+    std::unordered_set<int> seen;
+    for (const Instance& in : fd.instances) {
+        const ObjectDef* od = game_->object(in.oi);
+        if (!od) continue;
+        for (const Animation& a : od->anims)
+            for (const AnimDir& d : a.dirs)
+                for (uint16_t h : d.frames)
+                    if (seen.insert(h).second && !textures_.count(h)) prefetch_.push_back(h);
+        for (uint16_t h : od->counter_frames)
+            if (h != 0xFFFF && seen.insert(h).second && !textures_.count(h)) prefetch_.push_back(h);
+    }
+    std::reverse(prefetch_.begin(), prefetch_.end());  // consumida do fim
+}
+
+void App::prefetch(double budget_ms) {
+    if (prefetch_.empty() || !renderer_) return;
+    Uint64 t0 = SDL_GetPerformanceCounter();
+    const double freq = double(SDL_GetPerformanceFrequency());
+    while (!prefetch_.empty()) {
+        int h = prefetch_.back();
+        prefetch_.pop_back();
+        if (!textures_.count(h)) texture(h);
+        if (double(SDL_GetPerformanceCounter() - t0) * 1000.0 / freq >= budget_ms) break;
+    }
+}
+
 void App::reset_textures() {
     for (auto& [h, t] : textures_)
         if (t) SDL_DestroyTexture(t);
     textures_.clear();
+    if (frame_) queue_prefetch(frame_->def);  // contexto gráfico recriado: recarrega aos poucos
 }
 
 const ImageInfo* App::image(int handle) const {
@@ -70,7 +99,15 @@ SDL_Texture* App::texture(int handle) {
     SDL_Texture* tex = nullptr;
     if (const ImageInfo* im = image(handle); im && renderer_) {
         std::vector<uint8_t> rgba;
-        if (game_->decode_image(*im, rgba) && im->width && im->height) {
+        Uint64 t0 = SDL_GetPerformanceCounter();
+        bool ok = game_->decode_image(*im, rgba);
+        if (audit.on) {
+            double ms = double(SDL_GetPerformanceCounter() - t0) * 1000.0 / double(SDL_GetPerformanceFrequency());
+            audit.decode_ms += ms;
+            ++audit.decodes;
+            if (ms > audit.worst_decode_ms) { audit.worst_decode_ms = ms; audit.worst_decode = handle; }
+        }
+        if (ok && im->width && im->height) {
             tex = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC,
                                     im->width, im->height);
             if (tex) {
@@ -110,14 +147,50 @@ void App::step() {
         g_diag.frame = idx;
         frame_ = std::make_unique<Frame>(*this, idx);
         frame_->start();
+        queue_prefetch(game_->frames[size_t(idx)]);
         SDL_Log("PortBridge: frame %d '%s'", idx, game_->frames[size_t(idx)].name.c_str());
     }
     if (paused) {
-        if (input.clicked[0]) paused = false;
-        return;
+        // "Pausar aplicação" espera um toque. O passo que sai da pausa vê
+        // "Aplicação retomada" (o Zorbié tira ali o painel de pausa e trata o
+        // botão de voltar ao título); o toque que tira da pausa não vale como
+        // clique no jogo.
+        interrupted_flag = false;
+        if (!input.clicked[0]) return;
+        paused = false;
+        resumed_flag = true;
+        resume_pending = false;
+        input.clicked[0] = false;
+        input.dbl[0] = false;
+    } else if (resume_pending && !interrupted_flag) {
+        // Volta do segundo plano: no 1º passo o jogo vê só "interrompido" (o
+        // Zorbié abre a pausa); "retomado" vem no passo seguinte ou, se o jogo
+        // pausou, depois do toque. Juntos, o Zorbié abria e fechava o painel
+        // de pausa no mesmo passo.
+        resumed_flag = true;
+        resume_pending = false;
     }
-    frame_->step();
+    if (audit.on) {
+        Uint64 t0 = SDL_GetPerformanceCounter();
+        frame_->step();
+        double ms = double(SDL_GetPerformanceCounter() - t0) * 1000.0 / double(SDL_GetPerformanceFrequency());
+        if (frame_) {
+            ++audit.loops[frame_->index];
+            size_t& mo = audit.max_objects[frame_->index];
+            mo = std::max(mo, frame_->objects.size());
+            if (ms > 8.0 && audit.slow.size() < 200) {
+                char buf[128];
+                std::snprintf(buf, sizeof buf, "frame %d passo %lld: %.1f ms (%zu objetos)", frame_->index,
+                              (long long)frame_->loop, ms, frame_->objects.size());
+                audit.slow.push_back(buf);
+            }
+        }
+    } else {
+        frame_->step();
+    }
     resumed_flag = false;
+    interrupted_flag = false;
+    flush_ini_files();
 }
 
 void App::draw() {
@@ -220,6 +293,8 @@ Obj* Frame::create(int oi, double x, double y, int layer) {
     o->counter = od->counter_init;
     o->counter_min = od->counter_min;
     o->counter_max = od->counter_max;
+    o->bar_color1 = colorref_to_rgb(od->counter_color1);
+    o->bar_color2 = colorref_to_rgb(od->fill_is_gradient() ? od->counter_color2 : od->counter_color1);
     if (!od->paragraphs.empty()) {
         o->text = od->paragraphs[0].text;
         o->text_color = colorref_to_rgb(od->paragraphs[0].color);
@@ -424,6 +499,11 @@ Rect obj_rect(App& app, const Obj& o) {
     }
     if ((o.type == OBJ_COUNTER || o.type == OBJ_SCORE || o.type == OBJ_LIVES) && o.def) {
         double w = o.def->counter_w, h = o.def->counter_h;
+        // números/animação: ponto quente no canto inferior direito; barra e texto:
+        // no canto superior esquerdo (a barra de super do Zorbié fica dentro da
+        // moldura só assim).
+        if (o.def->counter_display == 2 || o.def->counter_display == 3 || o.def->counter_display == 5)
+            return {o.x, o.y, o.x + w, o.y + h};
         return {o.x - w, o.y - h, o.x, o.y};
     }
     if (o.type == OBJ_TEXT && o.def) return {o.x, o.y, o.x + o.def->text_w, o.y + o.def->text_h};

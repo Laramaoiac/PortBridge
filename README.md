@@ -162,7 +162,9 @@ fica no repositório. O `.gitignore` bloqueia `*.ipa`, `*.apk` e pastas de saíd
 
 ## Licenças
 
-O PortBridge Player usa SDL2, miniz e dr_libs (licenças permissivas). O runtime de
+O PortBridge Player usa SDL2, miniz, dr_libs e stb_truetype (licenças permissivas) e
+embute a fonte Liberation Sans (SIL Open Font License, texto em
+`player/third_party/fonts/LICENSE.liberation`). O runtime de
 emulação é o [touchHLE](https://touchhle.org/) (MPL-2.0), usado como submódulo no
 commit oficial mais um patch do PortBridge em `third_party/patches/touchHLE/`. Os
 APKs desse runtime são builds **não oficiais** do touchHLE (aparecem como

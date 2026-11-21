@@ -365,11 +365,26 @@ void read_common(ObjectDef& o, const uint8_t* b, size_t n, bool unicode) {
         o.counter_h = c.i32();
         c.i16();
         o.counter_display = c.i16();
-        c.i16();
+        o.counter_flags = c.u16();
         o.counter_font = c.i16();
         if (o.counter_display == 1 || o.counter_display == 4) {
             int nf = c.i16();
             for (int i = 0; i < nf; ++i) o.counter_frames.push_back(c.u16());
+        } else if (o.counter_display == 2 || o.counter_display == 3 || o.counter_display == 5) {
+            // forma: borda (tamanho, cor), tipo de forma, preenchimento, cores
+            c.u16();
+            c.u32();
+            int shape = c.u16();
+            o.counter_fill = c.i16();
+            if (shape == 1) {  // linha
+                c.u16();
+            } else if (o.counter_fill == 2) {
+                o.counter_color1 = c.u32();
+                o.counter_color2 = c.u32();
+                o.counter_vgradient = (c.u32() & 1) != 0;
+            } else if (o.counter_fill == 1) {
+                o.counter_color1 = c.u32();
+            }
         }
     }
     if (o_data && o.type == OBJ_TEXT) {

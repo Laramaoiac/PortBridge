@@ -88,6 +88,70 @@ int main(int argc, char** argv) {
         pb::PackageInfo pkg = pb::open_package(argv[1]);
         auto g = pb::load_game(std::move(pkg.game_data));
         G = g.get();
+        if (argc > 3 && std::string(argv[2]) == "--instances") {
+            const auto& f = g->frames[size_t(std::atoi(argv[3]))];
+            for (const auto& in : f.instances) {
+                const pb::ObjectDef* od = g->object(in.oi);
+                std::string mv;
+                if (od) for (const auto& m : od->movements) mv += " mov" + std::to_string(m.type) + (m.move_at_start ? "*" : "");
+                std::printf("%-24s (%d,%d) camada %d pai %d%s\n", od ? od->name.c_str() : "?", in.x, in.y, in.layer,
+                            in.parent_type, mv.c_str());
+            }
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[2]) == "--objects") {
+            // Contadores, textos e fontes: o que o runtime precisa desenhar além das imagens.
+            for (const auto& f : g->fonts)
+                std::printf("fonte %d '%s' altura %d peso %d%s\n", f.handle, f.face.c_str(), f.height, f.weight,
+                            f.italic ? " itálico" : "");
+            if (argc > 3) {  // --objects NOME: flags de um objeto
+                for (const auto& [h, o] : g->objects)
+                    if (o.name == argv[3])
+                        std::printf("%d '%s' tipo %d oe_flags %#x flags %#x flags2 %#x prefs %#x neverkill %d\n", h,
+                                    o.name.c_str(), o.type, o.oe_flags, o.flags, o.flags2, o.prefs,
+                                    int((o.oe_flags & 0x2000) != 0));
+                for (const auto& [h, o] : g->objects)
+                    if (o.name == argv[3])
+                        for (const auto& a : o.anims)
+                            for (const auto& d : a.dirs)
+                                if (d.present && !d.frames.empty()) {
+                                    auto it = g->images.find(d.frames[0]);
+                                    if (it != g->images.end())
+                                        std::printf("  imagem %d: %dx%d ponto quente (%d,%d) ação (%d,%d)\n", d.frames[0],
+                                                    it->second.width, it->second.height, it->second.hot_x,
+                                                    it->second.hot_y, it->second.act_x, it->second.act_y);
+                                    goto movs;
+                                }
+            movs:
+                for (const auto& [h, o] : g->objects)
+                    if (o.name == argv[3])
+                        for (const auto& m : o.movements) {
+                            std::printf("  movimento tipo %d %s:", m.type, m.module.c_str());
+                            for (auto v : m.v) std::printf(" %d", v);
+                            std::printf("\n");
+                        }
+            next_obj:
+                return 0;
+            }
+                        static const char* kDisp[] = {"oculto", "números", "barra vertical", "barra horizontal", "animação", "texto"};
+            for (const auto& [h, o] : g->objects) {
+                if (o.type == pb::OBJ_COUNTER || o.type == pb::OBJ_SCORE || o.type == pb::OBJ_LIVES)
+                    std::printf("contador %d '%s' tipo %d exibição %d (%s) %dx%d fonte %d imagens %zu valor %d [%d..%d] visível %d\n",
+                                h, o.name.c_str(), o.type, o.counter_display,
+                                o.counter_display >= 0 && o.counter_display < 6 ? kDisp[o.counter_display] : "?",
+                                o.counter_w, o.counter_h, o.counter_font, o.counter_frames.size(), o.counter_init,
+                                o.counter_min, o.counter_max, int(o.visible_at_start()));
+                if (o.counter_display == 2 || o.counter_display == 3 || o.counter_display == 5)
+                    std::printf("   preenchimento %d cor1 %#08x cor2 %#08x flags %#x\n", o.counter_fill, o.counter_color1, o.counter_color2, o.counter_flags);
+                if (o.type == pb::OBJ_TEXT) {
+                    std::printf("texto %d '%s' %dx%d visível %d\n", h, o.name.c_str(), o.text_w, o.text_h,
+                                int(o.visible_at_start()));
+                    for (const auto& p : o.paragraphs)
+                        std::printf("   fonte %d flags %#06x cor %#08x \"%s\"\n", p.font, p.flags, p.color, p.text.c_str());
+                }
+            }
+            return 0;
+        }
         if (argc > 2 && std::string(argv[2]) == "--layers") {
             for (size_t fi = 0; fi < g->frames.size(); ++fi) {
                 const auto& f = g->frames[fi];
@@ -171,6 +235,9 @@ int main(int argc, char** argv) {
             size_t ok = 0;
             for (auto& [h, im] : g->images) ok += g->decode_image(im, rgba);
             std::printf("imagens decodificadas: %zu/%zu\n", ok, g->images.size());
+            double px = 0;
+            for (const auto& [h, im] : g->images) px += double(im.width) * im.height;
+            std::printf("pixels de todas as imagens: %.1f milhões (%.0f MB como textura RGBA)\n", px / 1e6, px * 4 / 1048576);
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "erro: %s\n", e.what());

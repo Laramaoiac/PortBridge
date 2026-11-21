@@ -87,9 +87,11 @@ struct Obj {
 
     // contador
     double counter = 0, counter_min = 0, counter_max = 0;
+    uint32_t bar_color1 = 0, bar_color2 = 0;  // barra/texto (0xRRGGBB); mudam por ação
     // texto
     std::string text;
     uint32_t text_color = 0;
+    std::shared_ptr<void> text_cache;   // textura do texto já rasterizado (render.cpp)
 
     // estado por extensão (INI etc.)
     std::shared_ptr<void> ext;
@@ -203,6 +205,8 @@ public:
     std::string save_dir;
     bool paused = false;
     bool resumed_flag = false;
+    bool interrupted_flag = false;  // voltou do segundo plano (condições 1 e 2 do objeto "iOS")
+    bool resume_pending = false;    // "aplicação retomada" a entregar depois do passo da interrupção
     int frame_rate = 60;
     // Área visível ("janela" do Clickteam) em unidades do jogo. Começa no tamanho
     // declarado pelo jogo (ex.: 320x480) e pode crescer até o tamanho dos frames
@@ -213,6 +217,23 @@ public:
         if (++unimplemented[what] == 1) SDL_Log("não implementado: %s", what.c_str());
     }
     void reset_textures();
+    // Pré-carregamento: as imagens dos objetos do frame atual viram textura aos
+    // poucos (até `budget_ms` por chamada), para um objeto que aparece pela
+    // primeira vez no meio do jogo não travar a tela criando a sua.
+    void queue_prefetch(const FrameDef& fd);
+    void prefetch(double budget_ms);
+
+    // Auditoria (--audit, só para testes): quantas vezes cada grupo de eventos
+    // disparou em cada frame, passos lentos e custo de decodificar imagens.
+    struct Audit {
+        bool on = false;
+        std::map<int, std::vector<uint32_t>> fired;   // frame -> disparos por grupo
+        std::map<int, uint64_t> loops;                // frame -> passos jogados
+        std::map<int, size_t> max_objects;            // frame -> pico de objetos
+        std::vector<std::string> slow;                // passos acima de 8 ms
+        double decode_ms = 0, worst_decode_ms = 0;
+        int decodes = 0, worst_decode = -1;
+    } audit;
 
 private:
     std::unique_ptr<Game> game_;
@@ -222,6 +243,7 @@ private:
     int next_frame_ = -1;
     bool quit_ = false;
     std::unordered_map<int, SDL_Texture*> textures_;
+    std::vector<int> prefetch_;
     std::unordered_map<int, std::vector<uint8_t>> masks_;
     std::mt19937 rng_{1234567u};
 };
@@ -245,17 +267,21 @@ struct EvalContext {
     Selection& s;
     Obj* current = nullptr;   // instância em foco (ação/condição por instância)
     int current_oi = -1;
+    int loop_index = -1;      // nº da instância na ação em andamento (pareamento)
 };
 
 Value eval_expr(EvalContext& c, const std::vector<Expr>& ex);
 std::vector<Obj*> targets(EvalContext& c, int oi);           // seleção ou todas
 Obj* first_target(EvalContext& c, int oi);
+Obj* paired_target(EvalContext& c, int oi);
 
 // Extensões (INI, AdvDir, stubs do iOS).
 bool ext_condition(EvalContext& c, const EventItem& it, Obj* o, bool& handled);
 void ext_action(EvalContext& c, const EventItem& it, Obj* o);
 Value ext_expression(EvalContext& c, const Expr& e, const std::vector<Value>& args, bool& handled);
 int ext_expression_arity(const Game& g, const Expr& e);
+// Grava os INIs alterados (fim do passo, troca de frame, pausa, saída).
+void flush_ini_files();
 
 // Geometria / colisão
 struct Rect { double x1, y1, x2, y2; };

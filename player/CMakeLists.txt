@@ -42,10 +42,26 @@ if(PB_BUILD_PLAYER)
         endif()
     endif()
 
+    # Fontes embutidas (Liberation Sans, OFL; mesmas métricas do Arial dos jogos)
+    set(PB_FONT_SOURCES)
+    foreach(f regular:LiberationSans-Regular bold:LiberationSans-Bold)
+        string(REPLACE ":" ";" parts "${f}")
+        list(GET parts 0 sym)
+        list(GET parts 1 file)
+        set(in "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fonts/${file}.ttf")
+        set(out "${CMAKE_BINARY_DIR}/pb_font_${sym}.cpp")
+        add_custom_command(OUTPUT "${out}"
+            COMMAND ${CMAKE_COMMAND} -DIN=${in} -DOUT=${out} -DSYM=pb_font_${sym}
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed.cmake"
+            DEPENDS "${in}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed.cmake")
+        list(APPEND PB_FONT_SOURCES "${out}")
+    endforeach()
+
     set(PB_RUNTIME_SOURCES
         src/runtime/audio.cpp src/runtime/runtime.cpp src/runtime/events.cpp
         src/runtime/expressions.cpp src/runtime/movements.cpp src/runtime/render.cpp
-        src/runtime/screen.cpp
+        src/runtime/screen.cpp src/runtime/text.cpp ${PB_FONT_SOURCES}
+        src/runtime/tweaks.cpp
         src/runtime/extensions.cpp src/runtime/diag.cpp src/main.cpp)
 
     if(ANDROID)
@@ -59,7 +75,7 @@ if(PB_BUILD_PLAYER)
         add_executable(portbridge-player ${PB_RUNTIME_SOURCES})
         set(PB_PLAYER_TARGET portbridge-player)
     endif()
-    target_include_directories(${PB_PLAYER_TARGET} PRIVATE src third_party/dr_libs)
+    target_include_directories(${PB_PLAYER_TARGET} PRIVATE src third_party/dr_libs third_party/stb)
     target_link_libraries(${PB_PLAYER_TARGET} PRIVATE pb_core SDL2::SDL2)
     if(TARGET SDL2::SDL2main AND NOT ANDROID)
         target_link_libraries(${PB_PLAYER_TARGET} PRIVATE SDL2::SDL2main)

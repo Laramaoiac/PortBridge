@@ -54,8 +54,11 @@ Estado com o Zorbié:
   camada de objetos relativos, área visível pela proporção da tela) em
   [ZORBIE_RECEITA.md](ZORBIE_RECEITA.md); no servidor, 10 minutos de jogo automático
   sem erros nos layouts 320×480 e 320×600;
-- ainda não validado: jogabilidade completa e textos (objetos Text ainda não são
-  desenhados).
+- auditoria completa (todos os eventos lidos, 3 × 10 minutos de jogo automático com
+  relatório): travadas de troca de música e de gravação do save, textos e barras que
+  faltavam, pausa que deixava painéis na tela, pausa ao voltar de outro app, pareamento
+  de instâncias do Clickteam (barras da loja). Detalhes e o mapa de todos os mecanismos
+  (fases, chefes, baús, loja, missões) em [ZORBIE_ANALISE.md](ZORBIE_ANALISE.md).
 
 As opções analisadas antes da escolha ficam registradas abaixo.
 
@@ -224,7 +227,7 @@ diz em qual função (ou `[Classe método]`) cada erro recuperado aconteceu.
 - [x] App Android: importar IPA, biblioteca de jogos, player em tela cheia, 64 bits, 16 KB
 - [x] Nomes legíveis de condições/ações/expressões (`pbinfo --events`)
 - [ ] Testar no aparelho e ajustar a jogabilidade (toque contínuo, colisões, velocidades)
-- [ ] Desenhar objetos Text (fonte embutida)
+- [x] Desenhar objetos Text e contadores de texto/barra (Liberation Sans embutida)
 - [ ] Calibrar a velocidade do Simple Ellipse e identificar seus campos 5, 6 e 8
 - [x] Exportar um APK independente por jogo (ícone, nome, versão e pacote do jogo)
 - [x] Runtime touchHLE para apps nativos de 32 bits (template `android/hle`)

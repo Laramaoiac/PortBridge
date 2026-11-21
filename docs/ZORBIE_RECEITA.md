@@ -60,12 +60,14 @@ coeficiente vale a partir da rolagem do início do frame (depois do
 ## Estado do jogo
 
 Valor global `g1`: `0` = título, `1` = em jogo, `2` = fim de partida (quando a vida do
-Zorbié, `player_col.D`, chega a 0). Outros globais:
+Zorbié, `player_col.D`, chega a 0). Outros globais (a lista completa, com fases, chefes,
+loja e missões, está em [ZORBIE_ANALISE.md](ZORBIE_ANALISE.md)):
 
 | Global | Uso |
 |---|---|
-| `g11` | fase atual (1 = primeira) |
-| `g25` | quadro do número da fase (`hud_stage_no`) |
+| `g11` | partidas jogadas (save `02`) |
+| `g15` | fase atual (0 a 28) |
+| `g25` | capítulo: 0 prisão, 1 praia, 2 rio, 3 cidade, 4 trono |
 | `g44` | voltas completas no jogo (`(save["16"] / 2) − 100`) |
 | `g46` | qualidade gráfica (100 = máxima; `≥ 75` usa o grupo `walk - hi`, `≥ 100` liga rastros) |
 | `g56`, `g57` | bordas da área visível (ver acima) |
@@ -112,6 +114,7 @@ ações de grupo precisam usar o ponteiro do parâmetro, não o id (ver
 | Machado nunca é arremessado | "animação tocando" continuava verdadeiro depois do fim | animação finita terminada não "toca" |
 | Logo TOUCHPAD e placar escondidos atrás do painel | objeto relativo nascia na camada 0 | nasce na camada do objeto-pai |
 | Tela 320×480 com faixas grandes em celulares compridos | área visível fixa | área visível pela proporção da tela (layout iPhone 5) |
+| Painel de pausa não sumia, botão de voltar ao título não funcionava | sair da pausa não gerava "aplicação retomada" | ver [ZORBIE_ANALISE.md](ZORBIE_ANALISE.md), com as outras correções da auditoria |
 
 Teste no servidor: 36 mil quadros (cerca de 10 minutos de jogo) com um "jogador
 automático" (`--monkey`), nos layouts 320×480 e 320×600, sem erros e sem itens não
