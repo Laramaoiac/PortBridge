@@ -93,7 +93,12 @@ bônus forçado):
   nenhuma outra depois das correções 13 a 15;
 - **avisos que são do jogo original** (iguais no iPhone): expressões que leem a posição
   de objetos que ainda não existem (metralhadora, chefe Ketex, sorteio de cenário) e
-  valem 0; o título pede o movimento 2 de `hud_title00`, que só tem 1 (é ignorado).
+  valem 0; o título pede o movimento 2 de `hud_title00`, que só tem 1 (é ignorado), e
+  o mesmo vale para o movimento 2 de todos os inimigos de uma vez (`en_strong` não tem);
+  o escudo pede o quadro 5 de uma animação de 1 quadro (fica no último);
+- **cobertura**: em 10 minutos o jogador automático roda cerca de 23% dos eventos do
+  frame de jogo (as primeiras fases, o título, a pausa e a loja); chefes e capítulos
+  finais aparecem pouco, porque ele perde cedo e cada partida volta à prisão.
 
 ### Comportamentos do jogo original (não são falhas do PortBridge)
 
