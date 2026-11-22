@@ -133,13 +133,14 @@ PB_GROUPS=1 ./build/portbridge-player Jogo.ipa --headless --frames 1300
 ./build/pbinfo Jogo.ipa --group-pointers 1    # confere a fórmula dos ponteiros
 # fontes, contadores e textos; detalhes de um objeto; instâncias de um frame
 ./build/pbinfo Jogo.ipa --objects
-./build/pbinfo Jogo.ipa --objects player_col
+./build/pbinfo Jogo.ipa --objects player_col     # flags, valores iniciais, imagem e movimentos
 ./build/pbinfo Jogo.ipa --instances 1
 ```
 
 A análise completa do Zorbié feita com essas ferramentas está em
 [docs/ZORBIE_RECEITA.md](../docs/ZORBIE_RECEITA.md) e
-[docs/ZORBIE_ANALISE.md](../docs/ZORBIE_ANALISE.md).
+[docs/ZORBIE_ANALISE.md](../docs/ZORBIE_ANALISE.md) e
+[docs/ZORBIE_DECOMPOSICAO.md](../docs/ZORBIE_DECOMPOSICAO.md).
 
 No fim de cada execução `--headless`, o player lista as condições, ações e expressões que
 o jogo usou e que ainda não estão implementadas. Para outros jogos Clickteam, essa lista

@@ -58,7 +58,8 @@ Estado com o Zorbié:
   relatório): travadas de troca de música e de gravação do save, textos e barras que
   faltavam, pausa que deixava painéis na tela, pausa ao voltar de outro app, pareamento
   de instâncias do Clickteam (barras da loja). Detalhes e o mapa de todos os mecanismos
-  (fases, chefes, baús, loja, missões) em [ZORBIE_ANALISE.md](ZORBIE_ANALISE.md).
+  (fases, chefes, baús, loja, missões) em [ZORBIE_ANALISE.md](ZORBIE_ANALISE.md); armas,
+  inimigos, chefes, bônus e o segmento final em [ZORBIE_DECOMPOSICAO.md](ZORBIE_DECOMPOSICAO.md).
 
 As opções analisadas antes da escolha ficam registradas abaixo.
 

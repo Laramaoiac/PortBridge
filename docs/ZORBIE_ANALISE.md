@@ -193,14 +193,16 @@ partida. Cada estado é um grupo de eventos que liga e desliga os outros.
 - Soltar: carga 1–4 = arremesso normal; 5–8 = arremesso forte; 9+ = arremesso máximo.
   Deslizar para cima também arremessa.
 - O machado sobe, quica nas laterais e no topo e volta. Cada inimigo atingido no mesmo
-  arremesso soma 1 no combo (`g3`). **Pontos por acerto = combo × valor do inimigo**:
-  o 3º inimigo do mesmo arremesso vale o triplo.
+  arremesso soma 1 no combo (`g3`). **Pontos por acerto = combo × multiplicador do
+  Zorbié (H)**: o 3º inimigo do mesmo arremesso vale 3. H começa em 1, vai a 2 com
+  Luck Up 7+ e sobe +1, +1 e +2 ao completar as trilhas de bronze, prata e ouro.
 - Ao pegar o machado de volta, a recarga (`10 + G` passos) precisa zerar antes do
   próximo arremesso.
 
-Valores dos inimigos (tela de título): Bernard 10, Robert 20, Claude 30, Gaston 40,
-Miguel 40, Renée 50 pontos. François dá tempo, "Dickhead" é o companheiro de cela e a
-Zorbette abre a loja.
+A tela de título apresenta os personagens (Bernard, Robert, Claude, Gaston, Miguel,
+Renée…) com valores em pontos; nos eventos, porém, o acerto soma combo × H. François
+dá tempo, "Dickhead" é o companheiro de cela e a Zorbette abre a loja. Detalhes de cada
+arma, inimigo e chefe em [ZORBIE_DECOMPOSICAO.md](ZORBIE_DECOMPOSICAO.md).
 
 ### Armas e itens dos baús
 

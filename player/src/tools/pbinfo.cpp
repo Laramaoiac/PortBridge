@@ -110,6 +110,13 @@ int main(int argc, char** argv) {
                         std::printf("%d '%s' tipo %d oe_flags %#x flags %#x flags2 %#x prefs %#x neverkill %d\n", h,
                                     o.name.c_str(), o.type, o.oe_flags, o.flags, o.flags2, o.prefs,
                                     int((o.oe_flags & 0x2000) != 0));
+                for (const auto& [h, o] : g->objects)  // valores alteráveis iniciais (A, B, C...)
+                    if (o.name == argv[3] && !o.values.empty()) {
+                        std::printf("  valores iniciais:");
+                        for (size_t i = 0; i < o.values.size(); ++i)
+                            if (o.values[i]) std::printf(" %c=%d", char('A' + (i < 26 ? i : 25)), o.values[i]);
+                        std::printf("\n");
+                    }
                 for (const auto& [h, o] : g->objects)
                     if (o.name == argv[3])
                         for (const auto& a : o.anims)
