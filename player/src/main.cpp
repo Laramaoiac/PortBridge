@@ -27,13 +27,14 @@ namespace {
 
 struct Options {
     std::string path, screenshot, save_dir, log, device;
-    bool headless = false, mute = false, no_tweaks = false;
+    bool headless = false, mute = false, no_tweaks = false, dev = false;
     int frames = 0, scale = 2;
     std::vector<std::pair<int, std::pair<int, int>>> clicks;  // (frame, (x, y))
     std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> holds;  // ((de, até), (x, y))
     std::vector<int> shots;                                    // frames extras para capturar
     std::vector<int> dumps;                                    // frames para listar o estado
     std::vector<int> resumes;                                  // simula a volta do segundo plano
+    std::vector<std::pair<int, std::pair<int, double>>> sets;  // (loop, (global, valor)): --set-global
     int screen_w = 0, screen_h = 0;                            // --screen: simula uma tela (pixels)
     int monkey = -1;                                           // a partir deste loop: toques aleatórios
     bool monkey_all = false;                                   // toques na tela inteira (menus, loja)
@@ -51,6 +52,7 @@ bool parse_args(int argc, char** argv, Options& o) {
         if (a == "--headless") o.headless = true;
         else if (a == "--mute") o.mute = true;
         else if (a == "--no-tweaks") o.no_tweaks = true;  // jogo exatamente como o original
+        else if (a == "--dev") o.dev = true;  // modo desenvolvedor: confere falhas a cada passo
         else if (a == "--monkey-all") o.monkey_all = true;
         else if (a == "--seed") o.seed = unsigned(std::strtoul(next().c_str(), nullptr, 10));
         else if (a == "--start-frame") o.start_frame = std::atoi(next().c_str());
@@ -65,6 +67,11 @@ bool parse_args(int argc, char** argv, Options& o) {
         else if (a == "--shot-at") o.shots.push_back(std::atoi(next().c_str()));
         else if (a == "--dump-at") o.dumps.push_back(std::atoi(next().c_str()));
         else if (a == "--resume-at") o.resumes.push_back(std::atoi(next().c_str()));
+        else if (a == "--set-global") {  // G=V@loop: muda um valor global (testes; ex.: 12=5@900 = letras do bônus)
+            int g = 0, f = 0;
+            double v = 0;
+            if (std::sscanf(next().c_str(), "%d=%lf@%d", &g, &v, &f) == 3) o.sets.push_back({f, {g, v}});
+        }
         else if (a == "--monkey") o.monkey = std::atoi(next().c_str());
         else if (a == "--screen") std::sscanf(next().c_str(), "%dx%d", &o.screen_w, &o.screen_h);
         else if (a == "--hold") {
@@ -269,7 +276,8 @@ int main(int argc, char** argv) {
     pb::App app(std::move(game), ren, &audio, save);
     app.view_w = vw;
     app.view_h = vh;
-    app.audit.on = !opt.audit.empty();
+    app.dev.on = opt.dev || std::getenv("PB_DEV") != nullptr;
+    app.audit.on = !opt.audit.empty() || app.dev.on;  // o modo desenvolvedor usa a contagem de disparos
     if (opt.start_frame >= 0) app.request_frame(opt.start_frame);
 
     auto render = [&]() {
@@ -413,6 +421,12 @@ int main(int argc, char** argv) {
                     app.input.down[0] = false;
                 }
             }
+            for (auto& [f, gv] : opt.sets)
+                if (f == loops && gv.first >= 0) {  // mesmo número de "gN" no --dump-at e de "GVn" nos eventos
+                    auto& G = app.global_values;
+                    if (G.size() <= size_t(gv.first)) G.resize(size_t(gv.first) + 1);
+                    G[size_t(gv.first)] = pb::Value(gv.second);
+                }
             for (int r : opt.resumes)
                 if (r == loops) {
                     app.interrupted_flag = true;
@@ -489,7 +503,11 @@ int main(int argc, char** argv) {
                     fr ? fr->def.name.c_str() : "", fr ? fr->objects.size() : 0, fr ? fr->timer_ms : 0);
         std::printf("não implementados (%zu):\n", app.unimplemented.size());
         for (auto& [k, v] : app.unimplemented) std::printf("  %-40s %d\n", k.c_str(), v);
-        if (app.audit.on) {
+        if (app.dev.on) {
+            for (int h : audio.failed) app.dev.report(app, "som que não decodifica", "som " + std::to_string(h));
+            app.dev.write(app, stdout);
+        }
+        if (!opt.audit.empty()) {
             if (FILE* af = std::fopen(opt.audit.c_str(), "w")) {
                 auto& A = app.audit;
                 std::fprintf(af, "decodificacoes %d, total %.1f ms, pior %.1f ms (imagem %d)\n", A.decodes,
@@ -509,6 +527,7 @@ int main(int argc, char** argv) {
                     std::fprintf(af, "\n");
                 }
                 for (auto& [k, v] : app.unimplemented) std::fprintf(af, "nao implementado: %s %d\n", k.c_str(), v);
+                if (app.dev.on) app.dev.write(app, af);
                 if (pb::Frame* fr = app.frame()) {
                     std::map<std::string, int> count;
                     for (auto& o : fr->objects) count[o->def ? o->def->name : "?"]++;

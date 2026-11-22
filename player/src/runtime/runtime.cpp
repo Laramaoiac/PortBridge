@@ -101,6 +101,7 @@ SDL_Texture* App::texture(int handle) {
         std::vector<uint8_t> rgba;
         Uint64 t0 = SDL_GetPerformanceCounter();
         bool ok = game_->decode_image(*im, rgba);
+        if (!ok) dev.report(*this, "imagem que não decodifica", "imagem " + std::to_string(handle));
         if (audit.on) {
             double ms = double(SDL_GetPerformanceCounter() - t0) * 1000.0 / double(SDL_GetPerformanceFrequency());
             audit.decode_ms += ms;
@@ -139,6 +140,7 @@ void App::step() {
         int idx = next_frame_ >= 0 ? next_frame_ : 0;
         next_frame_ = -1;
         if (idx < 0 || idx >= int(game_->frames.size())) {
+            dev.report(*this, "salto para frame inexistente (o jogo fecha)", "frame " + std::to_string(idx));
             quit_ = true;
             return;
         }
@@ -170,6 +172,8 @@ void App::step() {
         resumed_flag = true;
         resume_pending = false;
     }
+    store_failed = std::move(store_pending);  // resposta da loja: chega no passo seguinte ao pedido
+    store_pending.clear();
     if (audit.on) {
         Uint64 t0 = SDL_GetPerformanceCounter();
         frame_->step();
@@ -188,8 +192,10 @@ void App::step() {
     } else {
         frame_->step();
     }
+    dev.after_step(*this);
     resumed_flag = false;
     interrupted_flag = false;
+    store_failed.clear();
     flush_ini_files();
 }
 
@@ -444,6 +450,9 @@ void update_animation(App& app, Obj& o) {
     if (!d) return;
     int n = int(d->frames.size());
     if (o.forced_frame >= 0) {
+        if (o.forced_frame >= n)
+            app.dev.report(app, "quadro forçado inexistente", od.name + " anim " + std::to_string(a) + " quadro " +
+                           std::to_string(o.forced_frame) + " de " + std::to_string(n));
         o.frame = std::min(o.forced_frame, n - 1);
     } else if (!o.anim_stopped && !o.anim_done) {
         int sp = d->max_speed;

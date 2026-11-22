@@ -31,7 +31,7 @@ void draw_image(App& app, SDL_Renderer* r, int handle, double x, double y, float
     int flip = (sx < 0 ? SDL_FLIP_HORIZONTAL : 0) | (sy < 0 ? SDL_FLIP_VERTICAL : 0);
     SDL_SetTextureAlphaMod(tex, Uint8(255 - std::clamp(alpha, 0, 255)));
     SDL_SetTextureColorMod(tex, Uint8(rgb >> 16), Uint8(rgb >> 8), Uint8(rgb));
-    SDL_SetTextureBlendMode(tex, (ink & 0xFFFF) == 9 ? SDL_BLENDMODE_ADD : SDL_BLENDMODE_BLEND);
+    SDL_SetTextureBlendMode(tex, (ink & 0xFFF) == 9 ? SDL_BLENDMODE_ADD : SDL_BLENDMODE_BLEND);  // 0x1000: filtro RGBA
     SDL_RenderCopyExF(r, tex, nullptr, &dst, -double(angle), &center, SDL_RendererFlip(flip));
 }
 

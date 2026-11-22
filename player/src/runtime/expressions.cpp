@@ -79,6 +79,9 @@ struct Parser {
             if (prec == 0 || prec < min_prec) break;
             ++p;
             Value rhs = parse(prec + 1);
+            if ((e->num == 8 || e->num == 10) && c.f.app.dev.on && rhs.num() == 0)
+                c.f.app.dev.report(c.f.app, e->num == 8 ? "divisão por zero (vira 0)" : "resto por zero (vira 0)",
+                                   "evento #" + std::to_string(c.event_index));
             lhs = arith(e->num, lhs, rhs);
         }
         return lhs;
@@ -288,7 +291,14 @@ struct Parser {
             return Value(n);
         }
         Obj* o = resolve(e.oi);
-        if (!o) return Value(0);
+        if (!o) {
+            if (app.dev.on) {
+                const ObjectDef* od = app.game().object(e.oi);
+                app.dev.report(app, "expressão sobre objeto sem instância (vira 0)",
+                               (od ? od->name : "oi " + std::to_string(e.oi)) + " (evento #" + std::to_string(c.event_index) + ")");
+            }
+            return Value(0);
+        }
         const ImageInfo* im = o->image >= 0 ? app.image(o->image) : nullptr;
         switch (e.num) {
             case 1: return Value(int64_t(std::floor(o->y)));
@@ -304,7 +314,10 @@ struct Parser {
             case 12: return Value(o->uid);
             case 13: return Value(int64_t((o->flags >> (e.index & 31)) & 1));
             case 14: return Value(o->anim);
-            case 16: return size_t(e.index) < o->values.size() ? o->values[size_t(e.index)] : Value(0);
+            case 16:
+                if (app.dev.on && (e.index < 0 || e.index > 25))
+                    app.dev.report(app, "valor alterável fora de A..Z", o->def->name + " índice " + std::to_string(e.index));
+                return size_t(e.index) < o->values.size() ? o->values[size_t(e.index)] : Value(0);
             case 19: return Value(size_t(e.index) < o->strings.size() ? o->strings[size_t(e.index)] : std::string());
             case 25: return Value(int64_t(o->x + (im ? (im->act_x - im->hot_x) * o->scale_x : 0)));
             case 26: return Value(int64_t(o->y + (im ? (im->act_y - im->hot_y) * o->scale_y : 0)));

@@ -463,6 +463,9 @@ void set_group(Frame& f, const Param& p, bool active) {
         return;
     }
     auto range = f.group_by_id.equal_range(p.i1);
+    if (f.app.dev.on)
+        f.app.dev.report(f.app, range.first == range.second ? "ponteiro de grupo sem alvo" : "grupo achado só pelo id",
+                         "id " + std::to_string(p.i1) + " ponteiro " + std::to_string(p.i0));
     for (auto it = range.first; it != range.second; ++it) apply(it->second);
 }
 
@@ -537,6 +540,9 @@ void object_action(EvalContext& c, const EventItem& it, Obj* o) {
             if (o->movements.empty()) return;
             int n = int(o->movements.size());
             int idx = it.num == 11 ? o->mv_index + 1 : it.num == 12 ? o->mv_index - 1 : (p0 ? param_int(c, *p0) : 0);
+            if (app.dev.on && it.num == 13 && (idx < 0 || idx >= n))
+                app.dev.report(app, "movimento inexistente", (o->def ? o->def->name : std::string("?")) + " movimento " +
+                               std::to_string(idx) + " (evento #" + std::to_string(c.event_index) + ")");
             idx = std::clamp(idx, 0, n - 1);
             if (idx != o->mv_index) {
                 o->mv_index = idx;
@@ -569,6 +575,10 @@ void object_action(EvalContext& c, const EventItem& it, Obj* o) {
                     o->anim_loops = 0;
                     o->anim_done = false;
                 }
+                if (app.dev.on && o->def &&
+                    (a < 0 || a >= int(o->def->anims.size()) || !o->def->anims[size_t(a)].present))
+                    app.dev.report(app, "animação forçada inexistente",
+                                   o->def->name + " anim " + std::to_string(a) + " (evento #" + std::to_string(c.event_index) + ")");
                 o->forced_anim = a;
                 o->anim_stopped = false;
             }
@@ -592,7 +602,13 @@ void object_action(EvalContext& c, const EventItem& it, Obj* o) {
         case 29: if (p0) shoot(c, o, *p0, nullptr); return;
         case 30: if (p0) shoot(c, o, *p0, p1); return;
         case 31: case 32: case 33:
-            if (p0 && p1) set_alterable(o, size_t(param_int(c, *p0)), eval_expr(c, p1->expr), it.num - 31);
+            if (p0 && p1) {
+                const int idx = param_int(c, *p0);
+                if (app.dev.on && (idx < 0 || idx > 25))
+                    app.dev.report(app, "valor alterável fora de A..Z", (o->def ? o->def->name : std::string("?")) +
+                                   " índice " + std::to_string(idx) + " (evento #" + std::to_string(c.event_index) + ")");
+                if (idx >= 0) set_alterable(o, size_t(idx), eval_expr(c, p1->expr), it.num - 31);
+            }
             return;
         case 35: case 36: case 37: {
             int bit = p0 ? param_int(c, *p0) & 31 : 0;
@@ -632,9 +648,13 @@ void object_action(EvalContext& c, const EventItem& it, Obj* o) {
     }
     if (o->type == OBJ_ACTIVE) {
         switch (it.num) {
-            case 85: if (p0) o->scale_x = o->scale_y = float(eval_expr(c, p0->expr).num()); return;
-            case 86: if (p0) o->scale_x = float(eval_expr(c, p0->expr).num()); return;
-            case 87: if (p0) o->scale_y = float(eval_expr(c, p0->expr).num()); return;
+            // Escala negativa vira 0 no Clickteam (o objeto some). O "carregar laser"
+            // dos chefes do Zorbié faz escala = A e tira 0,4 de A a cada passo, para
+            // sempre: aqui a escala crescia de novo no negativo e desenhava um sprite
+            // gigante girando.
+            case 85: if (p0) o->scale_x = o->scale_y = std::max(0.0f, float(eval_expr(c, p0->expr).num())); return;
+            case 86: if (p0) o->scale_x = std::max(0.0f, float(eval_expr(c, p0->expr).num())); return;
+            case 87: if (p0) o->scale_y = std::max(0.0f, float(eval_expr(c, p0->expr).num())); return;
             case 88: {
                 if (!p0) return;
                 double a = std::fmod(eval_expr(c, p0->expr).num(), 360.0);
@@ -743,7 +763,11 @@ void action(EvalContext& c, const EventItem& it) {
             break;
         case OBJ_TIMER:
             if (it.num == 0 && p0) {
+                // "Mudar o cronômetro": o acumulador também, senão o passo seguinte
+                // desfaz a mudança (o bônus do Zorbié zera o cronômetro para contar
+                // a decolagem e a descida do chão; sem isso tudo disparava junto).
                 f.timer_ms = uint32_t(std::max(0, param_int(c, *p0)));
+                f.timer_acc = double(f.timer_ms);
                 for (auto& s : f.event_state) {
                     s.every_last = f.timer_ms;
                     s.timer_equals_done = false;
@@ -834,6 +858,7 @@ void eval_group(Frame& f, int gi) {
     for (auto [b, e] : blocks) {
         Selection bs;
         EvalContext bc{f, bs};
+        bc.event_index = gi;
         bool ok = true;
         for (size_t i = b; i < e; ++i) {
             bool r = condition(bc, g.conditions[i], gi);
@@ -863,6 +888,7 @@ void eval_group(Frame& f, int gi) {
         ++v[size_t(gi)];
     }
     EvalContext c{f, sel};
+    c.event_index = gi;
     for (const EventItem& a : g.actions) {
         action(c, a);
         if (f.app.frame() != &f) return;

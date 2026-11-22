@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "core/game.hpp"
+#include "runtime/devcheck.hpp"
 #include "runtime/value.hpp"
 
 namespace pb {
@@ -207,6 +208,7 @@ public:
     bool resumed_flag = false;
     bool interrupted_flag = false;  // voltou do segundo plano (condições 1 e 2 do objeto "iOS")
     bool resume_pending = false;    // "aplicação retomada" a entregar depois do passo da interrupção
+    std::string store_pending, store_failed;  // compra pedida à loja da Apple / falha entregue neste passo
     int frame_rate = 60;
     // Área visível ("janela" do Clickteam) em unidades do jogo. Começa no tamanho
     // declarado pelo jogo (ex.: 320x480) e pode crescer até o tamanho dos frames
@@ -234,6 +236,7 @@ public:
         double decode_ms = 0, worst_decode_ms = 0;
         int decodes = 0, worst_decode = -1;
     } audit;
+    DevCheck dev;  // modo desenvolvedor (--dev)
 
 private:
     std::unique_ptr<Game> game_;
@@ -268,6 +271,7 @@ struct EvalContext {
     Obj* current = nullptr;   // instância em foco (ação/condição por instância)
     int current_oi = -1;
     int loop_index = -1;      // nº da instância na ação em andamento (pareamento)
+    int event_index = -1;     // grupo de eventos em avaliação (modo desenvolvedor)
 };
 
 Value eval_expr(EvalContext& c, const std::vector<Expr>& ex);

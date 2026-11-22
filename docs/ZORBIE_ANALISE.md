@@ -45,6 +45,9 @@ documentada; aqui está o resto.
 | 10 | Ao voltar de outro app (ou de uma ligação), a partida continuava correndo, sem pausa | as condições "app interrompido" do objeto iOS eram sempre falsas | valem no passo em que o app volta: o jogo abre o menu de pausa, como no iPhone |
 | 11 | "0" vermelho no canto de cima da introdução | contador de controle estacionado fora do frame (y = −16); a introdução tem 568 px e a área visível 600 | objeto inteiro fora da área do frame não é desenhado |
 | 12 | Loja: as três barras de nível desenhadas na primeira linha; a 1ª linha parecia vazia | numa ação sobre várias instâncias, a referência a outro objeto com várias instâncias usava sempre a primeira | pareamento do Clickteam: a k-ésima instância usa a k-ésima do outro objeto |
+| 13 | **Fase bônus**: no fim, o cenário ficava só céu azul com uma faixa branca e o Zorbié parado no alto da tela (dentro do sol); depois ele caía para sempre | a ação "mudar o cronômetro" não tinha efeito: o passo seguinte voltava o tempo acumulado. O bônus zera o cronômetro para encadear a decolagem (o chão desce 1 s depois, a decolagem começa aos 2,4 s); sem isso tudo disparava junto, o chão descia 48 px em vez de 546 e o fim do bônus terminava antes de o Zorbié pousar | o cronômetro passa a valer de verdade (o acumulador também muda) |
+| 14 | **Tela "Buy full game!"** presa em "Please wait", sem botão de voltar | a versão é a gratuita (Zorbié FREE); comprar ou restaurar pede à loja da Apple, que não existe no Android, e o jogo espera a resposta para sempre | o pedido à loja responde "compra falhou": aparece "Payment failed" e o botão de voltar. Nada é desbloqueado |
+| 15 | Sprite gigante girando durante o laser dos chefes | o efeito "carregar laser" faz escala = A e tira 0,4 de A a cada passo, para sempre; no Clickteam a escala para em 0 (o efeito some), aqui ficava negativa e crescia de novo | escala negativa vira 0 |
 
 O item 12 é uma regra geral do Clickteam: "posicionar cada barra na sua moldura"
 com 3 barras e 3 molduras põe a 1ª barra na 1ª moldura, a 2ª na 2ª e assim por diante.
@@ -72,6 +75,25 @@ A pedido, o APK do Zorbié vem com um ajuste opcional (`runtime/tweaks.cpp`):
 
 O resto (inimigos, tempo, pontuação) é o original. `--no-tweaks` roda o jogo sem o
 ajuste.
+
+### Modo desenvolvedor
+
+`--dev` (ou `PB_DEV=1`) confere o jogo a cada passo e lista no fim, com a primeira vez
+que aconteceu: objeto visível sem imagem, imagem ou som que não decodifica, animação,
+quadro ou movimento inexistente, valor alterável fora de A..Z, posição ou escala
+inválida (NaN), escala exagerada, efeito de tinta não suportado, objeto perdido longe
+do frame por mais de 10 s, objetos que só se acumulam, salto para frame inexistente,
+ponteiro de grupo sem alvo, divisão por zero e expressões sobre objetos sem instância.
+Mostra também a cobertura: quantos eventos de cada frame chegaram a rodar.
+
+Resultado no Zorbié (3 × 10 minutos de jogo automático, cenas de história, loja e o
+bônus forçado):
+
+- **falhas do player**: o laser dos chefes (correção 15), achado por "escala exagerada";
+  nenhuma outra depois das correções 13 a 15;
+- **avisos que são do jogo original** (iguais no iPhone): expressões que leem a posição
+  de objetos que ainda não existem (metralhadora, chefe Ketex, sorteio de cenário) e
+  valem 0; o título pede o movimento 2 de `hud_title00`, que só tem 1 (é ignorado).
 
 ### Comportamentos do jogo original (não são falhas do PortBridge)
 
@@ -349,13 +371,33 @@ Tipos de missão, com exemplos tirados do jogo:
 
 ### Modos bônus
 
-Depois de liberados (`g27`), entram nas partidas: com 20 ou mais partidas jogadas,
-sorteia entre A e B; com 40 ou mais, entre A, B e C.
+O bônus começa ao juntar as 5 letras B-O-N-U-S (`g12 = 5`). O relógio da partida para
+e o bônus dura 100 tiques de 0,1 s (`g13`; 150 com o tempo no nível 4 ou mais).
+
+Qual bônus: na versão gratuita (`g27 = 0`) é sempre o A. Na completa, com 20 ou mais
+partidas jogadas sorteia entre A e B; com 40 ou mais, entre A, B e C.
+
+Sequência do bônus A, toda contada pelo cronômetro (zerado no início):
+
+1. "BONUS STAGE / START!" e o Zorbié em pose de decolagem;
+2. aos 1,0 s o chão começa a descer (16 px por passo, até sair da tela) e o Zorbié é
+   lançado para cima (movimento vetorial: 10 px por passo, gravidade 0,3);
+3. ao cair de volta, um pulo menor; aos 2,4 s, se ele está no ar, começa o voo;
+4. no voo ele segue o dedo na horizontal e pega moedas, com pássaros e espinhos;
+5. no fim, o chão sobe de novo, o Zorbié pousa com fumaça e pedras, a câmera treme e o
+   cenário do capítulo volta.
 
 - **A**: pássaro (`zoizo`), moedas em três padrões, espinhos, uma arma e o Gordolex
   aparecendo no fundo.
 - **B**: pinball com amortecedores gerados e duas máquinas.
 - **C**: quebrar ovos contra o tempo.
+
+### Versão gratuita
+
+O IPA é o Zorbié FREE. Ele joga normalmente, com dois limites: depois de 5 melhorias a
+loja mostra "Buy full game!" (cadeados nas barras), e os bônus B e C são só da versão
+completa. A compra é feita pela loja da Apple, que não existe no Android: no PortBridge
+o pedido responde "Payment failed" e o jogo continua.
 
 ### Pausa
 

@@ -122,6 +122,7 @@ std::shared_ptr<Audio::Clip> Audio::clip(int handle, bool background) {
     c->rate = rate ? int(rate) : 44100;
     double ms = double(SDL_GetPerformanceCounter() - t0) * 1000.0 / double(SDL_GetPerformanceFrequency());
     std::lock_guard<std::mutex> lk(qm_);  // a thread de decodificação também passa aqui
+    if (c->pcm.empty() && std::find(failed.begin(), failed.end(), handle) == failed.end()) failed.push_back(handle);
     if (background) {
         bg_decode_ms += ms;
         ++bg_decodes;

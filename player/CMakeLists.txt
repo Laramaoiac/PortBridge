@@ -62,6 +62,7 @@ if(PB_BUILD_PLAYER)
         src/runtime/expressions.cpp src/runtime/movements.cpp src/runtime/render.cpp
         src/runtime/screen.cpp src/runtime/text.cpp ${PB_FONT_SOURCES}
         src/runtime/tweaks.cpp
+        src/runtime/devcheck.cpp
         src/runtime/extensions.cpp src/runtime/diag.cpp src/main.cpp)
 
     if(ANDROID)

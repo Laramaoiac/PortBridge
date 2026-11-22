@@ -134,6 +134,15 @@ bool ext_condition(EvalContext& c, const EventItem& it, Obj* o, bool& handled) {
         const int idx = -it.num - 81;
         return (idx == 1 || idx == 2) && c.f.app.interrupted_flag;
     }
+    if (n == "iOSStore") {
+        // Loja da Apple (compras dentro do app). Não existe no Android: o pedido
+        // de compra é respondido com a condição 3, "compra falhou", para o mesmo
+        // produto (o jogo mostra a mensagem de falha e devolve o botão de voltar,
+        // em vez de ficar em "Please wait"). Nada é desbloqueado.
+        handled = true;
+        const int idx = -it.num - 81;
+        return idx == 3 && !c.f.app.store_failed.empty() && arg(c, it, 0).str() == c.f.app.store_failed;
+    }
     if (is_ios_stub(n)) { handled = true; return false; }
     if (n == "AdvDir") { handled = true; return false; }
     (void)o;
@@ -143,6 +152,10 @@ bool ext_condition(EvalContext& c, const EventItem& it, Obj* o, bool& handled) {
 void ext_action(EvalContext& c, const EventItem& it, Obj* o) {
     std::string n = ext_name(c, it.type);
     int idx = it.num - 80;
+    if (n == "iOSStore") {
+        if (idx == 0) c.f.app.store_pending = arg(c, it, 0).str();  // pedido de compra: falha no próximo passo
+        return;
+    }
     if (is_ios_stub(n) || n == "AdvDir") return;
     if (n == "kcini") {
         Ini& ini = ini_of(c, o);

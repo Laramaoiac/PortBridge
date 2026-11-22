@@ -20,6 +20,7 @@ public:
     // no passo do jogo (efeitos curtos) e na thread de fundo (músicas)
     double decode_ms = 0, worst_decode_ms = 0, bg_decode_ms = 0, bg_worst_ms = 0;
     int decodes = 0, worst_decode = -1, bg_decodes = 0, bg_worst = -1;
+    std::vector<int> failed;  // sons que não decodificaram (modo desenvolvedor)
     explicit Audio(const Game& game);
     ~Audio();
     bool ok() const { return dev_ != 0; }

@@ -116,6 +116,12 @@ PB_TRACE=594,596 ./build/portbridge-player Jogo.ipa --headless --frames 1300
 # grupos que dispararam e objetos que sobraram
 ./build/portbridge-player Jogo.ipa --headless --frames 36000 --monkey 60 --monkey-all \
     --seed 3 --save-dir save --audit relatorio.txt
+# modo desenvolvedor: confere falhas visíveis e invisíveis a cada passo e lista no fim
+# (objeto sem imagem, animação/quadro/movimento inexistente, NaN, objeto perdido,
+# objetos que se acumulam, expressão sobre objeto sem instância...) e a cobertura
+./build/portbridge-player Jogo.ipa --headless --frames 36000 --monkey 60 --monkey-all --dev
+# muda um valor global num loop (mesmo número do gN do --dump-at); ex.: letras do bônus
+./build/portbridge-player Jogo.ipa --headless --frames 3000 --set-global 12=5@600 --set-global 13=100@600
 # simula a volta do app do segundo plano no loop 600 (pausa automática)
 ./build/portbridge-player Jogo.ipa --headless --frames 900 --resume-at 600 --shot-at 660
 # começa direto num frame; roda o jogo sem os ajustes por jogo (tweaks.cpp)
