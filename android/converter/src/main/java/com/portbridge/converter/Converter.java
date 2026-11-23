@@ -142,7 +142,18 @@ public final class Converter {
     static String metadata(Ipa ipa, String pkg) {
         return "{\"name\":" + json(ipa.name) + ",\"bundle\":" + json(ipa.bundleId) + ",\"version\":"
                 + json(ipa.version) + ",\"runtime\":" + json(ipa.runtime.name().toLowerCase()) + ",\"engine\":"
-                + json(ipa.engine) + ",\"package\":" + json(pkg) + ",\"portrait\":" + ipa.portrait + "}";
+                + json(ipa.engine) + ",\"package\":" + json(pkg) + ",\"portrait\":" + ipa.portrait
+                + hleArgs(ipa) + "}";
+    }
+
+    /**
+     * Opções extras do touchHLE (lidas por HleActivity). O touchHLE só gira a tela sozinho
+     * quando o Info.plist declara paisagem; se a orientação foi deduzida das imagens, ela
+     * precisa ser passada antes de abrir a janela (girar depois deixa a tela cortada).
+     */
+    static String hleArgs(Ipa ipa) {
+        if (ipa.runtime != Ipa.Runtime.HLE || ipa.portrait || ipa.orientationDeclared) return "";
+        return ",\"hle_args\":[\"--landscape-left\"]";
     }
 
     private static String json(String s) {

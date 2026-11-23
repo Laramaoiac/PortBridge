@@ -1,5 +1,5 @@
 diff --git a/OPTIONS_HELP.txt b/OPTIONS_HELP.txt
-index 9297a5f..072b7e6 100644
+index 9297a5fa..072b7e64 100644
 --- a/OPTIONS_HELP.txt
 +++ b/OPTIONS_HELP.txt
 @@ -280,6 +280,12 @@ Other options:
@@ -16,7 +16,7 @@ index 9297a5f..072b7e6 100644
          Ignore host OpenGL errors as queried by glGetError function.
          This only affects return value of glGetError as seen by the guest
 diff --git a/src/audio.rs b/src/audio.rs
-index fd8b35c..b15fc37 100644
+index fd8b35cf..b15fc378 100644
 --- a/src/audio.rs
 +++ b/src/audio.rs
 @@ -48,6 +48,34 @@ pub struct AudioDescription {
@@ -69,7 +69,7 @@ index fd8b35c..b15fc37 100644
              Ok(AudioFile(AudioFileInner::Symphonia(pcm)))
          } else {
 diff --git a/src/dyld.rs b/src/dyld.rs
-index 71b8d00..f02c7b1 100644
+index 71b8d000..f02c7b1d 100644
 --- a/src/dyld.rs
 +++ b/src/dyld.rs
 @@ -228,6 +228,8 @@ pub struct Dyld {
@@ -139,7 +139,7 @@ index 71b8d00..f02c7b1 100644
      }
  
 diff --git a/src/environment.rs b/src/environment.rs
-index 131c45d..2cf8ccb 100644
+index 131c45d6..2cf8ccbe 100644
 --- a/src/environment.rs
 +++ b/src/environment.rs
 @@ -497,6 +497,26 @@ impl Environment {
@@ -210,7 +210,7 @@ index 131c45d..2cf8ccb 100644
                                  log_once!("Applying zeroing of stack after guest to host call.");
                                  let start = self.cpu.regs()[cpu::Cpu::SP] - len;
 diff --git a/src/frameworks.rs b/src/frameworks.rs
-index 30c70c0..a295725 100644
+index 30c70c09..a2957250 100644
 --- a/src/frameworks.rs
 +++ b/src/frameworks.rs
 @@ -53,6 +53,8 @@ pub struct State {
@@ -223,7 +223,7 @@ index 30c70c0..a295725 100644
  
  /// Container for thread local state of various child modules
 diff --git a/src/frameworks/audio_toolbox/audio_services.rs b/src/frameworks/audio_toolbox/audio_services.rs
-index b8469b5..1d22e1c 100644
+index b8469b54..1d22e1c8 100644
 --- a/src/frameworks/audio_toolbox/audio_services.rs
 +++ b/src/frameworks/audio_toolbox/audio_services.rs
 @@ -141,7 +141,8 @@ fn AudioServicesGetProperty(
@@ -237,7 +237,7 @@ index b8469b5..1d22e1c 100644
          let (state, context) =
              State::get_with_context(&mut env.framework_state, &mut env.openal_manager);
 diff --git a/src/frameworks/audio_toolbox/extended_audio_file.rs b/src/frameworks/audio_toolbox/extended_audio_file.rs
-index f973abf..f224f96 100644
+index f973abf6..f224f967 100644
 --- a/src/frameworks/audio_toolbox/extended_audio_file.rs
 +++ b/src/frameworks/audio_toolbox/extended_audio_file.rs
 @@ -55,6 +55,63 @@ type ExtAudioFileRef = MutPtr<OpaqueExtAudioFile>;
@@ -561,8 +561,436 @@ index f973abf..f224f96 100644
 +    export_c_func!(ExtAudioFileTell(_, _)),
      export_c_func!(ExtAudioFileDispose(_)),
  ];
+diff --git a/src/frameworks/core_animation/composition.rs b/src/frameworks/core_animation/composition.rs
+index 84706130..51d64bf8 100644
+--- a/src/frameworks/core_animation/composition.rs
++++ b/src/frameworks/core_animation/composition.rs
+@@ -70,6 +70,9 @@ pub fn recomposite_if_necessary(env: &mut Environment, force: bool) -> Option<In
+         return None;
+     }
+ 
++    // PortBridge: UIImageView frame animations (animationImages).
++    crate::frameworks::uikit::ui_view::ui_image_view::advance_image_view_animations(env);
++
+     if find_fullscreen_eagl_layer(env) != nil {
+         // No composition done, EAGLContext will present directly.
+         log_dbg!("Using CAEAGLLayer fast path, skipping composition");
+diff --git a/src/frameworks/core_foundation.rs b/src/frameworks/core_foundation.rs
+index 205be446..2a0f17b4 100644
+--- a/src/frameworks/core_foundation.rs
++++ b/src/frameworks/core_foundation.rs
+@@ -24,6 +24,7 @@ pub mod cf_dictionary;
+ pub mod cf_locale;
+ pub mod cf_number;
+ pub mod cf_preferences;
++pub mod cf_read_stream;
+ pub mod cf_run_loop;
+ pub mod cf_run_loop_timer;
+ pub mod cf_socket;
+@@ -38,6 +39,7 @@ pub const DYLIB: crate::dyld::HostDylib = crate::dyld::HostDylib {
+     aliases: &[],
+     class_exports: &[
+         cf_run_loop_timer::CLASSES, // Special internal classes.
++        cf_read_stream::CLASSES,
+         cf_uuid::CLASSES,
+     ],
+     constant_exports: &[
+@@ -49,6 +51,7 @@ pub const DYLIB: crate::dyld::HostDylib = crate::dyld::HostDylib {
+         cf_number::CONSTANTS,
+         cf_preferences::CONSTANTS,
+         cf_run_loop::CONSTANTS,
++        cf_url::CONSTANTS,
+     ],
+     function_exports: &[
+         FUNCTIONS,
+@@ -62,6 +65,7 @@ pub const DYLIB: crate::dyld::HostDylib = crate::dyld::HostDylib {
+         cf_preferences::FUNCTIONS,
+         cf_run_loop::FUNCTIONS,
+         cf_run_loop_timer::FUNCTIONS,
++        cf_read_stream::FUNCTIONS,
+         cf_string::FUNCTIONS,
+         cf_type::FUNCTIONS,
+         cf_url::FUNCTIONS,
+diff --git a/src/frameworks/core_foundation/cf_bundle.rs b/src/frameworks/core_foundation/cf_bundle.rs
+index 29253506..ac581f63 100644
+--- a/src/frameworks/core_foundation/cf_bundle.rs
++++ b/src/frameworks/core_foundation/cf_bundle.rs
+@@ -104,7 +104,9 @@ fn CFBundleCopyResourceURL(
+     let url: CFURLRef = msg![env; bundle URLForResource:resource_name
+                                           withExtension:resource_type
+                                            subdirectory:sub_dir_name];
+-    msg![env; url copy]
++    let res: CFURLRef = msg![env; url copy];
++    log_dbg!("CFBundleCopyResourceURL({:?}) => {:?}", bundle, res);
++    res
+ }
+ 
+ pub fn CFBundleCopyBundleLocalizations(env: &mut Environment, bundle: CFBundleRef) -> CFArrayRef {
+diff --git a/src/frameworks/core_foundation/cf_read_stream.rs b/src/frameworks/core_foundation/cf_read_stream.rs
+new file mode 100644
+index 00000000..170c3e86
+--- /dev/null
++++ b/src/frameworks/core_foundation/cf_read_stream.rs
+@@ -0,0 +1,129 @@
++/*
++ * This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
++ */
++//! `CFReadStream` for files (PortBridge).
++//!
++//! Only `CFReadStreamCreateWithFile` streams: the whole file is read when the
++//! stream is opened. Games of the iOS 3/4 era (e.g. ZENONIA 3) read their data
++//! packs this way.
++
++use super::cf_allocator::{kCFAllocatorDefault, CFAllocatorRef};
++use super::cf_url::CFURLRef;
++use super::{CFIndex, CFTypeRef};
++use crate::dyld::{export_c_func, FunctionExports};
++use crate::frameworks::foundation::ns_url::to_rust_path;
++use crate::fs::GuestPathBuf;
++use crate::mem::{GuestUSize, MutPtr};
++use crate::objc::{nil, objc_classes, ClassExports, HostObject};
++use crate::Environment;
++
++type CFReadStreamRef = CFTypeRef;
++
++pub const CLASSES: ClassExports = objc_classes! {
++
++(env, this, _cmd);
++
++@implementation _touchHLE_CFReadStream: NSObject
++@end
++
++};
++
++struct CFReadStreamHostObject {
++    path: GuestPathBuf,
++    data: Option<Vec<u8>>,
++    pos: usize,
++}
++impl HostObject for CFReadStreamHostObject {}
++
++fn CFReadStreamCreateWithFile(
++    env: &mut Environment,
++    allocator: CFAllocatorRef,
++    file_url: CFURLRef,
++) -> CFReadStreamRef {
++    assert!(allocator == kCFAllocatorDefault || env.mem.read(allocator).is_system_default()); // unimplemented
++    if file_url == nil {
++        return nil;
++    }
++    let path: GuestPathBuf = to_rust_path(env, file_url).into_owned();
++    log_dbg!("CFReadStreamCreateWithFile({:?})", path);
++    let host_obj = Box::new(CFReadStreamHostObject {
++        path,
++        data: None,
++        pos: 0,
++    });
++    let class = env.objc.get_known_class("_touchHLE_CFReadStream", &mut env.mem);
++    env.objc.alloc_object(class, host_obj, &mut env.mem)
++}
++
++fn CFReadStreamOpen(env: &mut Environment, stream: CFReadStreamRef) -> bool {
++    if stream == nil {
++        return false;
++    }
++    let path = env.objc.borrow::<CFReadStreamHostObject>(stream).path.clone();
++    log_dbg!("CFReadStreamOpen({:?}) {:?}", stream, path);
++    match env.fs.read(&path) {
++        Ok(bytes) => {
++            let host = env.objc.borrow_mut::<CFReadStreamHostObject>(stream);
++            host.data = Some(bytes);
++            host.pos = 0;
++            true
++        }
++        Err(()) => {
++            log!("CFReadStreamOpen: could not open {:?}", path);
++            false
++        }
++    }
++}
++
++fn CFReadStreamRead(
++    env: &mut Environment,
++    stream: CFReadStreamRef,
++    buffer: MutPtr<u8>,
++    buffer_length: CFIndex,
++) -> CFIndex {
++    if stream == nil || buffer_length < 0 {
++        return -1;
++    }
++    log_dbg!("CFReadStreamRead({:?}, {:?}, {})", stream, buffer, buffer_length);
++    let host = env.objc.borrow_mut::<CFReadStreamHostObject>(stream);
++    let Some(data) = host.data.as_ref() else {
++        return -1; // not open
++    };
++    let start = host.pos.min(data.len());
++    let n = (data.len() - start).min(buffer_length as usize);
++    let chunk = data[start..start + n].to_vec();
++    host.pos = start + n;
++    if n > 0 {
++        env.mem
++            .bytes_at_mut(buffer, n as GuestUSize)
++            .copy_from_slice(&chunk);
++    }
++    n as CFIndex
++}
++
++fn CFReadStreamHasBytesAvailable(env: &mut Environment, stream: CFReadStreamRef) -> bool {
++    if stream == nil {
++        return false;
++    }
++    let host = env.objc.borrow::<CFReadStreamHostObject>(stream);
++    host.data.as_ref().is_some_and(|d| host.pos < d.len())
++}
++
++fn CFReadStreamClose(env: &mut Environment, stream: CFReadStreamRef) {
++    if stream == nil {
++        return;
++    }
++    let host = env.objc.borrow_mut::<CFReadStreamHostObject>(stream);
++    host.data = None;
++    host.pos = 0;
++}
++
++pub const FUNCTIONS: FunctionExports = &[
++    export_c_func!(CFReadStreamCreateWithFile(_, _)),
++    export_c_func!(CFReadStreamOpen(_)),
++    export_c_func!(CFReadStreamRead(_, _, _)),
++    export_c_func!(CFReadStreamHasBytesAvailable(_)),
++    export_c_func!(CFReadStreamClose(_)),
++];
+diff --git a/src/frameworks/core_foundation/cf_run_loop_timer.rs b/src/frameworks/core_foundation/cf_run_loop_timer.rs
+index 95e83e7b..4d6a61b4 100644
+--- a/src/frameworks/core_foundation/cf_run_loop_timer.rs
++++ b/src/frameworks/core_foundation/cf_run_loop_timer.rs
+@@ -16,7 +16,7 @@ use crate::frameworks::core_foundation::time::{CFAbsoluteTime, CFTimeInterval};
+ use crate::frameworks::core_foundation::CFIndex;
+ use crate::mem::{MutPtr, MutVoidPtr, SafeRead};
+ use crate::objc::{
+-    id, msg, msg_class, nil, objc_classes, Class, ClassExports, HostObject, NSZonePtr,
++    id, msg, msg_class, nil, objc_classes, retain, Class, ClassExports, HostObject, NSZonePtr,
+ };
+ use crate::Environment;
+ 
+@@ -74,11 +74,16 @@ fn CFRunLoopTimerCreate(
+     let selector = env.objc.lookup_selector("timerFireMethod:").unwrap();
+ 
+     let repeats = interval > 0.0;
+-    msg_class![env; NSTimer timerWithTimeInterval:interval
+-                                           target:target
+-                                         selector:selector
+-                                         userInfo:nil
+-                                          repeats:repeats]
++    let timer: id = msg_class![env; NSTimer timerWithTimeInterval:interval
++                                                   target:target
++                                                 selector:selector
++                                                 userInfo:nil
++                                                  repeats:repeats];
++    // PortBridge: "Create" rule — the caller owns the result and will
++    // CFRelease it. +timerWithTimeInterval: returns an autoreleased timer, so
++    // without this retain the app's CFRelease over-released it (ZENONIA 3
++    // crashed on the next use of its freed game-loop timer).
++    retain(env, timer)
+ }
+ 
+ fn CFRunLoopAddTimer(
+@@ -100,10 +105,43 @@ fn CFRunLoopTimerInvalidate(env: &mut Environment, timer: CFRunLoopTimerRef) {
+     () = msg![env; timer invalidate];
+ }
+ 
++// PortBridge: used by ZENONIA 3 (`if (!CFRunLoopTimerIsValid(t)) ...`).
++fn CFRunLoopTimerIsValid(env: &mut Environment, timer: CFRunLoopTimerRef) -> bool {
++    timer != nil && msg![env; timer isValid]
++}
++
++/// PortBridge: NSRunLoop has no "contains" query in touchHLE; a valid timer
++/// that was added is the common case, and that is what callers check before
++/// adding/removing it.
++fn CFRunLoopContainsTimer(
++    env: &mut Environment,
++    _run_loop: CFRunLoopRef,
++    timer: CFRunLoopTimerRef,
++    _mode: CFRunLoopMode,
++) -> bool {
++    timer != nil && msg![env; timer isValid]
++}
++
++/// PortBridge: removing a timer from its run loop stops it firing; touchHLE's
++/// NSRunLoop only supports that through invalidation.
++fn CFRunLoopRemoveTimer(
++    env: &mut Environment,
++    _run_loop: CFRunLoopRef,
++    timer: CFRunLoopTimerRef,
++    _mode: CFRunLoopMode,
++) {
++    if timer != nil {
++        () = msg![env; timer invalidate];
++    }
++}
++
+ pub const FUNCTIONS: FunctionExports = &[
+     export_c_func!(CFRunLoopTimerCreate(_, _, _, _, _, _, _)),
+     export_c_func!(CFRunLoopAddTimer(_, _, _)),
+     export_c_func!(CFRunLoopTimerInvalidate(_)),
++    export_c_func!(CFRunLoopTimerIsValid(_)),
++    export_c_func!(CFRunLoopContainsTimer(_, _, _)),
++    export_c_func!(CFRunLoopRemoveTimer(_, _, _)),
+ ];
+ 
+ /// Belongs to _touchHLE_CFTimerTarget
+diff --git a/src/frameworks/core_foundation/cf_string.rs b/src/frameworks/core_foundation/cf_string.rs
+index d763aeaa..481f7f68 100644
+--- a/src/frameworks/core_foundation/cf_string.rs
++++ b/src/frameworks/core_foundation/cf_string.rs
+@@ -32,6 +32,11 @@ pub const kCFStringEncodingUTF16: CFStringEncoding = kCFStringEncodingUnicode;
+ pub const kCFStringEncodingUTF16BE: CFStringEncoding = 0x10000100;
+ pub const kCFStringEncodingUTF16LE: CFStringEncoding = 0x14000100;
+ pub const kCFStringEncodingISOLatin1: CFStringEncoding = 0x0201;
++// PortBridge: Japanese and Korean legacy encodings
++pub const kCFStringEncodingShiftJIS: CFStringEncoding = 0x0A01;
++pub const kCFStringEncodingDOSJapanese: CFStringEncoding = 0x0421;
++pub const kCFStringEncodingDOSKorean: CFStringEncoding = 0x0422;
++pub const kCFStringEncodingEUC_KR: CFStringEncoding = 0x0940;
+ 
+ fn CFStringAppend(
+     env: &mut Environment,
+@@ -78,6 +83,9 @@ pub fn CFStringConvertEncodingToNSStringEncoding(
+         kCFStringEncodingUTF16BE => ns_string::NSUTF16BigEndianStringEncoding,
+         kCFStringEncodingUTF16LE => ns_string::NSUTF16LittleEndianStringEncoding,
+         kCFStringEncodingISOLatin1 => ns_string::NSISOLatin1StringEncoding,
++        kCFStringEncodingShiftJIS | kCFStringEncodingDOSJapanese => ns_string::NSShiftJISStringEncoding,
++        kCFStringEncodingDOSKorean => ns_string::NSKoreanCP949StringEncoding,
++        kCFStringEncodingEUC_KR => ns_string::NSKoreanEUCStringEncoding,
+         _ => unimplemented!("Unhandled: CFStringEncoding {:#x}", encoding),
+     }
+ }
+@@ -93,6 +101,9 @@ fn CFStringConvertNSStringEncodingToEncoding(
+         ns_string::NSUTF16BigEndianStringEncoding => kCFStringEncodingUTF16BE,
+         ns_string::NSUTF16LittleEndianStringEncoding => kCFStringEncodingUTF16LE,
+         ns_string::NSISOLatin1StringEncoding => kCFStringEncodingISOLatin1,
++        ns_string::NSShiftJISStringEncoding => kCFStringEncodingDOSJapanese,
++        ns_string::NSKoreanCP949StringEncoding => kCFStringEncodingDOSKorean,
++        ns_string::NSKoreanEUCStringEncoding => kCFStringEncodingEUC_KR,
+         _ => unimplemented!("Unhandled: NSStringEncoding {:#x}", encoding),
+     }
+ }
+diff --git a/src/frameworks/core_foundation/cf_type.rs b/src/frameworks/core_foundation/cf_type.rs
+index 27021b57..56f5286e 100644
+--- a/src/frameworks/core_foundation/cf_type.rs
++++ b/src/frameworks/core_foundation/cf_type.rs
+@@ -19,6 +19,7 @@ pub fn CFRetain(env: &mut Environment, object: CFTypeRef) -> CFTypeRef {
+     objc::retain(env, object)
+ }
+ pub fn CFRelease(env: &mut Environment, object: CFTypeRef) {
++    log_dbg!("CFRelease({:?})", object);
+     objc::release(env, object);
+ }
+ 
+diff --git a/src/frameworks/core_foundation/cf_url.rs b/src/frameworks/core_foundation/cf_url.rs
+index 4435cc49..44051be7 100644
+--- a/src/frameworks/core_foundation/cf_url.rs
++++ b/src/frameworks/core_foundation/cf_url.rs
+@@ -10,7 +10,7 @@
+ 
+ use super::cf_allocator::{kCFAllocatorDefault, CFAllocatorRef};
+ use super::CFIndex;
+-use crate::dyld::{export_c_func, FunctionExports};
++use crate::dyld::{export_c_func, ConstantExports, FunctionExports, HostConstant};
+ use crate::frameworks::core_foundation::cf_string::{
+     kCFStringEncodingASCII, CFStringConvertEncodingToNSStringEncoding, CFStringEncoding,
+     CFStringRef,
+@@ -20,7 +20,7 @@ use crate::frameworks::foundation::ns_string::{
+ };
+ use crate::frameworks::foundation::NSUInteger;
+ use crate::mem::{ConstPtr, MutPtr, Ptr};
+-use crate::objc::{id, msg, msg_class, release};
++use crate::objc::{id, msg, msg_class, nil, release, retain};
+ use crate::Environment;
+ 
+ pub type CFURLRef = super::CFTypeRef;
+@@ -194,7 +194,78 @@ fn CFURLHasDirectoryPath(env: &mut Environment, url: CFURLRef) -> bool {
+         || msg![env; last isEqual:(get_static_str(env, ".."))]
+ }
+ 
++// PortBridge: legacy file-property keys for CFURLCreatePropertyFromResource
++// (deprecated since iOS 4, still used by games of that era, e.g. ZENONIA 3).
++const kCFURLFileExists: &str = "kCFURLFileExists";
++const kCFURLFileLength: &str = "kCFURLFileLength";
++const kCFURLFileDirectoryContents: &str = "kCFURLFileDirectoryContents";
++const kCFURLFileLastModificationTime: &str = "kCFURLFileLastModificationTime";
++
++pub const CONSTANTS: ConstantExports = &[
++    ("_kCFURLFileExists", HostConstant::NSString(kCFURLFileExists)),
++    ("_kCFURLFileLength", HostConstant::NSString(kCFURLFileLength)),
++    (
++        "_kCFURLFileDirectoryContents",
++        HostConstant::NSString(kCFURLFileDirectoryContents),
++    ),
++    (
++        "_kCFURLFileLastModificationTime",
++        HostConstant::NSString(kCFURLFileLastModificationTime),
++    ),
++];
++
++const kCFURLUnknownPropertyKeyError: i32 = -17;
++const kCFURLResourceNotFoundError: i32 = -12;
++
++/// PortBridge: `CFURLCreatePropertyFromResource` for file URLs. Supports
++/// `kCFURLFileExists` (CFBoolean) and `kCFURLFileLength` (CFNumber).
++fn CFURLCreatePropertyFromResource(
++    env: &mut Environment,
++    _allocator: CFAllocatorRef,
++    url: CFURLRef,
++    property: CFStringRef,
++    error_code: MutPtr<i32>,
++) -> id {
++    let set_err = |env: &mut Environment, code: i32| {
++        if !error_code.is_null() {
++            env.mem.write(error_code, code);
++        }
++    };
++    if url == nil || property == nil {
++        set_err(env, kCFURLUnknownPropertyKeyError);
++        return nil;
++    }
++    let key = to_rust_string(env, property).to_string();
++    let path = crate::frameworks::foundation::ns_url::to_rust_path(env, url).into_owned();
++    let result: id = match key.as_str() {
++        kCFURLFileExists => {
++            let exists = env.fs.exists(&path);
++            let n: id = msg_class![env; NSNumber numberWithBool:exists];
++            retain(env, n)
++        }
++        kCFURLFileLength => match env.fs.size(&path) {
++            Ok(size) => {
++                let n: id = msg_class![env; NSNumber numberWithLongLong:(size as i64)];
++                retain(env, n)
++            }
++            Err(()) => {
++                set_err(env, kCFURLResourceNotFoundError);
++                return nil;
++            }
++        },
++        _ => {
++            log!("TODO: CFURLCreatePropertyFromResource({:?}, {:?})", path, key);
++            set_err(env, kCFURLUnknownPropertyKeyError);
++            return nil;
++        }
++    };
++    set_err(env, 0);
++    log_dbg!("CFURLCreatePropertyFromResource({:?}, {}) => {:?}", path, key, result);
++    result
++}
++
+ pub const FUNCTIONS: FunctionExports = &[
++    export_c_func!(CFURLCreatePropertyFromResource(_, _, _, _)),
+     export_c_func!(CFURLGetFileSystemRepresentation(_, _, _, _)),
+     export_c_func!(CFURLCreateFromFileSystemRepresentation(_, _, _, _)),
+     export_c_func!(CFURLCreateWithBytes(_, _, _, _, _)),
 diff --git a/src/frameworks/core_graphics/cg_image.rs b/src/frameworks/core_graphics/cg_image.rs
-index a6b936a..02aa003 100644
+index a6b936a3..02aa0031 100644
 --- a/src/frameworks/core_graphics/cg_image.rs
 +++ b/src/frameworks/core_graphics/cg_image.rs
 @@ -205,11 +205,19 @@ fn CGImageCreateWithJPEGDataProvider(
@@ -588,7 +1016,7 @@ index a6b936a..02aa003 100644
  
  fn CGImageGetColorSpace(env: &mut Environment, _image: CGImageRef) -> CGColorSpaceRef {
 diff --git a/src/frameworks/foundation.rs b/src/frameworks/foundation.rs
-index 441c507..d112ca7 100644
+index 441c5074..d112ca7e 100644
 --- a/src/frameworks/foundation.rs
 +++ b/src/frameworks/foundation.rs
 @@ -44,6 +44,7 @@ pub mod ns_notification_center;
@@ -608,7 +1036,7 @@ index 441c507..d112ca7 100644
          ns_null::CLASSES,
          ns_method_signature::CLASSES,
 diff --git a/src/frameworks/foundation/ns_array.rs b/src/frameworks/foundation/ns_array.rs
-index a23f284..a192554 100644
+index a23f2847..a1925547 100644
 --- a/src/frameworks/foundation/ns_array.rs
 +++ b/src/frameworks/foundation/ns_array.rs
 @@ -248,6 +248,12 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -643,7 +1071,7 @@ index a23f284..a192554 100644
  
  // Our private subclass that is the single implementation of NSArray for the
 diff --git a/src/frameworks/foundation/ns_dictionary.rs b/src/frameworks/foundation/ns_dictionary.rs
-index 7e49445..6d70520 100644
+index 7e494450..6d705209 100644
 --- a/src/frameworks/foundation/ns_dictionary.rs
 +++ b/src/frameworks/foundation/ns_dictionary.rs
 @@ -381,6 +381,20 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -697,7 +1125,7 @@ index 7e49445..6d70520 100644
  // Our private subclass that is the single implementation of NSDictionary for
 diff --git a/src/frameworks/foundation/ns_ordered_set.rs b/src/frameworks/foundation/ns_ordered_set.rs
 new file mode 100644
-index 0000000..740ec00
+index 00000000..740ec007
 --- /dev/null
 +++ b/src/frameworks/foundation/ns_ordered_set.rs
 @@ -0,0 +1,214 @@
@@ -916,7 +1344,7 @@ index 0000000..740ec00
 +
 +};
 diff --git a/src/frameworks/foundation/ns_run_loop.rs b/src/frameworks/foundation/ns_run_loop.rs
-index f473e09..e8a3ecd 100644
+index f473e095..e8a3ecd1 100644
 --- a/src/frameworks/foundation/ns_run_loop.rs
 +++ b/src/frameworks/foundation/ns_run_loop.rs
 @@ -86,6 +86,11 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -932,19 +1360,62 @@ index f473e09..e8a3ecd 100644
  
  - (id) retain { this }
 diff --git a/src/frameworks/foundation/ns_string.rs b/src/frameworks/foundation/ns_string.rs
-index 99906b0..bcbb17f 100644
+index 99906b07..8d5f5f0d 100644
 --- a/src/frameworks/foundation/ns_string.rs
 +++ b/src/frameworks/foundation/ns_string.rs
-@@ -62,6 +62,8 @@ const C_STRING_FRIENDLY_ENCODINGS: &[NSStringEncoding] = &[
+@@ -30,7 +30,7 @@ use crate::objc::{
+     HostObject, NSZonePtr, ObjC,
+ };
+ use crate::{fs, Environment};
+-use encoding_rs::{SHIFT_JIS, WINDOWS_1252};
++use encoding_rs::{EUC_KR, SHIFT_JIS, WINDOWS_1252};
+ use std::borrow::Cow;
+ use std::collections::HashMap;
+ use std::io::Write;
+@@ -48,6 +48,12 @@ pub const NSMacOSRomanStringEncoding: NSUInteger = 30;
+ pub const NSUTF16StringEncoding: NSUInteger = NSUnicodeStringEncoding;
+ pub const NSUTF16BigEndianStringEncoding: NSUInteger = 0x90000100;
+ pub const NSUTF16LittleEndianStringEncoding: NSUInteger = 0x94000100;
++/// PortBridge: Korean encodings, as returned by
++/// `CFStringConvertEncodingToNSStringEncoding` (0x80000000 | CFStringEncoding).
++/// kCFStringEncodingDOSKorean (CP949) and kCFStringEncodingEUC_KR. Korean games
++/// (e.g. Gamevil's ZENONIA 3) build their resource names with them.
++pub const NSKoreanCP949StringEncoding: NSUInteger = 0x80000422;
++pub const NSKoreanEUCStringEncoding: NSUInteger = 0x80000940;
+ 
+ pub type NSStringCompareOptions = NSUInteger;
+ pub const NSCaseInsensitiveSearch: NSUInteger = 1;
+@@ -62,8 +68,29 @@ const C_STRING_FRIENDLY_ENCODINGS: &[NSStringEncoding] = &[
      NSWindowsCP1252StringEncoding,
      NSMacOSRomanStringEncoding,
      NSISOLatin1StringEncoding,
 +    // PortBridge: multibyte encodings without zero bytes (Japanese apps)
 +    NSShiftJISStringEncoding,
++    // PortBridge: Korean apps
++    NSKoreanCP949StringEncoding,
++    NSKoreanEUCStringEncoding,
  ];
  
++/// PortBridge: encodes text for the multibyte legacy encodings handled above
++/// (`None` for the others, which keep their original code paths).
++fn encode_legacy_multibyte(string: &str, encoding: NSStringEncoding) -> Option<Vec<u8>> {
++    let codec = match encoding {
++        NSShiftJISStringEncoding => SHIFT_JIS,
++        // encoding_rs' EUC-KR is the WHATWG one, i.e. Windows-949 (a superset)
++        NSKoreanCP949StringEncoding | NSKoreanEUCStringEncoding => EUC_KR,
++        _ => return None,
++    };
++    let (bytes, _, had_errors) = codec.encode(string);
++    if had_errors {
++        log!("Warning: characters not representable in encoding {:#x}, replaced", encoding);
++    }
++    Some(bytes.into_owned())
++}
++
  pub const NSMaximumStringLength: NSUInteger = (i32::MAX - 1) as _;
-@@ -111,13 +113,15 @@ impl StringHostObject {
+ 
+ #[derive(Default)]
+@@ -111,13 +138,15 @@ impl StringHostObject {
                  let string = unsafe { String::from_utf8_unchecked(bytes.into_owned()) };
                  StringHostObject::Utf8(Cow::Owned(string))
              }
@@ -965,7 +1436,7 @@ index 99906b0..bcbb17f 100644
              NSUTF8StringEncoding => {
                  let string = String::from_utf8(bytes.into_owned()).unwrap();
                  StringHostObject::Utf8(Cow::Owned(string))
-@@ -129,9 +133,11 @@ impl StringHostObject {
+@@ -129,12 +158,22 @@ impl StringHostObject {
                  StringHostObject::Utf8(Cow::Owned(cow.into_owned()))
              }
              NSShiftJISStringEncoding => {
@@ -980,8 +1451,45 @@ index 99906b0..bcbb17f 100644
                  log_dbg!("ShiftJIS decoded {:?}", cow);
                  StringHostObject::Utf8(Cow::Owned(cow.to_string()))
              }
++            NSKoreanCP949StringEncoding | NSKoreanEUCStringEncoding => {
++                // PortBridge: invalid sequences become U+FFFD instead of aborting
++                let (cow, _encoding_used, had_errors) = EUC_KR.decode(&bytes);
++                if had_errors {
++                    log!("Warning: invalid Korean (CP949) bytes in string, replaced");
++                }
++                StringHostObject::Utf8(Cow::Owned(cow.into_owned()))
++            }
+             NSUTF16StringEncoding
+             | NSUTF16BigEndianStringEncoding
+             | NSUTF16LittleEndianStringEncoding => {
+@@ -490,6 +529,9 @@ pub const CLASSES: ClassExports = objc_classes! {
+ - (NSUInteger)lengthOfBytesUsingEncoding:(NSStringEncoding)encoding {
+     if C_STRING_FRIENDLY_ENCODINGS.contains(&encoding) {
+         let string = to_rust_string(env, this);
++        if let Some(bytes) = encode_legacy_multibyte(&string, encoding) {
++            return bytes.len().try_into().unwrap();
++        }
+         assert!(string.as_bytes().iter().all(|byte| byte.is_ascii())); // TODO
+         string.len().try_into().unwrap()
+     } else {
+@@ -828,10 +870,14 @@ pub const CLASSES: ClassExports = objc_classes! {
+             string.as_bytes().to_vec()
+         },
+         NSUTF16LittleEndianStringEncoding => string.encode_utf16().flat_map(u16::to_le_bytes).collect(),
+-        _ => unimplemented!("{}", encoding),
++        _ => match encode_legacy_multibyte(&string, encoding) {
++            Some(bytes) => bytes,
++            None => unimplemented!("{}", encoding),
++        },
+     };
+     let null_size: GuestUSize = match encoding {
+         NSUTF8StringEncoding | NSASCIIStringEncoding | NSMacOSRomanStringEncoding | NSISOLatin1StringEncoding => 1,
++        NSShiftJISStringEncoding | NSKoreanCP949StringEncoding | NSKoreanEUCStringEncoding => 1,
+         NSUTF16LittleEndianStringEncoding => 2,
+         _ => unimplemented!()
+     };
 diff --git a/src/frameworks/foundation/ns_timer.rs b/src/frameworks/foundation/ns_timer.rs
-index 68fc992..e978cdf 100644
+index 68fc992d..e978cdf0 100644
 --- a/src/frameworks/foundation/ns_timer.rs
 +++ b/src/frameworks/foundation/ns_timer.rs
 @@ -66,6 +66,18 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -1004,7 +1512,7 @@ index 68fc992..e978cdf 100644
          "New {} timer {:?}, interval {}s, target [{:?} {}], user info {:?}",
          if repeats { "repeating" } else { "single-use" },
 diff --git a/src/frameworks/opengles/eagl.rs b/src/frameworks/opengles/eagl.rs
-index 32a0b5c..fc85a8e 100644
+index 32a0b5ce..fc85a8e5 100644
 --- a/src/frameworks/opengles/eagl.rs
 +++ b/src/frameworks/opengles/eagl.rs
 @@ -67,6 +67,20 @@ pub(super) struct EAGLContextHostObject {
@@ -1254,7 +1762,7 @@ index 32a0b5c..fc85a8e 100644
      let viewport = env.window.as_mut().unwrap().viewport();
      let rotation_matrix = env.window.as_mut().unwrap().rotation_matrix();
 diff --git a/src/frameworks/opengles/gles_guest.rs b/src/frameworks/opengles/gles_guest.rs
-index 9c86ac4..0cc7f8d 100644
+index 9c86ac4f..0cc7f8d0 100644
 --- a/src/frameworks/opengles/gles_guest.rs
 +++ b/src/frameworks/opengles/gles_guest.rs
 @@ -154,6 +154,7 @@ fn glGetError(env: &mut Environment) -> GLenum {
@@ -1320,7 +1828,7 @@ index 9c86ac4..0cc7f8d 100644
          gles.TexEnvi(target, pname, param)
      })
 diff --git a/src/frameworks/uikit/ui_screen.rs b/src/frameworks/uikit/ui_screen.rs
-index 840d763..d11c51a 100644
+index 840d763a..d11c51a8 100644
 --- a/src/frameworks/uikit/ui_screen.rs
 +++ b/src/frameworks/uikit/ui_screen.rs
 @@ -11,6 +11,8 @@ use crate::objc::{id, msg, msg_class, objc_classes, ClassExports, TrivialHostObj
@@ -1382,10 +1890,20 @@ index 840d763..d11c51a 100644
  
  };
 diff --git a/src/frameworks/uikit/ui_view.rs b/src/frameworks/uikit/ui_view.rs
-index b4dc3af..c4e3fa3 100644
+index b4dc3af0..87b1013e 100644
 --- a/src/frameworks/uikit/ui_view.rs
 +++ b/src/frameworks/uikit/ui_view.rs
-@@ -87,6 +87,9 @@ pub(super) struct UIViewHostObject {
+@@ -72,6 +72,9 @@ pub struct State {
+     pub(super) views: Vec<id>,
+     pub ui_window: ui_window::State,
+     pub animation_block_count: usize,
++    /// PortBridge: `UIImageView`s between `startAnimating` and `stopAnimating`.
++    /// Non-retaining (removed on dealloc), advanced by the compositor.
++    pub animating_image_views: Vec<id>,
+ }
+ 
+ pub(super) struct UIViewHostObject {
+@@ -87,6 +90,9 @@ pub(super) struct UIViewHostObject {
      clears_context_before_drawing: bool,
      user_interaction_enabled: bool,
      multiple_touch_enabled: bool,
@@ -1395,7 +1913,7 @@ index b4dc3af..c4e3fa3 100644
  }
  impl HostObject for UIViewHostObject {}
  impl Default for UIViewHostObject {
-@@ -102,10 +105,75 @@ impl Default for UIViewHostObject {
+@@ -102,10 +108,75 @@ impl Default for UIViewHostObject {
              clears_context_before_drawing: true,
              user_interaction_enabled: true,
              multiple_touch_enabled: false,
@@ -1471,7 +1989,7 @@ index b4dc3af..c4e3fa3 100644
  #[derive(Default)]
  struct UIViewAnimationDelegateHostObject {
      animation_id: id, // NSString*
-@@ -393,6 +461,19 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -393,6 +464,19 @@ pub const CLASSES: ClassExports = objc_classes! {
      () = msg![env; this setTag:tag];
      () = msg![env; this setMultipleTouchEnabled:multi_touch_enabled];
  
@@ -1491,7 +2009,7 @@ index b4dc3af..c4e3fa3 100644
      for i in 0..subview_count {
          let subview: id = msg![env; subviews objectAtIndex:i];
          () = msg![env; this addSubview:subview];
-@@ -625,6 +706,8 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -625,6 +709,8 @@ pub const CLASSES: ClassExports = objc_classes! {
          clears_context_before_drawing: _,
          user_interaction_enabled: _,
          multiple_touch_enabled: _,
@@ -1500,7 +2018,7 @@ index b4dc3af..c4e3fa3 100644
      } = std::mem::take(env.objc.borrow_mut(this));
  
      release(env, layer);
-@@ -724,7 +807,9 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -724,7 +810,9 @@ pub const CLASSES: ClassExports = objc_classes! {
  }
  - (())setBounds:(CGRect)bounds {
      let layer = env.objc.borrow::<UIViewHostObject>(this).layer;
@@ -1511,8 +2029,22 @@ index b4dc3af..c4e3fa3 100644
  }
  - (CGPoint)center {
      // FIXME: what happens if [layer anchorPoint] isn't (0.5, 0.5)?
-@@ -741,7 +826,10 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -739,9 +827,24 @@ pub const CLASSES: ClassExports = objc_classes! {
+     let layer = env.objc.borrow::<UIViewHostObject>(this).layer;
+     msg![env; layer frame]
  }
++// PortBridge: private UIView geometry API from iOS 2-5 (-[UIView origin],
++// -[UIView setOrigin:]) that some apps call directly (e.g. Toilet War places
++// its menu buttons with it). Moves the view, keeping its size.
++- (CGPoint)origin {
++    let frame: CGRect = msg![env; this frame];
++    frame.origin
++}
++- (())setOrigin:(CGPoint)origin {
++    let mut frame: CGRect = msg![env; this frame];
++    frame.origin = origin;
++    () = msg![env; this setFrame:frame];
++}
  - (())setFrame:(CGRect)frame {
      let layer = env.objc.borrow::<UIViewHostObject>(this).layer;
 -    msg![env; layer setFrame:frame]
@@ -1523,7 +2055,7 @@ index b4dc3af..c4e3fa3 100644
  }
  - (CGAffineTransform)transform {
      let layer = env.objc.borrow::<UIViewHostObject>(this).layer;
-@@ -893,10 +981,16 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -893,10 +996,16 @@ pub const CLASSES: ClassExports = objc_classes! {
  }
  
  - (())setAutoresizingMask:(NSUInteger)mask {
@@ -1543,7 +2075,7 @@ index b4dc3af..c4e3fa3 100644
  
  - (CGSize)sizeThatFits:(CGSize)size {
 diff --git a/src/frameworks/uikit/ui_view/ui_alert_view.rs b/src/frameworks/uikit/ui_view/ui_alert_view.rs
-index 7dc2539..d894dc1 100644
+index 7dc25397..d894dc1f 100644
 --- a/src/frameworks/uikit/ui_view/ui_alert_view.rs
 +++ b/src/frameworks/uikit/ui_view/ui_alert_view.rs
 @@ -6,6 +6,7 @@
@@ -1566,8 +2098,217 @@ index 7dc2539..d894dc1 100644
  - (())show {
      log!("TODO: [(UIAlertView*){:?} show]", this);
  }
+diff --git a/src/frameworks/uikit/ui_view/ui_image_view.rs b/src/frameworks/uikit/ui_view/ui_image_view.rs
+index c6fd2939..4b0d07a1 100644
+--- a/src/frameworks/uikit/ui_view/ui_image_view.rs
++++ b/src/frameworks/uikit/ui_view/ui_image_view.rs
+@@ -8,17 +8,103 @@
+ use crate::frameworks::core_graphics::cg_image::CGImageRef;
+ use crate::frameworks::core_graphics::{CGPoint, CGRect, CGSize};
+ use crate::frameworks::foundation::ns_string::get_static_str;
+-use crate::frameworks::foundation::NSTimeInterval;
++use crate::frameworks::foundation::{NSInteger, NSTimeInterval, NSUInteger};
+ use crate::objc::{
+-    id, impl_HostObject_with_superclass, msg, msg_super, objc_classes, release, retain,
+-    todo_objc_setter, ClassExports, NSZonePtr,
++    id, impl_HostObject_with_superclass, msg, msg_super, nil, objc_classes, release, retain,
++    ClassExports, NSZonePtr,
+ };
++use crate::Environment;
++use std::time::Instant;
+ 
+ #[derive(Default)]
+ struct UIImageViewHostObject {
+     superclass: super::UIViewHostObject,
+     /// `UIImage*`
+     image: id,
++    /// PortBridge: frame animation (`animationImages`), `NSArray<UIImage*>*`.
++    animation_images: id,
++    animation_duration: NSTimeInterval,
++    animation_repeat_count: NSInteger,
++    animation_start: Option<Instant>,
++    animation_shown_frame: Option<NSUInteger>,
++}
++
++/// Shows `image` (or nothing) in the layer, as UIImageView does when it is not animating.
++fn show_static_image(env: &mut Environment, this: id) {
++    let image = env.objc.borrow::<UIImageViewHostObject>(this).image;
++    let layer: id = msg![env; this layer];
++    let cg_image: CGImageRef = if image == nil {
++        nil
++    } else {
++        msg![env; image CGImage]
++    };
++    () = msg![env; layer setContents:cg_image];
++}
++
++fn stop_animation(env: &mut Environment, this: id) {
++    let host = env.objc.borrow_mut::<UIImageViewHostObject>(this);
++    let was_animating = host.animation_start.take().is_some();
++    host.animation_shown_frame = None;
++    env.framework_state
++        .uikit
++        .ui_view
++        .animating_image_views
++        .retain(|&v| v != this);
++    if was_animating {
++        show_static_image(env, this);
++    }
++}
++
++/// PortBridge: advances `UIImageView` frame animations (`animationImages`,
++/// `animationDuration`, `animationRepeatCount`). Called by the compositor
++/// before each composition. Old UIKit games animate characters this way.
++pub fn advance_image_view_animations(env: &mut Environment) {
++    let views = env.framework_state.uikit.ui_view.animating_image_views.clone();
++    let now = Instant::now();
++    for view in views {
++        let &UIImageViewHostObject {
++            animation_images,
++            animation_duration,
++            animation_repeat_count,
++            animation_start,
++            animation_shown_frame,
++            ..
++        } = env.objc.borrow(view);
++        let Some(start) = animation_start else {
++            continue;
++        };
++        let count: NSUInteger = if animation_images == nil {
++            0
++        } else {
++            msg![env; animation_images count]
++        };
++        if count == 0 {
++            stop_animation(env, view);
++            continue;
++        }
++        // iOS default: 30 frames per second when the duration is 0.
++        let duration = if animation_duration > 0.0 {
++            animation_duration
++        } else {
++            count as f64 / 30.0
++        };
++        let cycles = now.duration_since(start).as_secs_f64() / duration;
++        if animation_repeat_count > 0 && cycles >= animation_repeat_count as f64 {
++            stop_animation(env, view);
++            continue;
++        }
++        let frame = ((cycles.fract() * count as f64) as NSUInteger).min(count - 1);
++        if animation_shown_frame == Some(frame) {
++            continue;
++        }
++        env.objc
++            .borrow_mut::<UIImageViewHostObject>(view)
++            .animation_shown_frame = Some(frame);
++        let image: id = msg![env; animation_images objectAtIndex:frame];
++        let cg_image: CGImageRef = msg![env; image CGImage];
++        let layer: id = msg![env; view layer];
++        () = msg![env; layer setContents:cg_image];
++    }
+ }
+ impl_HostObject_with_superclass!(UIImageViewHostObject);
+ 
+@@ -43,10 +129,17 @@ pub const CLASSES: ClassExports = objc_classes! {
+ 
+ - (())dealloc {
+     let &UIImageViewHostObject {
+-        superclass: _,
+         image,
++        animation_images,
++        ..
+     } = env.objc.borrow(this);
++    env.framework_state
++        .uikit
++        .ui_view
++        .animating_image_views
++        .retain(|&v| v != this);
+     release(env, image);
++    release(env, animation_images);
+     msg_super![env; this dealloc]
+ }
+ 
+@@ -86,28 +179,68 @@ pub const CLASSES: ClassExports = objc_classes! {
+     retain(env, new_image);
+     release(env, old_image);
+ 
+-    let layer: id = msg![env; this layer];
+-    let cg_image: CGImageRef = msg![env; new_image CGImage];
+-    () = msg![env; layer setContents:cg_image];
++    if env.objc.borrow::<UIImageViewHostObject>(this).animation_start.is_none() {
++        show_static_image(env, this);
++    }
+ }
+ 
++- (id)animationImages {
++    env.objc.borrow::<UIImageViewHostObject>(this).animation_images
++}
+ - (())setAnimationImages:(id)images { // NSArray<UIImage *>*
+-    todo_objc_setter!(this, images);
+-    // TODO: Use all images in the array instead of just the first one
+-    let first_image: id = msg![env; images objectAtIndex:0u32];
+-    () = msg![env; this setImage:first_image];
++    retain(env, images);
++    let host = env.objc.borrow_mut::<UIImageViewHostObject>(this);
++    let old = std::mem::replace(&mut host.animation_images, images);
++    host.animation_shown_frame = None;
++    release(env, old);
++    if images == nil {
++        stop_animation(env, this);
++        return;
++    }
++    // Before PortBridge this showed the first frame as the image; keep doing
++    // that for views without an image, since many apps never set one.
++    let count: NSUInteger = msg![env; images count];
++    let image = env.objc.borrow::<UIImageViewHostObject>(this).image;
++    if image == nil && count > 0 {
++        let first_image: id = msg![env; images objectAtIndex:0u32];
++        () = msg![env; this setImage:first_image];
++    }
+ }
+ 
++- (NSTimeInterval)animationDuration {
++    env.objc.borrow::<UIImageViewHostObject>(this).animation_duration
++}
+ - (())setAnimationDuration:(NSTimeInterval)duration {
+-    todo_objc_setter!(this, duration);
++    env.objc.borrow_mut::<UIImageViewHostObject>(this).animation_duration = duration;
++}
++
++- (NSInteger)animationRepeatCount {
++    env.objc.borrow::<UIImageViewHostObject>(this).animation_repeat_count
++}
++- (())setAnimationRepeatCount:(NSInteger)count {
++    env.objc.borrow_mut::<UIImageViewHostObject>(this).animation_repeat_count = count;
++}
++
++- (bool)isAnimating {
++    env.objc.borrow::<UIImageViewHostObject>(this).animation_start.is_some()
+ }
+ 
+ - (())startAnimating {
+-    log!("TODO: [(UIImageView*) {:?} startAnimating]", this);
++    let host = env.objc.borrow_mut::<UIImageViewHostObject>(this);
++    if host.animation_images == nil {
++        return;
++    }
++    host.animation_start = Some(Instant::now());
++    host.animation_shown_frame = None;
++    let list = &mut env.framework_state.uikit.ui_view.animating_image_views;
++    if !list.contains(&this) {
++        list.push(this);
++    }
++    advance_image_view_animations(env);
+ }
+ 
+ - (())stopAnimating {
+-    log!("TODO: [(UIImageView*) {:?} stopAnimating]", this);
++    stop_animation(env, this);
+ }
+ 
+ @end
 diff --git a/src/frameworks/uikit/ui_view/ui_window.rs b/src/frameworks/uikit/ui_view/ui_window.rs
-index 1998df4..93073fa 100644
+index 1998df42..93073fa5 100644
 --- a/src/frameworks/uikit/ui_view/ui_window.rs
 +++ b/src/frameworks/uikit/ui_view/ui_window.rs
 @@ -64,6 +64,16 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -1588,10 +2329,25 @@ index 1998df4..93073fa 100644
      // Super call to bypass the overriden setter on this class, which would post
      // a notification.
 diff --git a/src/frameworks/uikit/ui_view_controller.rs b/src/frameworks/uikit/ui_view_controller.rs
-index d0a73bc..e7c803a 100644
+index d0a73bc3..a5491482 100644
 --- a/src/frameworks/uikit/ui_view_controller.rs
 +++ b/src/frameworks/uikit/ui_view_controller.rs
-@@ -191,6 +191,19 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -150,9 +150,12 @@ pub const CLASSES: ClassExports = objc_classes! {
+     let view = env.objc.borrow_mut::<UIViewControllerHostObject>(this).view;
+     if view == nil {
+         () = msg![env; this loadView];
+-        let view = env.objc.borrow_mut::<UIViewControllerHostObject>(this).view;
+         () = msg![env; this viewDidLoad];
+-        view
++        // PortBridge: like iOS, return the view as it is *after* viewDidLoad.
++        // Apps may replace it there (`self.view = mainView;`, e.g. Toilet War);
++        // returning the view read before viewDidLoad put a stale empty view
++        // in the window (black screen).
++        env.objc.borrow_mut::<UIViewControllerHostObject>(this).view
+     } else {
+         view
+     }
+@@ -191,6 +194,19 @@ pub const CLASSES: ClassExports = objc_classes! {
      todo_objc_setter!(this, style);
  }
  
@@ -1612,7 +2368,7 @@ index d0a73bc..e7c803a 100644
      log!("TODO: [(UIViewController*){:?} dismissModalViewControllerAnimated:{}]", this, animated); // TODO
  }
 diff --git a/src/gles.rs b/src/gles.rs
-index b222877..c090760 100644
+index b2228773..c0907603 100644
 --- a/src/gles.rs
 +++ b/src/gles.rs
 @@ -136,6 +136,16 @@ pub fn create_gles1_ctx_no_parent_stack(
@@ -1640,7 +2396,7 @@ index b222877..c090760 100644
 +    gles1_ctx
  }
 diff --git a/src/gles/gles1_native.rs b/src/gles/gles1_native.rs
-index 8b0fd9d..6edb618 100644
+index 8b0fd9dd..6edb618b 100644
 --- a/src/gles/gles1_native.rs
 +++ b/src/gles/gles1_native.rs
 @@ -21,6 +21,46 @@ use crate::window::{GLContext, GLVersion, Window};
@@ -1767,7 +2523,7 @@ index 8b0fd9d..6edb618 100644
              target, level, xoffset, yoffset, width, height, format, type_, pixels,
          )
 diff --git a/src/image.rs b/src/image.rs
-index 3afe2c2..360a3d6 100644
+index 3afe2c2d..360a3d67 100644
 --- a/src/image.rs
 +++ b/src/image.rs
 @@ -25,6 +25,9 @@ use touchHLE_stb_image_wrapper::*;
@@ -1827,7 +2583,7 @@ index 3afe2c2..360a3d6 100644
      /// alpha). Rows are in top-to-bottom order.
      pub fn pixels(&self) -> &[u8] {
 diff --git a/src/lib.rs b/src/lib.rs
-index fcfec3f..fca7b45 100644
+index fcfec3fb..fca7b45a 100644
 --- a/src/lib.rs
 +++ b/src/lib.rs
 @@ -48,6 +48,7 @@ mod mem;
@@ -1870,8 +2626,195 @@ index fcfec3f..fca7b45 100644
          Environment::new(bundle, fs, options.clone(), app_args.unwrap_or_default())
      }));
      let env = match res {
+diff --git a/src/libc/errno.rs b/src/libc/errno.rs
+index 616ba63a..70d4f701 100644
+--- a/src/libc/errno.rs
++++ b/src/libc/errno.rs
+@@ -33,6 +33,9 @@ pub const EAGAIN: i32 = 35;
+ pub const EPROTONOSUPPORT: i32 = 43;
+ pub const ENOTSUP: i32 = 45;
+ pub const ECONNRESET: i32 = 54;
++// PortBridge
++pub const ENOTCONN: i32 = 57;
++pub const ECONNREFUSED: i32 = 61;
+ pub const ETIMEDOUT: i32 = 60;
+ pub const EOVERFLOW: i32 = 84;
+ 
+@@ -127,6 +130,8 @@ fn strerror(env: &mut Environment, err_num: i32) -> ConstPtr<u8> {
+             EPROTONOSUPPORT => "Protocol not supported",
+             ENOTSUP => "Operation not supported",
+             ECONNRESET => "Connection reset by peer",
++            ENOTCONN => "Socket is not connected",
++            ECONNREFUSED => "Connection refused",
+             ETIMEDOUT => "Operation timed out",
+             EOVERFLOW => "Value too large to be stored in data type",
+             _ => unimplemented!("strerror({})", err_num),
+diff --git a/src/libc/netdb.rs b/src/libc/netdb.rs
+index 85e004f8..758f968c 100644
+--- a/src/libc/netdb.rs
++++ b/src/libc/netdb.rs
+@@ -100,6 +100,16 @@ fn freeaddrinfo(env: &mut Environment, addrinfo: MutPtr<addrinfo>) {
+ }
+ 
+ fn gethostbyname(env: &mut Environment, name: ConstPtr<u8>) -> MutPtr<hostent> {
++    // PortBridge: dotted IPv4 literals ("218.145.70.36") don't need DNS; iOS
++    // resolves them even offline, and some games don't check for NULL.
++    let literal = env
++        .mem
++        .cstr_at_utf8(name)
++        .ok()
++        .and_then(|s| s.parse::<std::net::Ipv4Addr>().ok());
++    if let Some(ip) = literal {
++        return make_ipv4_hostent(env, name, ip);
++    }
+     log!(
+         "TODO: gethostbyname({:?} \"{}\") => NULL",
+         name,
+@@ -109,6 +119,40 @@ fn gethostbyname(env: &mut Environment, name: ConstPtr<u8>) -> MutPtr<hostent> {
+     Ptr::null()
+ }
+ 
++/// PortBridge: builds a `struct hostent` for one IPv4 address:
++/// `{ char *h_name; char **h_aliases; int h_addrtype; int h_length; char **h_addr_list; }`
++fn make_ipv4_hostent(env: &mut Environment, name: ConstPtr<u8>, ip: std::net::Ipv4Addr) -> MutPtr<hostent> {
++    let name_len = env.mem.cstr_at(name).len() as u32;
++    // hostent (20) + aliases [NULL] (4) + addr_list [ptr, NULL] (8) + addr (4) + name
++    let block: MutPtr<u8> = env.mem.alloc(20 + 4 + 8 + 4 + name_len + 1).cast();
++    let base = block.to_bits();
++    let aliases = base + 20;
++    let addr_list = aliases + 4;
++    let addr = addr_list + 8;
++    let name_copy = addr + 4;
++    let w32 = |env: &mut Environment, at: u32, v: u32| {
++        env.mem.write(MutPtr::<u32>::from_bits(at), v);
++    };
++    let name_bytes = env.mem.cstr_at(name).to_vec();
++    env.mem
++        .bytes_at_mut(MutPtr::from_bits(name_copy), name_len)
++        .copy_from_slice(&name_bytes);
++    env.mem.write(MutPtr::<u8>::from_bits(name_copy + name_len), 0u8);
++    env.mem
++        .bytes_at_mut(MutPtr::from_bits(addr), 4)
++        .copy_from_slice(&ip.octets());
++    w32(env, base, name_copy); // h_name
++    w32(env, base + 4, aliases); // h_aliases
++    w32(env, base + 8, AF_INET as u32); // h_addrtype
++    w32(env, base + 12, 4); // h_length
++    w32(env, base + 16, addr_list); // h_addr_list
++    w32(env, aliases, 0);
++    w32(env, addr_list, addr);
++    w32(env, addr_list + 4, 0);
++    log!("gethostbyname(\"{}\") => {} (IPv4 literal)", ip, ip);
++    block.cast()
++}
++
+ fn gethostent(_env: &mut Environment) -> MutPtr<hostent> {
+     log!("TODO: gethostent() => NULL");
+     // TODO: set h_errno
+diff --git a/src/libc/posix_io.rs b/src/libc/posix_io.rs
+index d596b19d..85a2e376 100644
+--- a/src/libc/posix_io.rs
++++ b/src/libc/posix_io.rs
+@@ -86,6 +86,9 @@ pub const O_EXCL: OpenFlag = 0x800;
+ pub type FileControlCommand = i32;
+ const F_GETFD: FileControlCommand = 1;
+ const F_SETFD: FileControlCommand = 2;
++// PortBridge
++const F_GETFL: FileControlCommand = 3;
++const F_SETFL: FileControlCommand = 4;
+ const F_GETLK: FileControlCommand = 7;
+ const F_SETLK: FileControlCommand = 8;
+ const F_RDADVISE: FileControlCommand = 44;
+@@ -747,6 +750,12 @@ fn fcntl(
+     // TODO: handle errno properly
+     set_errno(env, 0);
+ 
++    // PortBridge: e.g. fcntl(socket(...), ...) after socket() returned -1
++    if fd < 0 {
++        set_errno(env, EBADF);
++        return -1;
++    }
++
+     if fd >= NORMAL_FILENO_BASE
+         && env
+             .libc_state
+@@ -760,6 +769,16 @@ fn fcntl(
+     }
+ 
+     match cmd {
++        // PortBridge: file status flags. Apps use them to make sockets
++        // non-blocking (`fcntl(s, F_SETFL, flags | O_NONBLOCK)`); touchHLE's
++        // host sockets are always non-blocking, so the flag is accepted.
++        F_GETFL => return O_RDWR,
++        F_SETFL => {
++            let mut args = args.start();
++            let flags: i32 = args.next(env);
++            log_dbg!("fcntl({}, F_SETFL, {:#x}) => 0 (ignored)", fd, flags);
++            return 0;
++        }
+         F_GETFD => {
+             let file = env.libc_state.posix_io.file_for_fd(fd).unwrap();
+             return file.flags;
+diff --git a/src/libc/sys/socket.rs b/src/libc/sys/socket.rs
+index ae6492bc..4633e8a7 100644
+--- a/src/libc/sys/socket.rs
++++ b/src/libc/sys/socket.rs
+@@ -22,7 +22,9 @@
+ //! - [Beej's Guide to Network Programming](https://beej.us/guide/bgnet/html/index-wide.html)
+ 
+ use crate::dyld::{export_c_func, FunctionExports};
+-use crate::libc::errno::{set_errno, EBADF, ECONNRESET, EINVAL, EPROTONOSUPPORT};
++use crate::libc::errno::{
++    set_errno, EBADF, ECONNREFUSED, ECONNRESET, EINVAL, ENOTCONN, EPROTONOSUPPORT,
++};
+ use crate::libc::posix_io::{close, find_or_create_socket, is_socket, FileDescriptor};
+ use crate::libc::time::timeval;
+ use crate::mem::{
+@@ -433,7 +435,18 @@ fn connect(
+         .unwrap()
+         .tcp_stream
+         .is_none());
+-    let host_stream = TcpStream::connect(socket_address).unwrap();
++    // PortBridge: a refused/unreachable connection is an error for the app
++    // (-1/ECONNREFUSED), not a touchHLE crash. In lenient mode the crash used
++    // to be turned into "success", and the app then sent data forever on a
++    // socket that was never connected.
++    let host_stream = match TcpStream::connect(socket_address) {
++        Ok(stream) => stream,
++        Err(e) => {
++            log!("connect({}, {:?}) failed: {} => -1", socket, socket_address, e);
++            set_errno(env, ECONNREFUSED);
++            return -1;
++        }
++    };
+     // We set host socket as non-blocking in order to have
+     // more control of how and when it's used
+     host_stream.set_nonblocking(true).unwrap();
+@@ -938,7 +951,21 @@ fn send(
+     // TODO: handle errno properly
+     set_errno(env, 0);
+ 
+-    let type_ = State::get(env).sockets.get(&socket).unwrap().type_;
++    // PortBridge: unknown socket (e.g. socket() failed because network access
++    // is off) or never-connected socket: report the error like iOS does,
++    // instead of crashing (lenient mode returned 0 bytes and apps retried
++    // forever, writing millions of log lines).
++    let Some(host_object) = State::get(env).sockets.get(&socket) else {
++        log_once!("Warning: send() on an unknown socket, returning -1 (EBADF)");
++        set_errno(env, EBADF);
++        return -1;
++    };
++    let type_ = host_object.type_;
++    if type_ == SOCK_STREAM && host_object.tcp_stream.is_none() {
++        log_once!("Warning: send() on a socket that is not connected, returning -1 (ENOTCONN)");
++        set_errno(env, ENOTCONN);
++        return -1;
++    }
+     assert!(type_ == SOCK_STREAM);
+ 
+     assert_eq!(flags, 0); // TODO
 diff --git a/src/objc.rs b/src/objc.rs
-index 065cd62..0d7dbb4 100644
+index 065cd620..0d7dbb4a 100644
 --- a/src/objc.rs
 +++ b/src/objc.rs
 @@ -27,6 +27,7 @@ mod classes;
@@ -1946,7 +2889,7 @@ index 065cd62..0d7dbb4 100644
 -    export_c_func!(_Block_object_dispose(_, _)),
  ];
 diff --git a/src/objc/messages.rs b/src/objc/messages.rs
-index 03a6f99..b503001 100644
+index 03a6f995..f09f02e1 100644
 --- a/src/objc/messages.rs
 +++ b/src/objc/messages.rs
 @@ -35,7 +35,11 @@ pub(super) struct ThreadInitializer {
@@ -1962,7 +2905,22 @@ index 03a6f99..b503001 100644
      let Some(&super::ClassHostObject {
          superclass,
          is_metaclass,
-@@ -211,6 +215,17 @@ fn objc_msgSend_inner(
+@@ -192,7 +196,13 @@ fn objc_msgSend_inner(
+     }
+ 
+     let orig_class = super2.unwrap_or_else(|| ObjC::read_isa(receiver, &env.mem));
+-    assert!(orig_class != nil);
++    // PortBridge: say which message went to a non-object (helps the lenient log)
++    assert!(
++        orig_class != nil,
++        "message {} sent to {:?}, which is not an object (isa is nil)",
++        selector.as_str(&env.mem),
++        receiver
++    );
+     if !skip_initialize {
+         maybe_initialize_class(env, receiver);
+     }
+@@ -211,6 +221,17 @@ fn objc_msgSend_inner(
                  ..
              } = class_host_object.as_any().downcast_ref().unwrap();
  
@@ -1980,7 +2938,7 @@ index 03a6f99..b503001 100644
              panic!(
                  "{} {:?} ({}class \"{}\", {:?}){} does not respond to selector \"{}\"!",
                  if is_metaclass { "Class" } else { "Object" },
-@@ -247,6 +262,7 @@ fn objc_msgSend_inner(
+@@ -247,6 +268,7 @@ fn objc_msgSend_inner(
                  log_dbg!("Found method on: {}", name);
                  match imp {
                      IMP::Host(host_imp) => {
@@ -1988,7 +2946,7 @@ index 03a6f99..b503001 100644
                          // TODO: do type checks when calling GuestIMPs too.
                          // That requires using Objective-C type strings,
                          // rather than Rust types, and should probably
-@@ -289,6 +305,16 @@ Type mismatch when sending message {} to {:?}!
+@@ -289,6 +311,16 @@ Type mismatch when sending message {} to {:?}!
              is_metaclass,
          }) = host_object.as_any().downcast_ref()
          {
@@ -2005,7 +2963,7 @@ index 03a6f99..b503001 100644
              panic!(
                  "Class \"{}\" ({:?}) is unimplemented. Call to {} method \"{}\".",
                  name,
-@@ -318,6 +344,16 @@ Type mismatch when sending message {} to {:?}!
+@@ -318,6 +350,16 @@ Type mismatch when sending message {} to {:?}!
      }
  }
  
@@ -2024,7 +2982,7 @@ index 03a6f99..b503001 100644
  pub(crate) fn objc_msgSend(env: &mut Environment, receiver: id, selector: SEL) {
 diff --git a/src/objc/portbridge_compat.rs b/src/objc/portbridge_compat.rs
 new file mode 100644
-index 0000000..bfb8d2c
+index 00000000..bfb8d2cf
 --- /dev/null
 +++ b/src/objc/portbridge_compat.rs
 @@ -0,0 +1,774 @@
@@ -2803,7 +3761,7 @@ index 0000000..bfb8d2c
 +    ),
 +];
 diff --git a/src/objc/selectors.rs b/src/objc/selectors.rs
-index 204754a..3723381 100644
+index 204754ae..3723381e 100644
 --- a/src/objc/selectors.rs
 +++ b/src/objc/selectors.rs
 @@ -67,6 +67,10 @@ impl SEL {
@@ -2818,7 +3776,7 @@ index 204754a..3723381 100644
  
  unsafe impl SafeRead for SEL {}
 diff --git a/src/options.rs b/src/options.rs
-index 7f13c7f..e9fc329 100644
+index 7f13c7f7..e9fc3295 100644
 --- a/src/options.rs
 +++ b/src/options.rs
 @@ -62,6 +62,8 @@ pub struct Options {
@@ -2849,7 +3807,7 @@ index 7f13c7f..e9fc329 100644
                  "Invalid value for --zero-stack-after-guest-to-host-call=".to_string()
 diff --git a/src/portbridge_haptics.rs b/src/portbridge_haptics.rs
 new file mode 100644
-index 0000000..fa24d07
+index 00000000..fa24d07a
 --- /dev/null
 +++ b/src/portbridge_haptics.rs
 @@ -0,0 +1,155 @@
@@ -3009,7 +3967,7 @@ index 0000000..fa24d07
 +    Some(env.mem.read(ptr))
 +}
 diff --git a/src/version/lib.rs b/src/version/lib.rs
-index ff5a09d..73fa275 100644
+index ff5a09d7..73fa2759 100644
 --- a/src/version/lib.rs
 +++ b/src/version/lib.rs
 @@ -13,6 +13,10 @@ pub const GITHUB_REF_NAME: Option<&str> = option_env!("GITHUB_REF_NAME");
@@ -3024,7 +3982,7 @@ index ff5a09d..73fa275 100644
          return "";
      }
 diff --git a/src/window.rs b/src/window.rs
-index d4eae99..be120db 100644
+index d4eae998..be120db3 100644
 --- a/src/window.rs
 +++ b/src/window.rs
 @@ -1266,6 +1266,17 @@ impl Window {

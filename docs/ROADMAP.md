@@ -221,6 +221,29 @@ O patch também converte texturas 5551/4444 para RGBA8888 no caminho nativo e re
 no log (uma vez cada) os formatos de textura e os estados de mistura. O modo tolerante
 diz em qual função (ou `[Classe método]`) cada erro recuperado aconteceu.
 
+### Estudo de caso: Toilet War 1.3.1 e ZENONIA 3 1.2.1 (iOS 3/4, armv6+armv7)
+
+Testados no servidor (touchHLE para Linux + Xvfb, toques simulados), com o patch:
+
+| Jogo | Sintoma | Causa | Correção no patch |
+|---|---|---|---|
+| Toilet War | tela preta | `-[UIViewController view]` devolvia a view lida **antes** do `viewDidLoad`; o jogo troca a view ali (`self.view = mainView`) e a janela recebia a view vazia | devolve a view atual, depois do `viewDidLoad` (como o iOS) |
+| Toilet War | menu (Play/Help/…) empilhado no canto | `-[UIView setOrigin:]`/`origin` (API privada do iOS 2–5) não existiam | implementados (movem o frame mantendo o tamanho) |
+| Toilet War | personagens e portas sem animação | `UIImageView` só mostrava o 1º quadro de `animationImages` | animação de quadros de verdade (`animationDuration`, `animationRepeatCount`, `isAnimating`), avançada pelo compositor |
+| Toilet War | imagem cortada | o jogo é paisagem mas o Info.plist não declara; o touchHLE só gira sozinho com orientação no plist | o conversor deduz paisagem pelas imagens de tela cheia (480×320) e grava `hle_args: ["--landscape-left"]` em `portbridge.json` |
+| ZENONIA 3 | fechava em 1 s | nomes de recurso em coreano: `CFStringEncoding 0x422` (CP949) não existia; o nome virava nil e os dados não carregavam | CP949/EUC-KR (e Shift-JIS no CF) em `CFString`/`NSString` |
+| ZENONIA 3 | `CFRelease(NULL)` | `CFReadStream*` (leitura de arquivo) e a constante `kCFURLFileLength` não existiam | `CFReadStreamCreateWithFile/Open/Read/HasBytesAvailable/Close`, `CFURLCreatePropertyFromResource` (`kCFURLFileLength`, `kCFURLFileExists`) |
+| ZENONIA 3 | objeto liberado duas vezes | `CFRunLoopTimerCreate` devolvia o `NSTimer` autoreleased (+0), mas pela regra "Create" o chamador é dono (+1) e faz `CFRelease` | devolve retido; também `CFRunLoopTimerIsValid`, `CFRunLoopContainsTimer`, `CFRunLoopRemoveTimer` |
+| ZENONIA 3 | preso no logo, log de 1 GB | sem rede, `socket()` falha mas `fcntl`/`send` não checavam o descritor; no modo tolerante o erro virava "0 bytes enviados" e o jogo tentava para sempre; `connect()` que falha também virava "sucesso" | `send`/`connect` devolvem -1 com `EBADF`/`ENOTCONN`/`ECONNREFUSED`; `fcntl` aceita `F_GETFL`/`F_SETFL` e recusa fd negativo; `gethostbyname` resolve IPs literais |
+
+Resultado: **Toilet War** roda inteiro (título, menu, créditos, escolha de personagem,
+fase 1 com clientes, portas animadas, pontos e dinheiro). **ZENONIA 3** chega ao título
+original ("TOUCH THE SCREEN") e ao menu GAMEVIL LIVE; os rótulos do menu em anel ainda
+não aparecem: o jogo desenha texto com **CoreText** (`CTFont*`, `CTFramesetter*`,
+`CTFrameDraw`), que o touchHLE não tem — próximo passo para ele.
+**Super Kamasutra HD** (app UIKit com nibs) abre, mas a lista usa `UITableView`, que o
+touchHLE não implementa.
+
 ## Próximas tarefas da ferramenta
 
 - [x] Decodificar movimentos (`off_movimentos`) e listar os tipos usados por objeto

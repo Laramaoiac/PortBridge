@@ -30,6 +30,8 @@ public final class Ipa {
     public String name = "", bundleId = "", version = "1.0", executable = "";
     public String minimumOs = "";
     public boolean portrait = true;
+    /** true se o Info.plist declara a orientação; senão ela é deduzida das imagens de tela cheia. */
+    public boolean orientationDeclared = false;
     public Runtime runtime = Runtime.UNSUPPORTED;
     public String engine = "desconhecida";
     public String reason = "";
@@ -74,7 +76,9 @@ public final class Ipa {
             String o = Plist.str(info, "UIInterfaceOrientation");
             if (o != null) orient.add(o);
         }
+        orientationDeclared = !orient.isEmpty();
         portrait = orient.isEmpty() || orient.stream().anyMatch(o -> o.contains("Portrait"));
+        if (!orientationDeclared) portrait = !looksLandscape(zip, names);
 
         // engine
         boolean clickteam = false;
@@ -100,6 +104,48 @@ public final class Ipa {
         }
 
         icon = pickIcon(zip, names);
+    }
+
+    // ------------------------------------------------------------ orientação
+    /**
+     * Jogos antigos (iOS 3/4) muitas vezes não declaram a orientação no Info.plist: giram a
+     * própria view para paisagem (ex.: Toilet War, 28 imagens 480x320 e nenhuma 320x480).
+     * Conta as imagens com tamanho de tela cheia de iPhone em cada orientação.
+     */
+    private boolean looksLandscape(ZipFile zip, List<String> names) throws IOException {
+        int land = 0, port = 0;
+        for (String n : names) {
+            if (!n.startsWith(appDir) || !n.toLowerCase(Locale.ROOT).endsWith(".png")) continue;
+            String base = n.substring(n.lastIndexOf('/') + 1).toLowerCase(Locale.ROOT);
+            if (base.startsWith("default")) continue;  // tela de abertura é sempre retrato no iOS 3/4
+            int[] wh = pngSize(zip, n);
+            if (wh == null) continue;
+            int w = wh[0], h = wh[1];
+            if ((w == 480 || w == 568 || w == 960 || w == 1136) && (h == 320 || h == 640)) land++;
+            else if ((w == 320 || w == 640) && (h == 480 || h == 568 || h == 960 || h == 1136)) port++;
+        }
+        return land >= 3 && land > port * 2;
+    }
+
+    /** Largura/altura do cabeçalho do PNG (normal ou CgBI), sem decodificar a imagem. */
+    static int[] pngSize(ZipFile zip, String name) throws IOException {
+        byte[] b = new byte[40];
+        int got = 0;
+        try (InputStream in = zip.getInputStream(zip.getEntry(name))) {
+            while (got < b.length) {
+                int r = in.read(b, got, b.length - got);
+                if (r < 0) break;
+                got += r;
+            }
+        }
+        if (got < 24 || (b[0] & 0xFF) != 0x89 || b[1] != 'P') return null;
+        int off = (b[12] == 'C' && b[13] == 'g' && b[14] == 'B' && b[15] == 'I') ? 32 : 16;
+        if (got < off + 8) return null;
+        return new int[] { be32(b, off), be32(b, off + 4) };
+    }
+
+    private static int be32(byte[] b, int o) {
+        return ((b[o] & 0xFF) << 24) | ((b[o + 1] & 0xFF) << 16) | ((b[o + 2] & 0xFF) << 8) | (b[o + 3] & 0xFF);
     }
 
     // ------------------------------------------------------------ ícone
