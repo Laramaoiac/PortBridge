@@ -26,7 +26,12 @@ export function evaluateIpaWithDecisionEngine(ipa: IpaPackageModel): DecisionEng
   const plistLower = ipa.infoPlistXml.toLowerCase();
   const metaLower = `${ipa.fileName} ${ipa.appName} ${ipa.bundleId}`.toLowerCase();
   const entryPathsLower = ipa.entries.map((e) => e.path.toLowerCase());
-  const fwNamesLower = ipa.frameworks.map((f) => f.iosFramework.toLowerCase());
+  // Custom uploads inherit `frameworks` from a TEMPLATE preset (e.g. Zorbié's "OpenAL + AudioToolbox").
+  // Using them as evidence turned every uploaded game into an "audio DSP" app. Only trust real data.
+  const stats = ipa.isCustomUpload ? ipa.payloadStats : undefined;
+  const fwNamesLower = ipa.isCustomUpload
+    ? (stats?.realFrameworkNames || []).map((f) => `${f.toLowerCase()}.framework`)
+    : ipa.frameworks.map((f) => f.iosFramework.toLowerCase());
 
   // --- NÓ 1: Detecção de Motor 3D (Unity IL2CPP / Unreal / Metal 3D / SceneKit) ---
   const hasUnityOr3DMetadata =
@@ -84,9 +89,28 @@ export function evaluateIpaWithDecisionEngine(ipa: IpaPackageModel): DecisionEng
         f.includes('metal.framework')
     );
 
-  const hasAnyGameSignal = hasUnityOr3DMetadata || hasMetalShaders || hasGamePayloadAssets || hasGamePlistOrBundleSignal;
+  // Real payload evidence for uploaded .ipa files: games ship many textures + sound effects and
+  // few/no UIKit nibs; utility/catalog apps ship nibs/storyboards and almost no audio.
+  const hasGamePayloadStats = Boolean(
+    stats &&
+      (stats.gameDataFileCount > 0 ||
+        (stats.audioCount >= 5 && stats.imageCount >= 12 && stats.audioCount > stats.nibOrStoryboardCount) ||
+        (/uistatusbarhidden[\s\S]{0,40}true/.test(plistLower) &&
+          stats.audioCount >= 3 &&
+          stats.nibOrStoryboardCount <= 2))
+  );
 
-  if (!hasUnityOr3DMetadata && (hasMetalShaders || hasGamePayloadAssets || hasGamePlistOrBundleSignal)) {
+  const hasAnyGameSignal =
+    hasUnityOr3DMetadata ||
+    hasMetalShaders ||
+    hasGamePayloadAssets ||
+    hasGamePlistOrBundleSignal ||
+    hasGamePayloadStats;
+
+  if (
+    !hasUnityOr3DMetadata &&
+    (hasMetalShaders || hasGamePayloadAssets || hasGamePlistOrBundleSignal || hasGamePayloadStats)
+  ) {
     scores.game_2d += 80;
     rulesTrace.push({
       id: 'node-spritekit-metal',
@@ -124,6 +148,7 @@ export function evaluateIpaWithDecisionEngine(ipa: IpaPackageModel): DecisionEng
         (f.includes('uikit.framework') && !f.includes('gamecontroller'))
     ) ||
     entryPathsLower.some((p) => p.endsWith('.mom') || p.includes('.momd/')) ||
+    Boolean(stats && stats.nibOrStoryboardCount >= 3) ||
     plistLower.includes('nsfaceidusagedescription') ||
     plistLower.includes('nscalendarsusagedescription');
 
@@ -139,7 +164,7 @@ export function evaluateIpaWithDecisionEngine(ipa: IpaPackageModel): DecisionEng
   }
 
   // Se o próprio IpaPackageModel já carregava uma categoria válida sem empates mais fortes, aplica pequeno reforço
-  if (ipa.category && scores[ipa.category] !== undefined) {
+  if (!ipa.isCustomUpload && ipa.category && scores[ipa.category] !== undefined) {
     scores[ipa.category] += 15;
   }
 

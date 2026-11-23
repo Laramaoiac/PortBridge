@@ -162,11 +162,223 @@ function readPngDimensionsFromStandardHeader(bytes: Uint8Array): { width: number
   return { width: 0, height: 0 };
 }
 
+/** Adam7 passes: [startRow, startCol, rowIncrement, colIncrement] */
+const ADAM7_PASSES: ReadonlyArray<readonly [number, number, number, number]> = [
+  [0, 0, 8, 8],
+  [0, 4, 8, 8],
+  [4, 0, 8, 4],
+  [0, 2, 4, 4],
+  [2, 0, 4, 2],
+  [0, 1, 2, 2],
+  [1, 0, 2, 1],
+];
+
+function pngBitsPerPixel(colorType: number, bitDepth: number): number {
+  const channels =
+    colorType === 6 ? 4 : colorType === 2 ? 3 : colorType === 4 ? 2 : colorType === 0 || colorType === 3 ? 1 : 0;
+  return channels * bitDepth;
+}
+
+/**
+ * Unfilters one (sub-)image of CgBI scanlines and converts it to straight-alpha RGBA.
+ * CgBI stores BGRA with premultiplied alpha; indexed palettes are kept as RGB.
+ */
+function cgbiScanlinesToRgba(
+  inflated: Uint8Array,
+  width: number,
+  height: number,
+  colorType: number,
+  bitDepth: number,
+  plteBytes: Uint8Array | null,
+  trnsBytes: Uint8Array | null
+): Uint8ClampedArray | null {
+  const dest = new Uint8ClampedArray(width * height * 4);
+
+  if (colorType === 3 && plteBytes && (bitDepth === 8 || bitDepth === 4 || bitDepth === 2 || bitDepth === 1)) {
+    const rowByteLength = Math.ceil((width * bitDepth) / 8);
+    const scanlines = unfilterScanlines(inflated, rowByteLength, height, 1);
+    const pixelsPerByte = 8 / bitDepth;
+    const mask = (1 << bitDepth) - 1;
+    for (let y = 0; y < height; y++) {
+      const rowOff = y * rowByteLength;
+      for (let x = 0; x < width; x++) {
+        const byteVal = scanlines[rowOff + Math.floor(x / pixelsPerByte)];
+        const shift = 8 - bitDepth * ((x % pixelsPerByte) + 1);
+        const palIdx = (byteVal >>> shift) & mask;
+        const pOff = palIdx * 3;
+        const inPal = pOff + 2 < plteBytes.byteLength;
+        const d = (y * width + x) * 4;
+        dest[d] = inPal ? plteBytes[pOff] : 0;
+        dest[d + 1] = inPal ? plteBytes[pOff + 1] : 0;
+        dest[d + 2] = inPal ? plteBytes[pOff + 2] : 0;
+        dest[d + 3] = trnsBytes && palIdx < trnsBytes.byteLength ? trnsBytes[palIdx] : 255;
+      }
+    }
+    return dest;
+  }
+
+  if ((colorType === 6 || colorType === 2) && (bitDepth === 8 || bitDepth === 16)) {
+    const bytesPerSample = bitDepth === 16 ? 2 : 1;
+    const samplesPerPixel = colorType === 6 ? 4 : 3;
+    const bpp = samplesPerPixel * bytesPerSample;
+    const pixels = unfilterScanlines(inflated, width * bpp, height, bpp);
+    const count = width * height;
+    for (let i = 0; i < count; i++) {
+      const s = i * bpp;
+      const d = i * 4;
+      const b = pixels[s];
+      const g = pixels[s + bytesPerSample];
+      const r = pixels[s + 2 * bytesPerSample];
+      const a = samplesPerPixel === 4 ? pixels[s + 3 * bytesPerSample] : 255;
+      if (samplesPerPixel === 4 && a > 0 && a < 255) {
+        dest[d] = Math.min(255, Math.round((r * 255) / a));
+        dest[d + 1] = Math.min(255, Math.round((g * 255) / a));
+        dest[d + 2] = Math.min(255, Math.round((b * 255) / a));
+      } else {
+        dest[d] = r;
+        dest[d + 1] = g;
+        dest[d + 2] = b;
+      }
+      dest[d + 3] = a;
+    }
+    return dest;
+  }
+
+  if ((colorType === 0 || colorType === 4) && (bitDepth === 8 || bitDepth === 16)) {
+    const bytesPerSample = bitDepth === 16 ? 2 : 1;
+    const samplesPerPixel = colorType === 4 ? 2 : 1;
+    const bpp = samplesPerPixel * bytesPerSample;
+    const pixels = unfilterScanlines(inflated, width * bpp, height, bpp);
+    const count = width * height;
+    for (let i = 0; i < count; i++) {
+      const s = i * bpp;
+      const d = i * 4;
+      const lum = pixels[s];
+      const a = samplesPerPixel === 2 ? pixels[s + bytesPerSample] : 255;
+      const unpremult =
+        samplesPerPixel === 2 && a > 0 && a < 255 ? Math.min(255, Math.round((lum * 255) / a)) : lum;
+      dest[d] = unpremult;
+      dest[d + 1] = unpremult;
+      dest[d + 2] = unpremult;
+      dest[d + 3] = a;
+    }
+    return dest;
+  }
+
+  return null;
+}
+
+let crc32Table: Uint32Array | null = null;
+function crc32(bytes: Uint8Array, start: number, end: number): number {
+  if (!crc32Table) {
+    crc32Table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      crc32Table[n] = c >>> 0;
+    }
+  }
+  let crc = 0xffffffff;
+  for (let i = start; i < end; i++) crc = crc32Table[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+async function compressZlib(raw: Uint8Array): Promise<Uint8Array | null> {
+  if (typeof CompressionStream === 'undefined') return null;
+  try {
+    const cs = new CompressionStream('deflate');
+    const writer = cs.writable.getWriter();
+    const readPromise = new Response(cs.readable).arrayBuffer();
+    const copy = new Uint8Array(raw.byteLength);
+    copy.set(raw);
+    writer.write(copy).catch(() => {});
+    writer.close().catch(() => {});
+    return new Uint8Array(await readPromise);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Lossless pure-JS PNG encoder (RGBA8, adaptive per-row filter). Unlike <canvas>.toBlob it never
+ * premultiplies alpha (no colour loss on soft sprite edges) and also works in Web Workers / Node.
+ */
+async function encodeRgbaToPngPure(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number
+): Promise<Uint8Array | null> {
+  const stride = width * 4;
+  const filtered = new Uint8Array(height * (stride + 1));
+  const candidate = new Uint8Array(stride);
+  const best = new Uint8Array(stride);
+  for (let y = 0; y < height; y++) {
+    const row = y * stride;
+    const prev = row - stride;
+    let bestSum = Infinity;
+    let bestType = 0;
+    for (let type = 0; type <= 4; type++) {
+      let sum = 0;
+      for (let x = 0; x < stride; x++) {
+        const cur = rgba[row + x];
+        const a = x >= 4 ? rgba[row + x - 4] : 0;
+        const b = y > 0 ? rgba[prev + x] : 0;
+        const c = y > 0 && x >= 4 ? rgba[prev + x - 4] : 0;
+        let v: number;
+        if (type === 0) v = cur;
+        else if (type === 1) v = cur - a;
+        else if (type === 2) v = cur - b;
+        else if (type === 3) v = cur - ((a + b) >>> 1);
+        else v = cur - paethPredictor(a, b, c);
+        v &= 0xff;
+        candidate[x] = v;
+        sum += v < 128 ? v : 256 - v;
+        if (sum >= bestSum) break;
+      }
+      if (sum < bestSum) {
+        bestSum = sum;
+        bestType = type;
+        best.set(candidate);
+      }
+    }
+    const outRow = y * (stride + 1);
+    filtered[outRow] = bestType;
+    filtered.set(best, outRow + 1);
+  }
+
+  const idat = await compressZlib(filtered);
+  if (!idat) return null;
+
+  const chunk = (type: string, data: Uint8Array): Uint8Array => {
+    const out = new Uint8Array(12 + data.byteLength);
+    const dv = new DataView(out.buffer);
+    dv.setUint32(0, data.byteLength);
+    for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
+    out.set(data, 8);
+    dv.setUint32(8 + data.byteLength, crc32(out, 4, 8 + data.byteLength));
+    return out;
+  };
+  const ihdr = new Uint8Array(13);
+  const hv = new DataView(ihdr.buffer);
+  hv.setUint32(0, width);
+  hv.setUint32(4, height);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // RGBA
+  return concatUint8Arrays([
+    new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', idat),
+    chunk('IEND', new Uint8Array(0)),
+  ]);
+}
+
 async function encodeRgbaPixelsToPng(
   rgba: Uint8ClampedArray,
   width: number,
   height: number
 ): Promise<DecodedImageResult | null> {
+  const pure = await encodeRgbaToPngPure(rgba, width, height);
+  if (pure) return { pngBytes: pure, width, height };
   if (typeof document === 'undefined') return null;
   try {
     const canvas = document.createElement('canvas');
@@ -449,10 +661,6 @@ export async function convertIosImageToStandardPngWithMeta(
     return null;
   }
 
-  if (typeof document === 'undefined') {
-    return null;
-  }
-
   try {
     let pos = 8;
     let width = 0;
@@ -499,7 +707,7 @@ export async function convertIosImageToStandardPngWithMeta(
       height <= 0 ||
       width > 4096 ||
       height > 4096 ||
-      interlace !== 0 ||
+      interlace > 1 ||
       idatChunks.length === 0
     ) {
       return null;
@@ -511,80 +719,44 @@ export async function convertIosImageToStandardPngWithMeta(
 
     const dest = new Uint8ClampedArray(width * height * 4);
 
-    if (colorType === 3 && plteBytes && (bitDepth === 8 || bitDepth === 4 || bitDepth === 2 || bitDepth === 1)) {
-      const rowBits = width * bitDepth;
-      const rowByteLength = Math.ceil(rowBits / 8);
-      const scanlines = unfilterScanlines(inflated, rowByteLength, height, 1);
-      const pixelsPerByte = 8 / bitDepth;
-      const mask = (1 << bitDepth) - 1;
-
-      for (let y = 0; y < height; y++) {
-        const rowOff = y * rowByteLength;
-        for (let x = 0; x < width; x++) {
-          const byteVal = scanlines[rowOff + Math.floor(x / pixelsPerByte)];
-          const shift = 8 - bitDepth * ((x % pixelsPerByte) + 1);
-          const palIdx = (byteVal >>> shift) & mask;
-          const pOff = palIdx * 3;
-          const r = pOff + 2 < plteBytes.byteLength ? plteBytes[pOff] : 0;
-          const g = pOff + 2 < plteBytes.byteLength ? plteBytes[pOff + 1] : 0;
-          const b = pOff + 2 < plteBytes.byteLength ? plteBytes[pOff + 2] : 0;
-          const a = trnsBytes && palIdx < trnsBytes.byteLength ? trnsBytes[palIdx] : 255;
-
-          const d = (y * width + x) * 4;
-          dest[d] = r;
-          dest[d + 1] = g;
-          dest[d + 2] = b;
-          dest[d + 3] = a;
-        }
-      }
-    } else if ((colorType === 6 || colorType === 2) && (bitDepth === 8 || bitDepth === 16)) {
-      const bytesPerSample = bitDepth === 16 ? 2 : 1;
-      const samplesPerPixel = colorType === 6 ? 4 : 3;
-      const bpp = samplesPerPixel * bytesPerSample;
-      const pixels = unfilterScanlines(inflated, width * bpp, height, bpp);
-      const count = width * height;
-
-      for (let i = 0; i < count; i++) {
-        const s = i * bpp;
-        const d = i * 4;
-        const b = pixels[s];
-        const g = pixels[s + bytesPerSample];
-        const r = pixels[s + 2 * bytesPerSample];
-        const a = samplesPerPixel === 4 ? pixels[s + 3 * bytesPerSample] : 255;
-
-        if (samplesPerPixel === 4 && a > 0 && a < 255) {
-          dest[d] = Math.min(255, Math.round((r * 255) / a));
-          dest[d + 1] = Math.min(255, Math.round((g * 255) / a));
-          dest[d + 2] = Math.min(255, Math.round((b * 255) / a));
-        } else {
-          dest[d] = r;
-          dest[d + 1] = g;
-          dest[d + 2] = b;
-        }
-        dest[d + 3] = a;
-      }
-    } else if ((colorType === 0 || colorType === 4) && (bitDepth === 8 || bitDepth === 16)) {
-      const bytesPerSample = bitDepth === 16 ? 2 : 1;
-      const samplesPerPixel = colorType === 4 ? 2 : 1;
-      const bpp = samplesPerPixel * bytesPerSample;
-      const pixels = unfilterScanlines(inflated, width * bpp, height, bpp);
-      const count = width * height;
-      for (let i = 0; i < count; i++) {
-        const s = i * bpp;
-        const d = i * 4;
-        const lum = pixels[s];
-        const a = samplesPerPixel === 2 ? pixels[s + bytesPerSample] : 255;
-        const unpremult =
-          samplesPerPixel === 2 && a > 0 && a < 255
-            ? Math.min(255, Math.round((lum * 255) / a))
-            : lum;
-        dest[d] = unpremult;
-        dest[d + 1] = unpremult;
-        dest[d + 2] = unpremult;
-        dest[d + 3] = a;
-      }
+    if (interlace === 0) {
+      const pixels = cgbiScanlinesToRgba(inflated, width, height, colorType, bitDepth, plteBytes, trnsBytes);
+      if (!pixels) return null;
+      dest.set(pixels);
     } else {
-      return null;
+      // Adam7 interlaced CgBI (very common in 2010-2012 iOS apps, e.g. "pngcrush -iphone" output)
+      const bitsPerPixel = pngBitsPerPixel(colorType, bitDepth);
+      if (!bitsPerPixel) return null;
+      let offset = 0;
+      for (const [startRow, startCol, rowInc, colInc] of ADAM7_PASSES) {
+        const passW = Math.ceil((width - startCol) / colInc);
+        const passH = Math.ceil((height - startRow) / rowInc);
+        if (passW <= 0 || passH <= 0) continue;
+        const passLen = passH * (1 + Math.ceil((passW * bitsPerPixel) / 8));
+        const passPixels = cgbiScanlinesToRgba(
+          inflated.subarray(offset, offset + passLen),
+          passW,
+          passH,
+          colorType,
+          bitDepth,
+          plteBytes,
+          trnsBytes
+        );
+        offset += passLen;
+        if (!passPixels) return null;
+        for (let py = 0; py < passH; py++) {
+          const y = startRow + py * rowInc;
+          for (let px = 0; px < passW; px++) {
+            const x = startCol + px * colInc;
+            const s4 = (py * passW + px) * 4;
+            const d4 = (y * width + x) * 4;
+            dest[d4] = passPixels[s4];
+            dest[d4 + 1] = passPixels[s4 + 1];
+            dest[d4 + 2] = passPixels[s4 + 2];
+            dest[d4 + 3] = passPixels[s4 + 3];
+          }
+        }
+      }
     }
 
     return encodeRgbaPixelsToPng(dest, width, height);

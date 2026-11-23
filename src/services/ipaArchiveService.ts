@@ -1,5 +1,11 @@
 import JSZip from 'jszip';
-import { ApkBuildConfig, IpaEntryItem, IpaPackageModel, SaveKeyValuePair } from '../types/migration';
+import {
+  ApkBuildConfig,
+  IpaEntryItem,
+  IpaPackageModel,
+  IpaPayloadStats,
+  SaveKeyValuePair,
+} from '../types/migration';
 import { IPA_PRESETS } from '../data/presets';
 import { parseApplePlist, plistObjectToXml, PlistValue } from './bplistParser';
 import {
@@ -602,6 +608,24 @@ function isMachOMagicHeader(headerHex: string): boolean {
   );
 }
 
+/**
+ * Android versionCode must be a positive integer. iOS CFBundleVersion is often dotted ("1.2.1"),
+ * and parseInt("1.2.1") === 1 would make every update of the same game look like versionCode 1.
+ * "1.2.1" -> "10201", "1.3" -> "10300", "245" -> "245".
+ */
+export function deriveAndroidVersionCode(rawVersion: string | null | undefined): string {
+  const raw = (rawVersion || '').trim();
+  if (/^\d+$/.test(raw)) {
+    const n = parseInt(raw, 10);
+    return n > 0 && n < 2100000000 ? String(n) : '1';
+  }
+  const parts = raw.split(/[.\-_ ]/).map((p) => parseInt(p, 10));
+  if (parts.length === 0 || Number.isNaN(parts[0])) return '100';
+  const [major = 0, minor = 0, patch = 0] = parts.map((p) => (Number.isNaN(p) ? 0 : Math.min(99, p)));
+  const code = Math.min(major, 20999) * 10000 + minor * 100 + patch;
+  return String(code > 0 ? code : 1);
+}
+
 function sanitizeExtractedAssetName(rawPath: string, usedNames: Set<string>, extOverride?: string): string {
   const filePart = rawPath.split('/').pop() || 'asset';
   const dotIdx = filePart.lastIndexOf('.');
@@ -780,6 +804,35 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
   }
 
   const webBundleEntries: RawApkEntry[] = [];
+
+  // Real evidence over EVERY file of the .ipa (used by the decision engine instead of template frameworks)
+  const realFrameworkNames = new Set<string>();
+  const payloadStats: IpaPayloadStats = {
+    totalFiles: 0,
+    imageCount: 0,
+    audioCount: 0,
+    nibOrStoryboardCount: 0,
+    gameDataFileCount: 0,
+    realFrameworkNames: [],
+  };
+  for (const p of fileNames) {
+    if (zip.files[p].dir) continue;
+    const lp = p.toLowerCase();
+    payloadStats.totalFiles++;
+    const fwMatch = lp.match(/\/([^/]+)\.framework\//);
+    if (fwMatch) realFrameworkNames.add(fwMatch[1]);
+    if (/\.(png|jpe?g|pvr|pvr\.ccz|pvr\.gz|ktx|astc)$/.test(lp)) payloadStats.imageCount++;
+    else if (/\.(caf|wav|mp3|ogg|m4a|aac|aif|aiff)$/.test(lp)) payloadStats.audioCount++;
+    else if (/\.(nib|storyboardc|xib)(\/|$)/.test(lp)) payloadStats.nibOrStoryboardCount++;
+    if (
+      /\.(pzx|zt1|cci|ccn|tmx|sks|atlas|fnt|plist\.ccz|ccbi|unity3d|assets|bank|pak|lvl|level|map)$/.test(lp) ||
+      lp.includes('.atlasc/') ||
+      lp.includes('global-metadata.dat')
+    ) {
+      payloadStats.gameDataFileCount++;
+    }
+  }
+  payloadStats.realFrameworkNames = Array.from(realFrameworkNames).slice(0, 40);
 
   // Pass 1: Read all small .plist files FIRST so we know CFBundleExecutable AND all SpriteAtlas texture names!
   const priorityTextureStems = new Set<string>();
@@ -1131,14 +1184,15 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
     `com.appleport.${sanitizedSlug || 'iosapp'}`;
   const bundleId = sanitizeAndroidPackageName(rawBundleId);
 
+  const bundleVersionRaw =
+    strFromDict('CFBundleVersion') || extractPlistTagValue(infoPlistXml, 'CFBundleVersion');
+  // Older iOS games (2010-2013) often only ship CFBundleVersion ("1.2.1") without CFBundleShortVersionString.
   const version =
     strFromDict('CFBundleShortVersionString') ||
     extractPlistTagValue(infoPlistXml, 'CFBundleShortVersionString') ||
+    bundleVersionRaw ||
     '1.0.0';
-  const buildNumber =
-    strFromDict('CFBundleVersion') ||
-    extractPlistTagValue(infoPlistXml, 'CFBundleVersion') ||
-    '100';
+  const buildNumber = deriveAndroidVersionCode(bundleVersionRaw || version);
   const minOs =
     strFromDict('MinimumOSVersion') ||
     extractPlistTagValue(infoPlistXml, 'MinimumOSVersion') ||
@@ -1235,6 +1289,7 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
     machOHeaderHex,
     preferredOrientation,
     isCustomUpload: true,
+    payloadStats,
     engineDetected:
       webBundleEntries.length > 0
         ? `Bundle Web/HTML5 Nativo Extraído (${webBundleEntries.length} arquivos)`

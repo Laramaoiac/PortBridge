@@ -91,6 +91,20 @@ export interface IpaPackageModel {
   releaseNotes: string;
   preferredOrientation?: 'portrait' | 'landscape' | 'unspecified';
   isCustomUpload?: boolean;
+  /**
+   * Real evidence counted over EVERY file of an uploaded .ipa (not only the 60 entries kept in `entries`).
+   * Custom uploads inherit `frameworks` from a template preset, so classification must rely on this instead.
+   */
+  payloadStats?: IpaPayloadStats;
+}
+
+export interface IpaPayloadStats {
+  totalFiles: number;
+  imageCount: number;
+  audioCount: number;
+  nibOrStoryboardCount: number;
+  gameDataFileCount: number;
+  realFrameworkNames: string[];
 }
 
 export interface ApkBuildConfig {
