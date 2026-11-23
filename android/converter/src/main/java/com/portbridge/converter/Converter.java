@@ -58,6 +58,7 @@ public final class Converter {
                                  SigningKey key, Images images, Progress progress) throws Exception {
         Progress p = progress != null ? progress : m -> { };
         p.step("Lendo o IPA");
+        ipaFile = Ipa.normalize(ipaFile, new File(outDir, ".pb-work"));
         Ipa ipa = Ipa.inspect(ipaFile);
         if (ipa.runtime == Ipa.Runtime.UNSUPPORTED)
             throw new IOException("Este IPA ainda não pode ser portado: " + ipa.reason);
@@ -116,8 +117,15 @@ public final class Converter {
                 .build()
                 .sign();
         unsigned.delete();
+        deleteTree(new File(outDir, ".pb-work"));
         p.step("Pronto: " + r.apk.getName());
         return r;
+    }
+
+    private static void deleteTree(File f) {
+        File[] kids = f.listFiles();
+        if (kids != null) for (File k : kids) deleteTree(k);
+        f.delete();
     }
 
     static String patchString(String s, Ipa ipa, String pkg) {
@@ -143,7 +151,13 @@ public final class Converter {
         return "{\"name\":" + json(ipa.name) + ",\"bundle\":" + json(ipa.bundleId) + ",\"version\":"
                 + json(ipa.version) + ",\"runtime\":" + json(ipa.runtime.name().toLowerCase()) + ",\"engine\":"
                 + json(ipa.engine) + ",\"package\":" + json(pkg) + ",\"portrait\":" + ipa.portrait
-                + hleArgs(ipa) + "}";
+                + hleArgs(ipa) + hleDiagnosis(ipa) + "}";
+    }
+
+    /** Diagnóstico gravado no APK (aparece no relatório do HleActivity quando o jogo falha). */
+    static String hleDiagnosis(Ipa ipa) {
+        if (ipa.hle == null) return "";
+        return ",\"hle_verdict\":" + json(ipa.hle.verdict) + ",\"hle_coverage\":" + ipa.hle.coveragePercent;
     }
 
     /**

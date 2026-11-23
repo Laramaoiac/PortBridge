@@ -123,8 +123,22 @@ def main() -> int:
     with open(dest, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=0, ensure_ascii=False)
         fh.write("\n")
-    print(f"{len(syms)} símbolos, {len(classes)} classes, {len(sels)} seletores -> {dest}")
+    # Mesma tabela para o conversor Java (diagnóstico no app Android, sem Python)
+    txt = os.path.join(os.path.dirname(__file__), "..", "android", "converter", "src", "main",
+                       "resources", "com", "portbridge", "converter", "touchhle_api.txt")
+    write_java_table(data, txt)
+    print(f"{len(syms)} símbolos, {len(classes)} classes, {len(sels)} seletores -> {dest} e {txt}")
     return 0
+
+
+def write_java_table(data: dict, dest: str) -> None:
+    """Uma entrada por linha: '# commit', 'S símbolo', 'C classe', 'M seletor'."""
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    with open(dest, "w", encoding="utf-8") as fh:
+        fh.write(f"# {data['touchhle_commit']}\n")
+        for key, tag in (("symbols", "S"), ("classes", "C"), ("selectors", "M")):
+            for v in data[key]:
+                fh.write(f"{tag} {v}\n")
 
 
 if __name__ == "__main__":

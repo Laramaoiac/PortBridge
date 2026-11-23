@@ -244,6 +244,25 @@ não aparecem: o jogo desenha texto com **CoreText** (`CTFont*`, `CTFramesetter*
 **Super Kamasutra HD** (app UIKit com nibs) abre, mas a lista usa `UITableView`, que o
 touchHLE não implementa.
 
+### Processo universal + laboratório de compatibilidade
+
+Não existe forma de rodar *qualquer* IPA: código de 64 bits, executáveis
+criptografados (FairPlay) e APIs do iOS que o touchHLE ainda não tem são limites
+reais. O que é universal é o **processo**:
+
+- **Entrada**: o conversor aceita IPA, ZIP com IPA dentro e ZIP com a pasta `.app`
+  (com ou sem `Payload/`, em qualquer nível), e remonta um IPA padrão
+  (`Ipa.normalize`). Arquivos sem app iOS recebem uma mensagem clara.
+- **Diagnóstico antes de converter** (app Android e `hle-check`): arquitetura,
+  criptografia, engine pelos arquivos (Unity, Godot, Cocos2d-x, Cordova, Flutter…),
+  cobertura estimada do touchHLE e o que falta. O app mostra isso na tela.
+- **Escolha do runtime**: Clickteam → player PortBridge; ARM 32 bits → touchHLE com
+  o jogo original; o resto é recusado com o motivo (64 bits, FairPlay).
+- **Laboratório** (`hle-run` / `compat`): executa os jogos sem tela e diz o que
+  implementar primeiro. Foi assim, manualmente, que Toilet War e ZENONIA 3 foram
+  destravados; agora é automático e cada função implementada vale para todos os
+  jogos seguintes.
+
 ## Próximas tarefas da ferramenta
 
 - [x] Decodificar movimentos (`off_movimentos`) e listar os tipos usados por objeto

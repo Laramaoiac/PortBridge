@@ -127,6 +127,32 @@ Compara o que o executável importa e chama com `portbridge/data/touchhle_api.js
 (gerado por `tools/gen_touchhle_api.py` a partir do touchHLE com o patch). É uma
 estimativa estática: o app não é executado.
 
+O mesmo diagnóstico roda no app Android (`HleCheck.java`, tabela em
+`android/converter/src/main/resources/.../touchhle_api.txt`, gerada junto com o JSON)
+e aparece na tela antes de converter.
+
+## Executar um IPA automaticamente (laboratório de compatibilidade)
+
+```bash
+python -m portbridge hle-run Jogo.ipa -o saida/            # um jogo
+python -m portbridge compat jogos/*.ipa -o laboratorio/    # vários jogos + ranking
+```
+
+`hle-run` abre o jogo no touchHLE para Linux (Xvfb), toca o centro da tela a cada 4 s
+(ou segue `--actions "5:240,160 3:- 2:100,250>380,250"`), tira capturas e lê o log do
+modo tolerante: funções/classes/métodos que o jogo **chamou** e não existem, erros
+recuperados (com a função onde aconteceram), símbolos importados sem endereço, a causa
+provável quando o jogo fecha e se a tela ficou vazia. Para o jogo se o log passar de
+`--max-log-mb` (laço de erro). Paisagem é deduzida das imagens quando o Info.plist não
+declara (mesma regra do conversor). Saída: `hle_run.md`, `hle_run.json`, `capturas/` e
+o log.
+
+`compat` faz a checagem estática e a execução de cada IPA e monta `laboratorio.md`:
+um ranking do que implementar no touchHLE primeiro (derrubou o jogo > erro recuperado
+> símbolo sem endereço > chamado > só importado, somado por jogo; opcionais no fim).
+Requisitos: touchHLE compilado (`cargo build --release` com `PORTBRIDGE_BUILD=1`),
+`Xvfb`, `xdotool` e ImageMagick; Pillow para analisar as capturas.
+
 ## Licença
 
 touchHLE: MPL-2.0 (dynarmic 0BSD, SDL2 zlib, OpenAL Soft LGPL, dylibs do

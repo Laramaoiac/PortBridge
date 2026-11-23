@@ -37,6 +37,10 @@ public final class Ipa {
     public String reason = "";
     public List<String> archs = new ArrayList<>();
     public byte[] icon;  // JPEG ou PNG que o Android consegue abrir
+    /** Diagnóstico de compatibilidade com o touchHLE (só para Runtime.HLE e incompatíveis). */
+    public HleCheck hle;
+    /** Engine identificada pelos arquivos (Unity, Cocos2d-x, Cordova...), ou vazio. */
+    public String engineHint = "";
 
     private Ipa(File f) { this.file = f; }
 
@@ -95,15 +99,114 @@ public final class Ipa {
         } else if (archs.isEmpty()) {
             reason = "executável não encontrado ou não é Mach-O";
         } else if (MachO.encrypted(exe)) {
-            reason = "o executável ainda está criptografado pela App Store (FairPlay)";
+            reason = "o executável ainda está criptografado pela App Store (FairPlay): use um IPA "
+                    + "descriptografado (extraído de um iPhone com jailbreak)";
         } else if (archs.stream().anyMatch(a -> a.startsWith("armv"))) {
             runtime = Runtime.HLE;
             engine = "nativo (ARM 32 bits)";
         } else {
-            reason = "só há código ARM de 64 bits (" + String.join(", ", archs) + "): ainda não suportado";
+            reason = "só há código ARM de 64 bits (" + String.join(", ", archs) + "): o touchHLE executa "
+                    + "apenas ARM de 32 bits (apps de iOS 2 a 6)";
+        }
+        engineHint = detectEngine(names);
+        if (!engineHint.isEmpty() && !clickteam) engine += " · " + engineHint;
+        if (!clickteam && exe.length > 0) {
+            try {
+                hle = HleCheck.check(MachOScan.parse(exe));
+            } catch (RuntimeException e) {
+                hle = null;   // diagnóstico é informativo: nunca impede a conversão
+            }
         }
 
         icon = pickIcon(zip, names);
+    }
+
+    // ------------------------------------------------------------ engine
+    /** Arquivos-sinal de engines conhecidas (mesma lista de portbridge/engines.py). */
+    private static final String[][] ENGINES = {
+        {"Unity", "data/globalgamemanagers", "data/maindata", "data/data.unity3d", "unityframework.framework/unityframework"},
+        {"Godot", ".pck"},
+        {"Defold", "game.projectc", "game.arcd"},
+        {"GameMaker", "game.ios"},
+        {"Corona/Solar2D", "resource.car"},
+        {"Cocos2d-x (Lua/JS)", "src/main.lua", "main.js", "src/main.luac", "jsb_prepare.js"},
+        {"Adobe AIR", "meta-inf/air/application.xml"},
+        {"Cordova/web", "www/index.html", "www/cordova.js"},
+        {"React Native", "main.jsbundle"},
+        {"Flutter", "frameworks/flutter.framework/flutter"},
+        {"Xamarin/.NET", ".dll"},
+    };
+
+    private String detectEngine(List<String> names) {
+        for (String[] e : ENGINES) {
+            for (int i = 1; i < e.length; i++) {
+                String sig = e[i];
+                for (String n : names) {
+                    if (!n.startsWith(appDir)) continue;
+                    String low = n.substring(appDir.length()).toLowerCase(Locale.ROOT);
+                    boolean hit = sig.startsWith(".") ? low.endsWith(sig) : (low.equals(sig) || low.endsWith("/" + sig));
+                    if (hit) return e[0];
+                }
+            }
+        }
+        return "";
+    }
+
+    // ------------------------------------------------------------ entrada universal
+    /**
+     * Aceita qualquer forma comum de entregar um app iOS e devolve um IPA padrão
+     * (Payload/X.app/...): o próprio IPA; um ZIP com um .ipa dentro; ou um ZIP com a
+     * pasta X.app (com ou sem Payload/, em qualquer nível). O touchHLE só abre IPA padrão.
+     */
+    public static File normalize(File input, File workDir) throws IOException {
+        try (ZipFile zip = new ZipFile(input)) {
+            String appRoot = null, innerIpa = null;
+            for (Enumeration<? extends ZipEntry> e = zip.entries(); e.hasMoreElements(); ) {
+                String n = e.nextElement().getName();
+                if (n.startsWith("__MACOSX/")) continue;
+                if (n.startsWith("Payload/") && n.endsWith(".app/Info.plist") && n.split("/").length == 3) {
+                    return input;   // já é um IPA padrão
+                }
+                if (n.toLowerCase(Locale.ROOT).endsWith(".ipa") && innerIpa == null) innerIpa = n;
+                int i = n.indexOf(".app/Info.plist");
+                if (i > 0 && n.length() == i + ".app/Info.plist".length()) {
+                    String root = n.substring(0, i + ".app/".length());
+                    if (appRoot == null || root.length() < appRoot.length()) appRoot = root;
+                }
+            }
+            workDir.mkdirs();
+            if (innerIpa != null) {
+                File out = new File(workDir, "inner.ipa");
+                try (InputStream in = zip.getInputStream(zip.getEntry(innerIpa));
+                     java.io.OutputStream o = new java.io.FileOutputStream(out)) {
+                    byte[] buf = new byte[1 << 16];
+                    int k;
+                    while ((k = in.read(buf)) > 0) o.write(buf, 0, k);
+                }
+                return normalize(out, workDir);
+            }
+            if (appRoot != null) {
+                String appName = appRoot.substring(appRoot.lastIndexOf('/', appRoot.length() - 2) + 1);
+                File out = new File(workDir, "repacked.ipa");
+                try (java.util.zip.ZipOutputStream zo = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(out))) {
+                    for (Enumeration<? extends ZipEntry> e = zip.entries(); e.hasMoreElements(); ) {
+                        ZipEntry z = e.nextElement();
+                        if (z.isDirectory() || !z.getName().startsWith(appRoot)) continue;
+                        zo.putNextEntry(new ZipEntry("Payload/" + appName + z.getName().substring(appRoot.length())));
+                        try (InputStream in = zip.getInputStream(z)) {
+                            byte[] buf = new byte[1 << 16];
+                            int k;
+                            while ((k = in.read(buf)) > 0) zo.write(buf, 0, k);
+                        }
+                        zo.closeEntry();
+                    }
+                }
+                return out;
+            }
+        } catch (java.util.zip.ZipException e) {
+            throw new IOException("o arquivo não é um IPA nem um ZIP válido", e);
+        }
+        throw new IOException("não há nenhum app iOS (pasta .app com Info.plist) dentro do arquivo");
     }
 
     // ------------------------------------------------------------ orientação
@@ -284,22 +387,38 @@ public final class Ipa {
             return p.length > 16 && p[12] == 'C' && p[13] == 'g' && p[14] == 'B' && p[15] == 'I';
         }
 
-        /** Converte CgBI (BGRA pré-multiplicado, deflate cru) em PNG RGBA comum. */
+        /** Adam7: linha inicial, coluna inicial, passo de linha, passo de coluna. */
+        private static final int[][] ADAM7 = {
+            {0, 0, 8, 8}, {0, 4, 8, 8}, {4, 0, 8, 4}, {0, 2, 4, 4}, {2, 0, 4, 2}, {0, 1, 2, 2}, {1, 0, 2, 1}};
+
+        /**
+         * Converte CgBI (BGRA pré-multiplicado, deflate cru) em PNG RGBA comum. Aceita PNG
+         * entrelaçado (Adam7), comum em apps de 2010-2012 (ex.: ícones do Super Kamasutra HD).
+         */
         static byte[] toPng(byte[] p) throws IOException {
-            int pos = 8, w = 0, h = 0;
+            int pos = 8, w = 0, h = 0, interlace = 0;
             ByteArrayOutputStream idat = new ByteArrayOutputStream();
             while (pos + 12 <= p.length) {
                 int len = (int) MachO.u32be(p, pos);
+                if (len < 0 || pos + 12 + (long) len > p.length) break;
                 String type = new String(p, pos + 4, 4, java.nio.charset.StandardCharsets.US_ASCII);
-                if (type.equals("IHDR")) { w = (int) MachO.u32be(p, pos + 8); h = (int) MachO.u32be(p, pos + 12); }
-                else if (type.equals("IDAT")) idat.write(p, pos + 8, len);
+                if (type.equals("IHDR")) {
+                    w = (int) MachO.u32be(p, pos + 8); h = (int) MachO.u32be(p, pos + 12);
+                    interlace = p[pos + 8 + 12] & 0xFF;
+                } else if (type.equals("IDAT")) idat.write(p, pos + 8, len);
                 else if (type.equals("IEND")) break;
                 pos += 12 + len;
             }
-            if (w <= 0 || h <= 0) throw new IOException("PNG CgBI inválido");
+            if (w <= 0 || h <= 0 || w > 8192 || h > 8192) throw new IOException("PNG CgBI inválido");
+            long rawLen = 0;
+            if (interlace == 0) rawLen = (long) (w * 4 + 1) * h;
+            else for (int[] a : ADAM7) {
+                long pw = (w - a[1] + a[3] - 1) / a[3], ph = (h - a[0] + a[2] - 1) / a[2];
+                if (pw > 0 && ph > 0) rawLen += (pw * 4 + 1) * ph;
+            }
             Inflater inf = new Inflater(true);
             inf.setInput(idat.toByteArray());
-            byte[] raw = new byte[(w * 4 + 1) * h];
+            byte[] raw = new byte[(int) rawLen];
             try {
                 int off = 0;
                 while (off < raw.length && !inf.finished()) {
@@ -312,16 +431,34 @@ public final class Ipa {
             } finally {
                 inf.end();
             }
-            int stride = w * 4;
-            byte[] px = new byte[stride * h];
+            byte[] px = new byte[w * 4 * h];
+            if (interlace == 0) {
+                unfilter(raw, 0, w, h, px, 0, 0, 1, 1, w);
+            } else {
+                int src = 0;
+                for (int[] a : ADAM7) {
+                    int pw = (w - a[1] + a[3] - 1) / a[3], ph = (h - a[0] + a[2] - 1) / a[2];
+                    if (pw <= 0 || ph <= 0) continue;
+                    unfilter(raw, src, pw, ph, px, a[0], a[1], a[2], a[3], w);
+                    src += (pw * 4 + 1) * ph;
+                }
+            }
+            return Png.encode(w, h, px);
+        }
+
+        /** Desfaz o filtro de uma (sub)imagem e grava RGBA não pré-multiplicado em px. */
+        private static void unfilter(byte[] raw, int base, int pw, int ph, byte[] px,
+                                     int row0, int col0, int dRow, int dCol, int fullW) {
+            int stride = pw * 4;
             byte[] prev = new byte[stride];
-            for (int y = 0; y < h; y++) {
-                int f = raw[y * (stride + 1)] & 0xFF;
-                int src = y * (stride + 1) + 1;
+            for (int y = 0; y < ph; y++) {
+                int rowStart = base + y * (stride + 1);
+                if (rowStart + stride + 1 > raw.length) break;
+                int f = raw[rowStart] & 0xFF;
                 byte[] cur = new byte[stride];
                 for (int x = 0; x < stride; x++) {
                     int a = x >= 4 ? cur[x - 4] & 0xFF : 0, b = prev[x] & 0xFF, c = x >= 4 ? prev[x - 4] & 0xFF : 0;
-                    int v = raw[src + x] & 0xFF;
+                    int v = raw[rowStart + 1 + x] & 0xFF;
                     switch (f) {
                         case 1: v += a; break;
                         case 2: v += b; break;
@@ -332,15 +469,14 @@ public final class Ipa {
                     }
                     cur[x] = (byte) v;
                 }
-                for (int x = 0; x < w; x++) {  // BGRA pré-multiplicado -> RGBA
+                for (int x = 0; x < pw; x++) {  // BGRA pré-multiplicado -> RGBA
                     int B = cur[x * 4] & 0xFF, G = cur[x * 4 + 1] & 0xFF, R = cur[x * 4 + 2] & 0xFF, A = cur[x * 4 + 3] & 0xFF;
                     if (A > 0 && A < 255) { R = Math.min(255, R * 255 / A); G = Math.min(255, G * 255 / A); B = Math.min(255, B * 255 / A); }
-                    int o = y * stride + x * 4;
+                    int o = ((row0 + y * dRow) * fullW + (col0 + x * dCol)) * 4;
                     px[o] = (byte) R; px[o + 1] = (byte) G; px[o + 2] = (byte) B; px[o + 3] = (byte) A;
                 }
                 prev = cur;
             }
-            return Png.encode(w, h, px);
         }
     }
 }

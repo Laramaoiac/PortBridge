@@ -169,8 +169,10 @@ public class ConverterActivity extends Activity {
                     int n;
                     while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
                 }
-                Ipa info = Ipa.inspect(f);
-                runOnUiThread(() -> showInfo(f, info));
+                // Aceita IPA, ZIP com IPA dentro ou ZIP com a pasta .app (vira IPA padrão)
+                File g = Ipa.normalize(f, new File(getCacheDir(), "pb-work"));
+                Ipa info = Ipa.inspect(g);
+                runOnUiThread(() -> showInfo(g, info));
             } catch (Exception e) {
                 runOnUiThread(() -> fail("Este arquivo não é um IPA válido", e));
             }
@@ -195,8 +197,14 @@ public class ConverterActivity extends Activity {
             case CLICKTEAM: support = "✅ Pode ser portado (runtime Clickteam do PortBridge)"; ok = true; break;
             case HLE:
                 ok = hasTemplate(Ipa.Runtime.HLE);
-                support = ok ? "⚠️ Emulação do iOS (touchHLE): compatibilidade depende do jogo"
+                support = ok ? "⚠️ Emulação do iOS (touchHLE): o jogo original roda no emulador"
                              : "🚧 App nativo ARM 32 bits: precisa do runtime de emulação, ainda não incluído nesta versão";
+                if (info.hle != null) {
+                    support += "\nCompatibilidade estimada: " + info.hle.summary();
+                    int missing = info.hle.missingFunctions.size() + info.hle.missingClasses.size();
+                    if (missing > 0) support += "\nFaltam no emulador: " + missing + " funções/classes do iOS"
+                            + " (o modo tolerante desliga o que for opcional)";
+                }
                 break;
             default: support = "❌ Ainda não pode ser portado: " + info.reason;
         }
