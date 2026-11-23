@@ -1,0 +1,6 @@
+{
+  "name": "PortBridge Studio — Conversor IPA para APK",
+  "description": "Estúdio de migração e empacotamento de aplicativos e jogos iOS (.ipa) para Android (.apk) com inspeção de binários Mach-O, tradução de frameworks, migração de dados salvos e simulador interativo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

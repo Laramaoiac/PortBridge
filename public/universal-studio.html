@@ -1,0 +1,3120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPA → Android APK Studio | Desconstrutor Universal</title>
+  <style>
+    :root {
+      --bg-0: #090d16;
+      --bg-1: #111827;
+      --bg-2: #1a2335;
+      --bg-3: #243047;
+      --border: #2b3854;
+      --text-0: #f3f6fc;
+      --text-1: #9fb0cc;
+      --text-2: #6b7d9c;
+      --accent: #38bdf8;
+      --accent-2: #10b981;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --purple: #a78bfa;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-0);
+      color: var(--text-0);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.45;
+    }
+
+    /* Header */
+    header {
+      background: linear-gradient(180deg, #131c2e 0%, #0d1320 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 22px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: linear-gradient(135deg, #0ea5e9, #10b981);
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 15px; color: #041019;
+      box-shadow: 0 4px 16px rgba(14, 165, 233, 0.35);
+    }
+    .brand h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+    .brand p { font-size: 12px; color: var(--text-1); }
+
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .phase-pill {
+      padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+      background: rgba(167, 139, 250, 0.16); color: #d8b4fe; border: 1px solid rgba(167, 139, 250, 0.38);
+    }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 12px; border-radius: 999px;
+      background: var(--bg-2); border: 1px solid var(--border);
+      font-size: 12px; color: var(--text-1);
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent); box-shadow: 0 0 8px var(--accent);
+    }
+    .dot.ok { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
+    .dot.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+
+    /* Navigation Tabs */
+    .tabs {
+      display: flex; gap: 4px; padding: 0 22px;
+      background: var(--bg-1); border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: transparent; border: none; color: var(--text-1);
+      padding: 12px 15px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border-bottom: 2px solid transparent;
+      white-space: nowrap; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 7px;
+    }
+    .tab-btn:hover { color: var(--text-0); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .badge {
+      font-size: 11px; padding: 2px 7px; border-radius: 999px;
+      background: var(--bg-3); color: var(--text-0); font-weight: 600;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .badge.green { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+    .badge.blue { background: rgba(56, 189, 248, 0.18); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35); }
+    .badge.warn { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
+    .badge.red { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); }
+    .badge.purple { background: rgba(167, 139, 250, 0.18); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, 0.35); }
+
+    /* Main Content */
+    main { flex: 1; padding: 20px 22px; max-width: 1440px; width: 100%; margin: 0 auto; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* Cards & Grid */
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+    .card {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px;
+    }
+    .card h2 {
+      font-size: 14px; font-weight: 700; margin-bottom: 12px;
+      color: var(--text-0); display: flex; align-items: center;
+      justify-content: space-between; gap: 8px; flex-wrap: wrap;
+    }
+    .card h3 { font-size: 13px; font-weight: 600; color: var(--text-1); margin-bottom: 8px; }
+
+    /* Dropzone */
+    .dropzone {
+      border: 2px dashed #354769; border-radius: 14px; padding: 34px 20px; text-align: center;
+      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.08), transparent 70%), var(--bg-1);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.16), transparent 70%), var(--bg-2);
+    }
+    .dropzone-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+    .dropzone strong { font-size: 16px; display: block; margin-bottom: 6px; }
+    .dropzone p { font-size: 13px; color: var(--text-1); max-width: 600px; margin: 0 auto 14px; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 9px 15px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg-2); color: var(--text-0); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .btn:hover:not(:disabled) { background: var(--bg-3); border-color: #465b84; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, #0284c7, #0ea5e9); border-color: #38bdf8; color: #fff; }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-success { background: linear-gradient(135deg, #059669, #10b981); border-color: #34d399; color: #fff; }
+    .btn-success:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-purple { background: linear-gradient(135deg, #7c3aed, #8b5cf6); border-color: #a78bfa; color: #fff; }
+    .btn-purple:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-sm { padding: 6px 10px; font-size: 12px; }
+
+    /* Lists & Tables */
+    .part-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .part-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 12px; border-radius: 8px;
+      background: var(--bg-2); border: 1px solid var(--border); font-size: 13px;
+    }
+    .part-name { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+    .part-meta { font-size: 12px; color: var(--text-1); white-space: nowrap; }
+
+    /* Console Log */
+    .console {
+      background: #060910; border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px; font-family: var(--mono); font-size: 11.5px; color: #a5f3fc;
+      max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin-top: 14px;
+    }
+    .log-warn { color: #fbbf24; }
+    .log-err { color: #f87171; }
+    .log-ok { color: #34d399; }
+
+    /* Overview Hero */
+    .app-hero {
+      display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+      margin-bottom: 18px; padding: 18px; border-radius: 12px;
+      background: linear-gradient(135deg, rgba(14,165,233,0.1), rgba(16,185,129,0.06)), var(--bg-1);
+      border: 1px solid var(--border);
+    }
+    .app-icon-box {
+      width: 78px; height: 78px; border-radius: 18px;
+      background: var(--bg-2); border: 1px solid var(--border);
+      overflow: hidden; display: grid; place-items: center; flex-shrink: 0;
+    }
+    .app-icon-box img { width: 100%; height: 100%; object-fit: cover; }
+    .app-hero-info { flex: 1; min-width: 220px; }
+    .app-hero-info h2 { font-size: 20px; margin-bottom: 4px; }
+    .app-hero-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+    .kv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .kv-table tr { border-bottom: 1px solid rgba(43, 56, 84, 0.5); }
+    .kv-table tr:last-child { border-bottom: none; }
+    .kv-table td { padding: 7px 6px; vertical-align: top; }
+    .kv-table td:first-child { color: var(--text-1); width: 42%; font-weight: 500; }
+    .kv-table td:last-child { font-family: var(--mono); word-break: break-all; }
+
+    /* Explorer Split View */
+    .explorer-layout { display: grid; grid-template-columns: 380px 1fr; gap: 16px; min-height: 540px; }
+    @media (max-width: 900px) { .explorer-layout { grid-template-columns: 1fr; } }
+    .file-sidebar {
+      background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px;
+      display: flex; flex-direction: column; overflow: hidden; max-height: 640px;
+    }
+    .file-toolbar {
+      padding: 10px; border-bottom: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 8px; background: var(--bg-2);
+    }
+    .input {
+      width: 100%; padding: 8px 10px; border-radius: 7px;
+      border: 1px solid var(--border); background: var(--bg-0);
+      color: var(--text-0); font-size: 12.5px; outline: none;
+    }
+    .input:focus { border-color: var(--accent); }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      padding: 5px 10px; border-radius: 7px; font-size: 11.5px; font-weight: 600;
+      background: var(--bg-1); border: 1px solid var(--border);
+      color: var(--text-1); cursor: pointer; transition: all 0.15s;
+    }
+    .chip:hover { color: var(--text-0); border-color: #465b84; }
+    .chip.active { background: var(--accent); color: #041019; border-color: var(--accent); }
+
+    .file-list { flex: 1; overflow-y: auto; padding: 6px; }
+    .file-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 7px 9px; border-radius: 7px; cursor: pointer;
+      font-size: 12px; border: 1px solid transparent;
+    }
+    .file-row:hover { background: var(--bg-2); }
+    .file-row.selected { background: rgba(56, 189, 248, 0.14); border-color: rgba(56, 189, 248, 0.4); }
+    .file-path { font-family: var(--mono); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-size { font-size: 11px; color: var(--text-2); flex-shrink: 0; font-family: var(--mono); }
+
+    .preview-pane {
+      background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px;
+      display: flex; flex-direction: column; overflow: hidden; max-height: 640px;
+    }
+    .preview-head {
+      padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-2);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    }
+    .preview-body { flex: 1; overflow: auto; padding: 16px; }
+    .checkerboard {
+      background-image:
+        linear-gradient(45deg, #1e293b 25%, transparent 25%),
+        linear-gradient(-45deg, #1e293b 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1e293b 75%),
+        linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+      background-color: #0f172a;
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px; display: grid; place-items: center; min-height: 220px;
+    }
+    .checkerboard img { max-width: 100%; max-height: 360px; image-rendering: pixelated; }
+    pre.code-view {
+      background: #060910; border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px; font-family: var(--mono); font-size: 11.5px; color: #dbeafe;
+      overflow: auto; max-height: 460px; white-space: pre-wrap; word-break: break-word;
+    }
+
+    /* Progress Bar */
+    .progress-wrap {
+      width: 100%; height: 10px; background: var(--bg-0);
+      border-radius: 999px; overflow: hidden; border: 1px solid var(--border); margin: 10px 0;
+    }
+    .progress-bar {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #0ea5e9, #10b981); transition: width 0.15s;
+    }
+
+    .callout {
+      padding: 12px 14px; border-radius: 10px; font-size: 12.5px; margin-bottom: 14px;
+      border: 1px solid var(--border); background: rgba(56, 189, 248, 0.08); color: var(--text-0);
+    }
+    .callout.warn { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.35); }
+    .callout.ok { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.35); }
+
+    .actions-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .hidden { display: none !important; }
+
+    /* Subtabs & CCI Inspector */
+    .subtabs {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .subtab-btn {
+      padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg-2); color: var(--text-1); font-size: 12.5px; font-weight: 600; cursor: pointer;
+    }
+    .subtab-btn.active { background: rgba(167, 139, 250, 0.2); border-color: var(--purple); color: #e9d5ff; }
+    .subpanel { display: none; }
+    .subpanel.active { display: block; }
+
+    .sprite-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+      gap: 10px; max-height: 540px; overflow-y: auto; padding: 4px;
+    }
+    .sprite-card {
+      background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+    }
+    .sprite-thumb {
+      width: 100%; height: 86px; border-radius: 7px; display: grid; place-items: center; overflow: hidden;
+      background-image:
+        linear-gradient(45deg, #1e293b 25%, transparent 25%),
+        linear-gradient(-45deg, #1e293b 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1e293b 75%),
+        linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+      background-size: 12px 12px; background-position: 0 0, 0 6px, 6px -6px, -8px 0; background-color: #0f172a;
+    }
+    .sprite-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; image-rendering: pixelated; }
+    .sprite-meta { font-family: var(--mono); font-size: 10.5px; color: var(--text-1); line-height: 1.3; }
+    .frame-canvas-wrap {
+      background: #060910; border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px; display: grid; place-items: center; overflow: auto;
+    }
+    .frame-canvas-wrap canvas { max-width: 100%; border: 1px solid #334155; border-radius: 4px; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .data-table th {
+      text-align: left; padding: 8px; background: var(--bg-2); color: var(--text-1);
+      border-bottom: 1px solid var(--border); position: sticky; top: 0;
+    }
+    .data-table td {
+      padding: 7px 8px; border-bottom: 1px solid rgba(43, 56, 84, 0.45);
+      font-family: var(--mono); font-size: 11.5px;
+    }
+    .table-scroll { max-height: 460px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+
+    /* Universal Engine Catalog (Phase 1) */
+    .roadmap-strip {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      gap: 10px; margin-bottom: 16px;
+    }
+    .phase-step {
+      background: var(--bg-1); border: 1px solid var(--border); border-radius: 10px;
+      padding: 11px 12px; font-size: 12px;
+    }
+    .phase-step.done { border-color: rgba(16, 185, 129, 0.55); background: rgba(16, 185, 129, 0.08); }
+    .phase-step.next { border-color: rgba(56, 189, 248, 0.45); background: rgba(56, 189, 248, 0.06); }
+    .phase-step strong { display: block; font-size: 12.5px; margin-bottom: 3px; }
+    .phase-step span { color: var(--text-1); font-size: 11.5px; }
+
+    .engine-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 12px; margin-top: 14px;
+    }
+    .engine-card {
+      background: var(--bg-1); border: 1px solid var(--border); border-radius: 11px;
+      padding: 14px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.15s;
+    }
+    .engine-card:hover { border-color: #4b628f; }
+    .engine-card.detected {
+      border-color: var(--accent-2);
+      background: linear-gradient(145deg, rgba(16, 185, 129, 0.12), rgba(17, 24, 39, 0.96));
+      box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.25);
+    }
+    .engine-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .engine-card-title { font-size: 14px; font-weight: 700; color: var(--text-0); }
+    .engine-card-desc { font-size: 12px; color: var(--text-1); }
+    .engine-sig-box {
+      background: #070b13; border: 1px solid rgba(43, 56, 84, 0.7); border-radius: 7px;
+      padding: 7px 9px; font-family: var(--mono); font-size: 11px; color: #93c5fd;
+    }
+    .engine-meta-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .detected-list { display: flex; flex-direction: column; gap: 8px; }
+    .detected-row {
+      padding: 10px 12px; border-radius: 9px; background: var(--bg-2);
+      border: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px;
+    }
+    .detected-row.primary { border-color: var(--accent-2); background: rgba(16, 185, 129, 0.09); }
+
+    /* Phase 2: Game Engine Deconstructors */
+    .ge-pill-tabs {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .ge-pill-btn {
+      padding: 8px 13px; border-radius: 9px; border: 1px solid var(--border);
+      background: var(--bg-2); color: var(--text-1); font-size: 12.5px; font-weight: 600;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: all 0.15s;
+    }
+    .ge-pill-btn:hover { color: var(--text-0); border-color: #4b628f; }
+    .ge-pill-btn.active { background: rgba(56, 189, 248, 0.18); border-color: var(--accent); color: #e0f2fe; }
+    .ge-stat-row {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 10px; margin-bottom: 14px;
+    }
+    .ge-stat-box {
+      background: var(--bg-2); border: 1px solid var(--border); border-radius: 9px;
+      padding: 10px 12px;
+    }
+    .ge-stat-box span { display: block; font-size: 11px; color: var(--text-1); }
+    .ge-stat-box strong { font-size: 15px; font-family: var(--mono); color: var(--text-0); }
+
+    /* Phase 5: Multi-Target Export & Cloud CI */
+    .target-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+      gap: 10px; margin-bottom: 14px;
+    }
+    .target-card {
+      background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px; cursor: pointer; transition: all 0.15s; text-align: left;
+      display: flex; flex-direction: column; gap: 5px; color: var(--text-0);
+    }
+    .target-card:hover { border-color: #4b628f; background: var(--bg-3); }
+    .target-card.active {
+      border-color: var(--accent-2);
+      background: linear-gradient(145deg, rgba(16, 185, 129, 0.16), rgba(26, 35, 53, 0.96));
+      box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3);
+    }
+    .target-card-title { font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .target-card-sub { font-size: 11.5px; color: var(--text-1); line-height: 1.35; }
+    .form-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px; margin-bottom: 14px;
+    }
+    .field-label { display: block; font-size: 11.5px; color: var(--text-1); margin-bottom: 4px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">APK</div>
+      <div>
+        <h1>IPA → Android APK Universal Studio</h1>
+        <p>Detector de 39 motores iOS + 15 middlewares, desconstrutores de jogos, Mach-O, CgBI e gerador Android</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="phase-pill">Fase 5/5 (Completa) • Exportador Multi-Alvo + CI APK</span>
+      <div class="status-pill">
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText">Aguardando arquivos (.zip / .part / .ipa)</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="upload">1. Carregar & Remontar</button>
+    <button class="tab-btn" data-tab="overview" id="tabOverview" disabled>2. Diagnóstico & Mach-O</button>
+    <button class="tab-btn" data-tab="explorer" id="tabExplorer" disabled>3. Assets, CgBI & DLC <span class="badge" id="fileCountBadge">0</span></button>
+    <button class="tab-btn" data-tab="export" id="tabExport" disabled>4. Reconstruir Projeto Android</button>
+    <button class="tab-btn" data-tab="cci" id="tabCci" disabled>5. Clickteam (.cci) <span class="badge purple" id="cciBadge">CCI</span></button>
+    <button class="tab-btn" data-tab="gameengines" id="tabGameEngines" disabled>5B. Motores de Jogos <span class="badge blue" id="geCountBadge">0</span></button>
+    <button class="tab-btn" data-tab="crossapps" id="tabCrossApps" disabled>5C. Apps Híbridos <span class="badge green" id="caCountBadge">0</span></button>
+    <button class="tab-btn" data-tab="assetsconv" id="tabAssetsConv" disabled>5D. Conversor Assets <span class="badge warn" id="acCountBadge">0</span></button>
+    <button class="tab-btn" data-tab="catalog" id="tabCatalog">6. Catálogo Universal <span class="badge green" id="catalogCountBadge">39</span></button>
+  </nav>
+
+  <main>
+    <!-- TAB 1: UPLOAD & REASSEMBLE -->
+    <section id="panel-upload" class="panel active">
+      <div class="callout">
+        <strong>Execução 100% local no navegador:</strong> arraste qualquer <code>.ipa</code> ou seus volumes fragmentados (<code>.zip</code> / <code>.part01..04</code>). O motor universal identifica automaticamente entre <strong>39 motores/frameworks iOS e 15 middlewares</strong>, classifica a portabilidade para Android e prepara os assets.
+      </div>
+
+      <div id="dropzone" class="dropzone">
+        <span class="dropzone-icon">📦</span>
+        <strong>Arraste um .ipa ou arquivos .zip / .part aqui</strong>
+        <p>Suporta qualquer aplicativo ou jogo iOS (<code>.ipa</code>), arquivos divididos em partes ou múltiplos <code>.zip</code> contendo fragmentos e metadados.</p>
+        <button class="btn btn-primary" type="button" id="btnPickFiles">Selecionar Arquivos do Dispositivo</button>
+        <input type="file" id="fileInput" multiple class="hidden" accept=".zip,.ipa,.part01,.part02,.part03,.part04,*/*" />
+      </div>
+
+      <div class="grid-2" style="margin-top: 16px;">
+        <div class="card">
+          <h2>
+            <span>Partes do IPA Detectadas</span>
+            <span class="badge blue" id="partsCount">0 partes</span>
+          </h2>
+          <div id="partsContainer" class="part-list">
+            <p style="font-size: 12.5px; color: var(--text-2);">Nenhuma parte carregada ainda. Você pode adicionar todos os arquivos juntos ou um por vez.</p>
+          </div>
+          <div class="actions-row">
+            <button class="btn btn-success" id="btnProcessIpa" disabled>⚙️ Remontar e Desconstruir IPA</button>
+            <button class="btn" id="btnReset" disabled>Limpar</button>
+            <button class="btn btn-purple" id="btnOpenCatalogFromUpload">🌐 Ver os 39 Motores Suportados</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>
+            <span>Arquivos Extras / Metadados</span>
+            <span class="badge" id="extrasCount">0 itens</span>
+          </h2>
+          <div id="extrasContainer" class="part-list">
+            <p style="font-size: 12.5px; color: var(--text-2);">Arquivos auxiliares encontrados dentro dos ZIPs (como <code>_meta.xml</code>, SQLite e artes) aparecerão aqui.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="progressContainer" class="hidden" style="margin-top: 14px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-1);">
+          <span id="progressLabel">Processando...</span>
+          <span id="progressPct">0%</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      </div>
+
+      <div class="console" id="consoleLog">[Sistema] Todas as 5 fases concluídas! Detector universal (39 motores + 15 middlewares), conversor de assets (CgBI/CAF/Atlas/PVR), desconstrutores de Jogos/Híbridos e 5 geradores Android com GitHub Actions CI ativos.</div>
+    </section>
+
+    <!-- TAB 2: OVERVIEW & MACH-O -->
+    <section id="panel-overview" class="panel">
+      <div class="app-hero">
+        <div class="app-icon-box" id="appIconBox">📱</div>
+        <div class="app-hero-info">
+          <h2 id="ovAppName">Aplicativo iOS</h2>
+          <div style="font-family:var(--mono); font-size:12.5px; color:var(--text-1);" id="ovBundleId">—</div>
+          <div class="app-hero-meta" id="ovBadges"></div>
+        </div>
+        <div class="actions-row" style="margin-top:0;">
+          <button class="btn btn-purple" id="btnCopyBlueprintTop">📋 Copiar Blueprint para IA</button>
+          <button class="btn btn-success" id="btnGotoExport">➡️ Reconstruir Android</button>
+        </div>
+      </div>
+
+      <div id="compatVerdict" class="callout ok"></div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h2>
+          <span>Detecção Universal Multi-Camada (Motores, Frameworks & Middlewares)</span>
+          <span class="badge purple" id="engineBadge">—</span>
+        </h2>
+        <div id="detectedEnginesList" class="detected-list"></div>
+        <h3 style="margin-top:14px;">Middlewares & Subsistemas Detectados</h3>
+        <div class="tag-list" id="detectedMiddlewareTags"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>Informações do Bundle (Info.plist)</h2>
+          <table class="kv-table" id="plistSummaryTable"></table>
+        </div>
+
+        <div class="card">
+          <h2>Análise do Binário Mach-O & DRM</h2>
+          <table class="kv-table" id="machoSummaryTable"></table>
+          <h3 style="margin-top:14px;">Frameworks Apple & Bibliotecas Vinculadas</h3>
+          <div class="tag-list" id="dylibTags"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Estatísticas de Assets Extraídos</h2>
+        <div class="grid-3" id="statsGrid"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: EXPLORER -->
+    <section id="panel-explorer" class="panel">
+      <div class="explorer-layout">
+        <div class="file-sidebar">
+          <div class="file-toolbar">
+            <input type="text" id="fileSearch" class="input" placeholder="Filtrar por nome, pasta ou extensão..." />
+            <div class="filter-row" id="filterChips">
+              <button class="chip active" data-filter="all">Todos</button>
+              <button class="chip" data-filter="image">Imagens</button>
+              <button class="chip" data-filter="audio">Áudio</button>
+              <button class="chip" data-filter="plist">Plist/Dados</button>
+              <button class="chip" data-filter="dlc">DLC/Engine</button>
+              <button class="chip" data-filter="binary">Binários</button>
+            </div>
+          </div>
+          <div class="file-list" id="fileList"></div>
+        </div>
+
+        <div class="preview-pane">
+          <div class="preview-head">
+            <div>
+              <strong id="previewTitle" style="font-size:13px; font-family:var(--mono);">Selecione um arquivo</strong>
+              <div id="previewSub" style="font-size:11.5px; color:var(--text-1);">Clique em qualquer item à esquerda para inspecionar ou converter</div>
+            </div>
+            <div class="actions-row" style="margin-top:0;">
+              <button class="btn btn-sm hidden" id="btnDownloadSingle">⬇️ Baixar Arquivo</button>
+              <button class="btn btn-sm btn-primary hidden" id="btnDownloadConvertedPng">⬇️ Baixar PNG Android</button>
+            </div>
+          </div>
+          <div class="preview-body" id="previewBody">
+            <p style="color:var(--text-2); font-size:13px;">Os PNGs proprietários da Apple (<code>CgBI</code>) são decodificados automaticamente para RGBA padrão do Android ao clicar, e arquivos <code>bplist00</code> são convertidos para JSON legível.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: ANDROID EXPORT & BLUEPRINT -->
+    <section id="panel-export" class="panel">
+      <div id="exportAutoTargetBanner" class="callout ok">
+        <strong>Exportador Multi-Alvo + CI na Nuvem (Fase 5):</strong> selecione o motor de destino Android, personalize os metadados do APK e baixe o projeto completo já com assets convertidos (<code>CgBI → RGBA</code> e <code>.caf → .wav</code>) e workflow <strong>GitHub Actions</strong> para compilar o <code>.apk</code> automaticamente sem instalar Android Studio.
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h2>
+          <span>1. Escolha o Alvo de Reconstrução Android (5 Templates Multi-Alvo)</span>
+          <span class="badge green" id="exportTargetRecBadge">Recomendado: Android Studio</span>
+        </h2>
+
+        <div class="target-grid" id="targetSelectorGrid">
+          <button type="button" class="target-card active" data-target="android-studio">
+            <div class="target-card-title"><span>🤖 Android Studio</span><span class="badge blue">Universal</span></div>
+            <div class="target-card-sub">Kotlin + WebView/Canvas Host + Clickteam .cci (sprites/áudios) + Gradle 8.5 + Assets convertidos.</div>
+          </button>
+          <button type="button" class="target-card" data-target="godot4">
+            <div class="target-card-title"><span>🎮 Godot 4 Android</span><span class="badge purple">Jogos 2D/3D</span></div>
+            <div class="target-card-sub">Gera <code>project.godot</code>, <code>export_presets.cfg</code>, cena <code>Main.tscn</code>, script GDScript e assets/sprites prontos.</div>
+          </button>
+          <button type="button" class="target-card" data-target="capacitor">
+            <div class="target-card-title"><span>🌐 WebView / Capacitor</span><span class="badge green">1:1 HTML5</span></div>
+            <div class="target-card-sub">Ideal para Cordova, Ionic, Capacitor, Construct, GDevelop e RPG Maker: empacota <code>www/</code> 1:1 + Gradle.</div>
+          </button>
+          <button type="button" class="target-card" data-target="flutter-rn">
+            <div class="target-card-title"><span>💙 Flutter / ⚛️ RN</span><span class="badge blue">Cross-App</span></div>
+            <div class="target-card-sub">Scaffold Flutter (<code>pubspec.yaml</code> dos pacotes <code>NOTICES.Z</code> + <code>flutter_assets</code>) ou React Native (<code>main.jsbundle</code>).</div>
+          </button>
+          <button type="button" class="target-card" data-target="compose-native">
+            <div class="target-card-title"><span>✨ Jetpack Compose</span><span class="badge warn">Nativo UI</span></div>
+            <div class="target-card-sub">Projeto Kotlin Material 3 moderno para migração de apps UIKit/SwiftUI com ícones, strings e assets prontos.</div>
+          </button>
+        </div>
+
+        <h3>Configuração do Pacote Android &amp; Pipeline de Conversão</h3>
+        <div class="form-grid">
+          <div>
+            <label class="field-label" for="expAppName">Nome do Aplicativo</label>
+            <input type="text" id="expAppName" class="input" value="IosPortApp" />
+          </div>
+          <div>
+            <label class="field-label" for="expPackageId">Application ID (Package)</label>
+            <input type="text" id="expPackageId" class="input" value="com.port.iosapp" />
+          </div>
+          <div>
+            <label class="field-label" for="expVersionName">Versão (versionName)</label>
+            <input type="text" id="expVersionName" class="input" value="1.0.0" />
+          </div>
+          <div>
+            <label class="field-label" for="expMinSdk">Min SDK / Target SDK</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" id="expMinSdk" class="input" value="24" min="21" max="34" />
+              <input type="number" id="expTargetSdk" class="input" value="34" min="28" max="35" />
+            </div>
+          </div>
+          <div>
+            <label class="field-label" for="expOrientation">Orientação da Tela</label>
+            <select id="expOrientation" class="input">
+              <option value="sensorPortrait">Retrato (Portrait)</option>
+              <option value="sensorLandscape">Paisagem (Landscape)</option>
+              <option value="unspecified">Automática (Livre)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px; font-size:12.5px;">
+          <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+            <input type="checkbox" id="chkConvertCgbi" checked /> Converter PNGs CgBI → Android RGBA
+          </label>
+          <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+            <input type="checkbox" id="chkConvertCaf" checked /> Converter Áudios .CAF → Android .WAV
+          </label>
+          <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+            <input type="checkbox" id="chkIncludeCi" checked /> Incluir GitHub Actions CI (Compila .APK na nuvem)
+          </label>
+          <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+            <input type="checkbox" id="chkIncludeSigning" checked /> Assinatura automática (Keystore + Release APK no CI)
+          </label>
+          <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+            <input type="checkbox" id="chkIncludeBinaries" /> Incluir binário Mach-O bruto
+          </label>
+        </div>
+
+        <div class="actions-row" style="margin-top:0;">
+          <button class="btn btn-success" id="btnBuildAndroidZip">🤖 Gerar Projeto Alvo + CI (.zip)</button>
+          <button class="btn btn-primary" id="btnDownloadCiYaml">☁️ Baixar Apenas build-apk.yml</button>
+          <button class="btn" id="btnCopyCiYaml">📋 Copiar Workflow CI</button>
+        </div>
+
+        <div id="exportProgressWrap" class="hidden" style="margin-top:12px;">
+          <div style="font-size:11.5px; color:var(--text-1);" id="exportProgressText">Preparando projeto...</div>
+          <div class="progress-wrap"><div class="progress-bar" id="exportProgressBar"></div></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>2. IPA Remontado (Emulação Direta touchHLE Android)</h2>
+          <p style="font-size:12.5px; color:var(--text-1); margin-bottom:12px;">
+            Baixe o <code>.ipa</code> unificado a partir das partes enviadas. Para apps <strong>32-bit (armv7) descriptografados</strong>, você pode executar sem alterar nada diretamente no Android usando o emulador open-source <strong>touchHLE</strong>.
+          </p>
+          <button class="btn btn-primary" id="btnDownloadIpa" style="width:100%;">📦 Baixar .IPA Unificado</button>
+          <div id="touchHleHint" style="font-size:12px; color:var(--text-1); margin-top:12px;"></div>
+        </div>
+
+        <div class="card">
+          <h2>3. Blueprint Técnico Universal (Fases 1–5)</h2>
+          <p style="font-size:12.5px; color:var(--text-1); margin-bottom:12px;">
+            Resumo estruturado completo com <code>Info.plist</code>, motores/middlewares detectados, módulos de jogos, apps híbridos, inventário de conversão de assets e estratégia Android.
+          </p>
+          <button class="btn btn-purple" id="btnCopyBlueprint" style="width:100%;">📋 Copiar Blueprint para o Chat</button>
+          <button class="btn" id="btnDownloadBlueprint" style="width:100%; margin-top:8px;">💾 Baixar blueprint.json</button>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:16px;">
+        <div class="card">
+          <h2>
+            <span>Prévia do Workflow CI (<code>.github/workflows/build-apk.yml</code>)</span>
+            <span class="badge green">Compila APK sem instalar SDK</span>
+          </h2>
+          <p style="font-size:12px; color:var(--text-1); margin-bottom:8px;">
+            <strong>Como gerar o <code>.apk</code> em 2 minutos:</strong> extraia o ZIP gerado, envie para um repositório no GitHub (público ou privado), abra a aba <strong>Actions</strong> e baixe o artefato <code>app-debug.apk</code> / <code>app-release-signed.apk</code> pronto para instalar no celular.
+          </p>
+          <pre class="code-view" id="ciYamlPreview" style="max-height:360px;"></pre>
+        </div>
+
+        <div class="card">
+          <h2>Pré-visualização do Blueprint Técnico Universal</h2>
+          <pre class="code-view" id="blueprintPreview" style="max-height:390px;"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: CLICKTEAM FUSION APPLICATION.CCI DECONSTRUCTOR -->
+    <section id="panel-cci" class="panel">
+      <div class="app-hero" style="margin-bottom:14px;">
+        <div class="app-icon-box" style="font-size:28px;">🧩</div>
+        <div class="app-hero-info">
+          <h2 id="cciTitle">Clickteam Fusion Application.cci</h2>
+          <div style="font-family:var(--mono); font-size:12.5px; color:var(--text-1);" id="cciSubtitle">Aguardando análise de Application.cci...</div>
+          <div class="app-hero-meta" id="cciBadges"></div>
+        </div>
+        <div class="actions-row" style="margin-top:0;">
+          <button class="btn btn-purple" id="btnCopyCciBlueprint">📋 Copiar Blueprint do .CCI</button>
+          <button class="btn" id="btnDownloadCciBlueprint">💾 Baixar cci_blueprint.json</button>
+          <button class="btn btn-success" id="btnCciToAndroid">🤖 Exportar Android c/ .CCI</button>
+        </div>
+      </div>
+
+      <div class="subtabs" id="cciSubtabs">
+        <button class="subtab-btn active" data-sub="cci-summary">Resumo, Extensões & Save DLC</button>
+        <button class="subtab-btn" data-sub="cci-frames">Fases / Frames <span class="badge" id="cciFramesCount">0</span></button>
+        <button class="subtab-btn" data-sub="cci-objects">Objetos <span class="badge" id="cciObjectsCount">0</span></button>
+        <button class="subtab-btn" data-sub="cci-sprites">Sprites (ImageBank) <span class="badge" id="cciSpritesCount">0</span></button>
+        <button class="subtab-btn" data-sub="cci-sounds">Áudios (SoundBank) <span class="badge" id="cciSoundsCount">0</span></button>
+      </div>
+
+      <div id="sub-cci-summary" class="subpanel active">
+        <div class="grid-2">
+          <div class="card">
+            <h2>Cabeçalho & Propriedades do Jogo (.cci)</h2>
+            <table class="kv-table" id="cciHeaderTable"></table>
+            <h3 style="margin-top:14px;">Extensões Clickteam Exigidas (EXTENSIONS2)</h3>
+            <div class="tag-list" id="cciExtTags"></div>
+          </div>
+          <div class="card">
+            <h2>Save / DLC Detectado (.ini)</h2>
+            <pre class="code-view" id="cciSaveIniView" style="max-height:170px; margin-bottom:14px;">Nenhum arquivo .ini encontrado no Container.</pre>
+            <h3>Global Values & Global Strings Iniciais</h3>
+            <pre class="code-view" id="cciGlobalsView" style="max-height:180px;"></pre>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <h2>Mapa Completo de Chunks do Application.cci</h2>
+          <div class="table-scroll" style="max-height:280px;">
+            <table class="data-table">
+              <thead><tr><th>#</th><th>Chunk ID</th><th>Nome</th><th>Flags</th><th>Tamanho</th><th>Status</th></tr></thead>
+              <tbody id="cciChunksBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="sub-cci-frames" class="subpanel">
+        <div class="explorer-layout">
+          <div class="file-sidebar">
+            <div class="file-toolbar"><strong style="font-size:12.5px;">Fases / Telas (Frames)</strong></div>
+            <div class="file-list" id="cciFrameList"></div>
+          </div>
+          <div class="preview-pane">
+            <div class="preview-head">
+              <div>
+                <strong id="cciFrameTitle" style="font-size:13px;">Selecione um Frame</strong>
+                <div id="cciFrameMeta" style="font-size:11.5px; color:var(--text-1);">Resolução, cor de fundo, camadas e instâncias</div>
+              </div>
+            </div>
+            <div class="preview-body" id="cciFrameBody">
+              <p style="color:var(--text-2); font-size:13px;">Clique em qualquer Frame à esquerda para visualizar resolução, camadas, mapa visual de instâncias e eventos.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="sub-cci-objects" class="subpanel">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+            <h2 style="margin:0;">Catálogo de Objetos do Jogo (FRAMEITEMS / OI List)</h2>
+            <input type="text" id="cciObjSearch" class="input" style="max-width:300px;" placeholder="Filtrar objeto por nome ou tipo..." />
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead><tr><th>Handle</th><th>Tipo</th><th>Nome do Objeto</th><th>Flags</th><th>Sub-chunks</th></tr></thead>
+              <tbody id="cciObjectsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="sub-cci-sprites" class="subpanel">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+            <div>
+              <h2 style="margin:0;">ImageBank — Sprites Extraídos do Application.cci</h2>
+              <div id="cciSpritesInfo" style="font-size:12px; color:var(--text-1); margin-top:4px;"></div>
+            </div>
+            <div class="actions-row" style="margin:0;">
+              <button class="btn btn-sm btn-primary" id="btnExtractAllSprites">🖼️ Decodificar Todos (até 300)</button>
+              <button class="btn btn-sm btn-success" id="btnDownloadSpritesZip" disabled>⬇️ Baixar Sprites (.zip)</button>
+            </div>
+          </div>
+          <div class="sprite-grid" id="cciSpriteGrid"></div>
+        </div>
+      </div>
+
+      <div id="sub-cci-sounds" class="subpanel">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+            <div>
+              <h2 style="margin:0;">SoundBank & MusicBank — Áudios Extraídos do Application.cci</h2>
+              <div id="cciSoundsInfo" style="font-size:12px; color:var(--text-1); margin-top:4px;"></div>
+            </div>
+            <button class="btn btn-sm btn-success" id="btnDownloadSoundsZip" disabled>⬇️ Baixar Áudios (.zip)</button>
+          </div>
+          <div id="cciSoundList" class="part-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5B: SPECIALIZED GAME ENGINE DECONSTRUCTORS (PHASE 4.3.3 - 4.3.4) -->
+    <section id="panel-gameengines" class="panel">
+      <div class="app-hero" style="margin-bottom:14px;">
+        <div class="app-icon-box" style="font-size:28px;">🎮</div>
+        <div class="app-hero-info">
+          <h2 id="geHeroTitle">Desconstrutores de Motores de Jogos</h2>
+          <div style="font-family:var(--mono); font-size:12.5px; color:var(--text-1);" id="geHeroSub">Godot .pck, GameMaker game.ios, Unity Data/, Cocos2d .plist/.tmx, LÖVE, Solar2D, RPG Maker, Ren'Py, Defold, Unreal, AIR, MonoGame, Buildbox</div>
+          <div class="app-hero-meta" id="geHeroBadges"></div>
+        </div>
+        <div class="actions-row" style="margin-top:0;">
+          <button class="btn btn-purple" id="btnCopyGeBlueprint">📋 Copiar Blueprint de Jogos</button>
+          <button class="btn" id="btnDownloadGeBlueprint">💾 Baixar games_blueprint.json</button>
+        </div>
+      </div>
+
+      <div id="geModulesNav" class="ge-pill-tabs"></div>
+      <div id="geModuleContent">
+        <div class="callout">Carregue um <code>.ipa</code> de jogo para ativar automaticamente os desconstrutores compatíveis com os arquivos detectados no pacote.</div>
+      </div>
+    </section>
+
+    <!-- TAB 5C: HYBRID & CROSS-PLATFORM MOBILE APPS DECONSTRUCTORS (PHASE 4.3.5 - 4.3.6) -->
+    <section id="panel-crossapps" class="panel">
+      <div class="app-hero" style="margin-bottom:14px;">
+        <div class="app-icon-box" style="font-size:28px;">📱</div>
+        <div class="app-hero-info">
+          <h2 id="caHeroTitle">Desconstrutores de Apps Híbridos & Multiplataforma</h2>
+          <div style="font-family:var(--mono); font-size:12.5px; color:var(--text-1);" id="caHeroSub">Cordova / Ionic / Capacitor / HTML5 • React Native / Expo / Hermes (.hbc) • Flutter (flutter_assets &amp; NOTICES.Z) • Xamarin / .NET MAUI (.dll) • NativeScript • KMP • Qt • Python • Uni-app</div>
+          <div class="app-hero-meta" id="caHeroBadges"></div>
+        </div>
+        <div class="actions-row" style="margin-top:0;">
+          <button class="btn btn-purple" id="btnCopyCaBlueprint">📋 Copiar Blueprint Híbrido</button>
+          <button class="btn" id="btnDownloadCaBlueprint">💾 Baixar hybrid_blueprint.json</button>
+        </div>
+      </div>
+
+      <div id="caModulesNav" class="ge-pill-tabs"></div>
+      <div id="caModuleContent">
+        <div class="callout">Carregue um <code>.ipa</code> híbrido ou multiplataforma (Cordova, Capacitor, React Native, Flutter, Xamarin/.NET MAUI, NativeScript, KMP, Qt ou Python) para ativar automaticamente os desconstrutores.</div>
+      </div>
+    </section>
+
+    <!-- TAB 5D: UNIVERSAL ASSET CONVERTER iOS -> ANDROID (PHASE 4.2) -->
+    <section id="panel-assetsconv" class="panel">
+      <div class="app-hero" style="margin-bottom:14px;">
+        <div class="app-icon-box" style="font-size:28px;">🎨</div>
+        <div class="app-hero-info">
+          <h2 id="acHeroTitle">Conversor Universal de Assets iOS → Android (Fase 4)</h2>
+          <div style="font-family:var(--mono); font-size:12.5px; color:var(--text-1);" id="acHeroSub">PNG Apple CgBI → RGBA • Áudio .caf → .wav • Recorte de Atlas .plist → PNGs • Texturas PVR/CCZ/KTX • Shaders &amp; Saves</div>
+          <div class="app-hero-meta" id="acHeroBadges"></div>
+        </div>
+        <div class="actions-row" style="margin-top:0;">
+          <button class="btn btn-success" id="btnAcExportAllBundle">📦 Exportar Pacote Android de Assets (.zip)</button>
+        </div>
+      </div>
+
+      <div id="acModulesNav" class="ge-pill-tabs"></div>
+      <div id="acModuleContent">
+        <div class="callout">Carregue um <code>.ipa</code> para escanear e converter automaticamente PNGs CgBI, áudios <code>.caf</code>, spritesheets <code>.plist</code>, texturas <code>PVR/CCZ/KTX</code>, shaders e saves para o padrão Android.</div>
+      </div>
+    </section>
+
+    <!-- TAB 6: UNIVERSAL ENGINE CATALOG & ROADMAP -->
+    <section id="panel-catalog" class="panel">
+      <div class="roadmap-strip">
+        <div class="phase-step done">
+          <strong>✅ Fase 4.1 &amp; 4.2 — Núcleo + Conversor Assets</strong>
+          <span>39 motores + 15 middlewares, Mach-O/DRM, CgBI → RGBA em lote, .CAF → .WAV, recorte de atlas .PLIST e texturas PVR/KTX.</span>
+        </div>
+        <div class="phase-step done">
+          <strong>✅ Fase 4.3 (1–2/6) — Clickteam .cci</strong>
+          <span>PAMU/PAME, chunks, extensões, globais, Frames (mapa visual), Objetos, ImageBank e SoundBank completos.</span>
+        </div>
+        <div class="phase-step done">
+          <strong>✅ Fase 4.3 (3–4/6) — Todos Motores de Jogos</strong>
+          <span>Godot .pck, GameMaker game.ios, Unity Data/IL2CPP, Cocos2d, LÖVE, Solar2D, RPG Maker, Ren'Py, Unreal, Defold, AIR e Buildbox.</span>
+        </div>
+        <div class="phase-step done">
+          <strong>✅ Fase 5 — Exportador Multi-Alvo + CI APK</strong>
+          <span>Ativo na Aba 4: 5 geradores Android (Android Studio, Godot 4, Capacitor, Flutter/RN, Compose) + GitHub Actions CI para compilar e assinar o APK na nuvem.</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>
+          <span>Catálogo Universal de Motores & Frameworks usados em IPAs (39 Motores + 15 Middlewares)</span>
+          <span class="badge blue" id="catalogShownCount">39 exibidos</span>
+        </h2>
+
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+          <div class="filter-row" id="catalogCategoryChips">
+            <button class="chip active" data-cat="all">Todos (39)</button>
+            <button class="chip" data-cat="game">Motores de Jogos (21)</button>
+            <button class="chip" data-cat="crossapp">Apps Multiplataforma / Híbridos (11)</button>
+            <button class="chip" data-cat="native">Nativos Apple (7)</button>
+            <button class="chip" data-cat="detected">Detectados no IPA Atual</button>
+          </div>
+          <input type="text" id="catalogSearch" class="input" style="max-width:300px;" placeholder="Buscar motor, extensão (.pck, .cci, dll)..." />
+        </div>
+
+        <div class="engine-grid" id="catalogGrid"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Middlewares, Áudio, Animação 2D, Física & Bancos Detectados em IPAs (15 Subsistemas)</h2>
+        <div class="engine-grid" id="middlewareGrid"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // =========================================================================
+    // 0. UNIVERSAL iOS IPA ENGINE & FRAMEWORK DATABASE (39 + 15)
+    // =========================================================================
+    const UNIVERSAL_ENGINES = [
+      { id: 'unity', name: 'Unity Engine (Mono / IL2CPP)', category: 'game', portability: 'Alta (Extração + Recompilação)', portLevel: 'high', phase: 'Fase 4.3.4', androidTarget: 'Unity Android / AssetRipper → APK', desc: 'Motor 2D/3D dominante em iOS. Contém cenas/assets em Data/ e lógica em Managed/*.dll (Mono) ou global-metadata.dat + UnityFramework (IL2CPP).', signatures: { paths: [/data\/managed\/.*\.dll$/i, /global-metadata\.dat$/i, /unity default resources$/i, /sharedassets\d+\.assets/i, /unityframework\.framework/i, /data\/level0$/i], dylibs: [/UnityFramework/i], strings: ['UnityEngine', 'il2cpp_init', 'UnityAppController', 'UnitySendMessage'], plistKeys: [] }, sigText: 'Data/sharedassets*, global-metadata.dat, Data/Managed/*.dll, UnityFramework' },
+      { id: 'unreal', name: 'Unreal Engine (UE3 / UE4 / UE5)', category: 'game', portability: 'Média (Extração .pak + Reconstrução)', portLevel: 'med', phase: 'Fase 4.3.4', androidTarget: 'Unreal Android / Extração .pak', desc: 'Jogos 3D AAA/AA empacotados em arquivos .pak / .utoc / .ucas (UE4/5) ou .upk / cookeddata (UE3).', signatures: { paths: [/\.pak$/i, /\.utoc$/i, /\.ucas$/i, /cookeddata\//i, /ue4commandline\.txt$/i, /engine\/content\//i, /\.upk$/i], dylibs: [], strings: ['FEngineLoop', 'UObjectBase', 'UnrealEngine', 'UE4Game', 'IOSAppDelegate'], plistKeys: [] }, sigText: '*.pak, *.utoc, *.ucas, cookeddata/, ue4commandline.txt, FEngineLoop' },
+      { id: 'godot', name: 'Godot Engine (3.x / 4.x)', category: 'game', portability: 'Direta 1:1 (Extração .pck → Godot APK)', portLevel: 'direct', phase: 'Fase 4.3.3', androidTarget: 'Godot 3/4 Exportador Android APK', desc: 'Todos os scripts GDScript, cenas (.tscn/.scn) e recursos ficam empacotados dentro de um arquivo .pck legível e reexportável para Android.', signatures: { paths: [/\.pck$/i, /moltenvk\.framework/i], dylibs: [/MoltenVK/i], strings: ['GDPC', 'GodotEngine', 'GDScript', 'godot_ios', 'OS_IOS'], plistKeys: [] }, sigText: '*.pck (header GDPC), GodotEngine, GDScript, MoltenVK' },
+      { id: 'clickteam', name: 'Clickteam Fusion (MMF2 / CF2.5)', category: 'game', portability: 'Alta (Parser .cci Ativo!)', portLevel: 'high', phase: 'Ativo (Aba 5)', androidTarget: 'Runtime Canvas/Godot/CF2.5 Android', desc: 'Separa a runtime iOS do arquivo Application.cci (PAMU/PAME), onde residem frames, sprites, sons, objetos e tabela de eventos.', signatures: { paths: [/application\.cci$/i, /defaultellipse\.fsh$/i, /gradientellipse\.fsh$/i], dylibs: [], strings: ['CRunApp', 'CRunFrame', 'Clickteam', 'CImageBank', 'y_InitLevel'], plistKeys: [] }, sigText: 'Application.cci (PAMU/PAME), CRunApp, CImageBank, defaultEllipse.fsh' },
+      { id: 'cocos', name: 'Cocos2d / Cocos2d-x / Cocos Creator', category: 'game', portability: 'Alta (Assets + JS/Lua/C++)', portLevel: 'high', phase: 'Fase 4.3.4', androidTarget: 'Cocos Creator / Cocos2d-x / Canvas Android', desc: 'Engine 2D clássica e moderna. Usa spritesheets .plist + .png/.pvr.ccz, mapas .tmx e scripts JS (Creator) ou Lua.', signatures: { paths: [/\.pvr\.ccz$/i, /\.ccz$/i, /\.tmx$/i, /jsb-adapter\//i, /src\/project\.js$/i, /cocos2d-js/i, /\.jsc$/i], dylibs: [], strings: ['CCDirector', 'cocos2d::Director', 'CCSpriteFrameCache', 'se::ScriptEngine', 'jsb_'], plistKeys: [] }, sigText: '*.pvr.ccz, *.tmx, jsb-adapter/, CCDirector, CCSpriteFrameCache' },
+      { id: 'gamemaker', name: 'GameMaker (GM:S 1.4 / 2 / LTS)', category: 'game', portability: 'Alta (IFF game.ios → Android)', portLevel: 'high', phase: 'Fase 4.3.3', androidTarget: 'GameMaker Android / Extrator FORM IFF', desc: 'Armazena sprites, rooms, sons, fontes e bytecode GML/VM no contêiner IFF game.ios (assinatura FORM).', signatures: { paths: [/game\.ios$/i, /audiogroup\d+\.dat$/i, /options\.ini$/i], dylibs: [], strings: ['YoYoGames', 'YYG_RUNNER', 'RunnerAppDelegate', 'GM_Runner'], plistKeys: [] }, sigText: 'game.ios (FORM IFF), audiogroup*.dat, YoYoGames, RunnerAppDelegate' },
+      { id: 'defold', name: 'Defold Engine', category: 'game', portability: 'Alta (game.arcd + Lua)', portLevel: 'high', phase: 'Fase 4.3.4', androidTarget: 'Defold Android / Extrator .arcd', desc: 'Motor leve 2D/3D em Lua/C++. Empacota recursos em game.arcd, game.arci e game.dmanifest.', signatures: { paths: [/game\.arcd$/i, /game\.arci$/i, /game\.dmanifest$/i, /game\.projectc$/i], dylibs: [], strings: ['dmEngine', 'Defold', 'dmScript'], plistKeys: [] }, sigText: 'game.arcd, game.arci, game.dmanifest, dmEngine' },
+      { id: 'solar2d', name: 'Solar2D / Corona SDK', category: 'game', portability: 'Direta 1:1 (resource.car Lua)', portLevel: 'direct', phase: 'Fase 4.3.4', androidTarget: 'Solar2D Android APK', desc: 'Framework 2D em Lua. Compila scripts Lua no arquivo resource.car junto com assets soltos no bundle.', signatures: { paths: [/resource\.car$/i, /corona_.*\.lua/i], dylibs: [/CoronaCards/i], strings: ['CoronaRuntime', 'Rtt_LuaContext', 'CoronaSDK', 'Solar2D'], plistKeys: [] }, sigText: 'resource.car, CoronaRuntime, Rtt_LuaContext' },
+      { id: 'love2d', name: 'LÖVE (Love2D)', category: 'game', portability: 'Direta 1:1 (.love Lua → APK)', portLevel: 'direct', phase: 'Fase 4.3.4', androidTarget: 'LÖVE for Android APK', desc: 'Todo o código-fonte Lua e assets ficam dentro de um arquivo ZIP .love (ou pasta game.love) executável no LÖVE Android.', signatures: { paths: [/\.love$/i, /main\.lua$/i], dylibs: [], strings: ['love.graphics', 'love.filesystem', 'org.love2d'], plistKeys: [] }, sigText: '*.love, main.lua, love.graphics, org.love2d' },
+      { id: 'rpgmaker', name: 'RPG Maker MV / MZ', category: 'game', portability: 'Direta 1:1 (HTML5/JS → WebView APK)', portLevel: 'direct', phase: 'Fase 4.3.4', androidTarget: 'Android WebView / Capacitor APK', desc: 'Jogos RPG baseados em PixiJS + HTML5/JS (www/js/rpg_core.js, www/data/System.json), portáveis diretamente para APK.', signatures: { paths: [/js\/rpg_core\.js$/i, /js\/rmmz_core\.js$/i, /data\/system\.json$/i, /data\/mapinfos\.json$/i], dylibs: [], strings: ['SceneManager', 'RPG Maker', 'rpg_core', 'rmmz_core'], plistKeys: [] }, sigText: 'js/rpg_core.js, js/rmmz_core.js, data/System.json, data/MapInfos.json' },
+      { id: 'renpy', name: 'Ren\'Py Visual Novel Engine', category: 'game', portability: 'Direta 1:1 (.rpa / scripts → Android)', portLevel: 'direct', phase: 'Fase 4.3.4', androidTarget: 'Ren\'Py Android Build / Web', desc: 'Motor de visual novels em Python/SDL2 com arquivos game/*.rpa, *.rpyc e imagens/áudios portáveis diretamente.', signatures: { paths: [/\.rpa$/i, /\.rpyc$/i, /renpy\/common\//i], dylibs: [], strings: ['renpy.bootstrap', 'Ren\'Py', 'pyobjus'], plistKeys: [] }, sigText: '*.rpa, *.rpyc, renpy/common/, renpy.bootstrap' },
+      { id: 'construct', name: 'Construct 2 / Construct 3', category: 'game', portability: 'Direta 1:1 (HTML5 → WebView APK)', portLevel: 'direct', phase: 'Fase 4.3.5', androidTarget: 'Android WebView / Cordova APK', desc: 'Jogos HTML5/Canvas empacotados via Cordova com c2runtime.js / c3runtime.js e data.json.', signatures: { paths: [/c2runtime\.js$/i, /c3runtime\.js$/i, /scripts\/c3main\.js$/i, /www\/data\.json$/i], dylibs: [], strings: ['cr_createRuntime', 'C3Runtime', 'Scirra'], plistKeys: [] }, sigText: 'c2runtime.js, c3runtime.js, www/data.json, Scirra' },
+      { id: 'gdevelop', name: 'GDevelop', category: 'game', portability: 'Direta 1:1 (HTML5/PixiJS → APK)', portLevel: 'direct', phase: 'Fase 4.3.5', androidTarget: 'Android WebView / Capacitor APK', desc: 'Motor 2D open-source exportado como HTML5 (gd.js, gdjs-evtsext*, data.js).', signatures: { paths: [/www\/gd\.js$/i, /gdjs-evtsext/i, /pixi-renderers\//i], dylibs: [], strings: ['gdjs.RuntimeGame', 'GDevelop'], plistKeys: [] }, sigText: 'www/gd.js, gdjs-evtsext*, gdjs.RuntimeGame' },
+      { id: 'adobeair', name: 'Adobe AIR / Flash (SWF)', category: 'game', portability: 'Média (SWF / Ruffle / AIR Android)', portLevel: 'med', phase: 'Fase 4.3.4', androidTarget: 'Harman AIR Android / Ruffle WebView', desc: 'Aplicativos e jogos ActionScript 3 empacotados com META-INF/AIR/application.xml e assets SWF/ATF.', signatures: { paths: [/meta-inf\/air\/application\.xml$/i, /\.swf$/i, /\.atf$/i], dylibs: [], strings: ['AdobeAIR', 'CTAppController', 'flash.display', 'ActionScript'], plistKeys: [] }, sigText: 'META-INF/AIR/application.xml, *.swf, *.atf, AdobeAIR' },
+      { id: 'monogame', name: 'MonoGame / XNA / FNA', category: 'game', portability: 'Alta (Content .xnb + .NET/C#)', portLevel: 'high', phase: 'Fase 4.3.4', androidTarget: 'MonoGame Android (.NET)', desc: 'Motor C# baseado na API XNA com assets compilados .xnb e bibliotecas Mono/Xamarin.', signatures: { paths: [/\.xnb$/i, /monogame\.framework\.dll/i], dylibs: [], strings: ['MonoGame', 'Microsoft.Xna.Framework', 'iOSGamePlatform'], plistKeys: [] }, sigText: '*.xnb, MonoGame.Framework.dll, Microsoft.Xna.Framework' },
+      { id: 'libgdx', name: 'libGDX (RoboVM / Multi-OS Engine)', category: 'game', portability: 'Alta (Assets + Java/Kotlin)', portLevel: 'high', phase: 'Fase 4.3.4', androidTarget: 'libGDX Android Nativo', desc: 'Framework Java/Kotlin portado para iOS via RoboVM. Assets em assets/ (atlas, .fnt, .tmx, .json) compatíveis diretamente com Android.', signatures: { paths: [/robovm/i, /\.atlas$/i, /com\.badlogic\.gdx/i], dylibs: [], strings: ['com/badlogic/gdx', 'RoboVM', 'IOSApplication', 'libgdx'], plistKeys: [] }, sigText: 'com/badlogic/gdx, RoboVM, *.atlas, IOSApplication' },
+      { id: 'openfl', name: 'OpenFL / Haxe / Lime / Stencyl', category: 'game', portability: 'Média-Alta (Assets + Haxe)', portLevel: 'med', phase: 'Fase 4.3.4', androidTarget: 'OpenFL/Lime Android / Canvas', desc: 'Jogos compilados de Haxe para C++ (HXCPP) usando Lime/OpenFL ou Stencyl.', signatures: { paths: [/assets\/manifest\/default\.json$/i, /stencyl/i], dylibs: [], strings: ['lime_application', 'openfl::display', 'hxcpp', 'Stencyl'], plistKeys: [] }, sigText: 'assets/manifest/default.json, lime_application, hxcpp, Stencyl' },
+      { id: 'marmalade', name: 'Marmalade SDK / Airplay SDK', category: 'game', portability: 'Baixa-Média (Assets .dz + Emulação)', portLevel: 'low', phase: 'Ativo (Aba 5D)', androidTarget: 'touchHLE (32-bit) / Extração .dz', desc: 'SDK C++ muito comum em jogos iOS clássicos (2009–2016). Usa arquivos .icf, .group.bin e arquivos .dz (Derbh).', signatures: { paths: [/app\.icf$/i, /\.dz$/i, /\.group\.bin$/i], dylibs: [], strings: ['s3eDevice', 'IwGx', 'Marmalade', 'AirplaySDK'], plistKeys: [] }, sigText: 'app.icf, *.dz, *.group.bin, s3eDevice, IwGx' },
+      { id: 'buildbox', name: 'Buildbox (2 / 3)', category: 'game', portability: 'Média (data/PTModel* + Assets)', portLevel: 'med', phase: 'Fase 4.3.4', androidTarget: 'Extração PTModel + Canvas/Godot', desc: 'Motor no-code/low-code iOS que armazena cenas e lógica em arquivos data/PTModel*.xml/plist e atlases PNG.', signatures: { paths: [/ptmodel.*\.xml$/i, /data\/ptmodel/i, /ptplayer/i], dylibs: [], strings: ['PTPlayer', 'PTModelController', 'Buildbox', 'PTPAppDelegate'], plistKeys: [] }, sigText: 'data/PTModel*, PTPlayer, PTPAppDelegate' },
+      { id: 'appgamekit', name: 'AppGameKit (AGK / AGK Studio)', category: 'game', portability: 'Alta (bytecode.byc → AGK Android)', portLevel: 'high', phase: 'Fase 4.3.4', androidTarget: 'AppGameKit Player Android', desc: 'Armazena o jogo compilado em media/bytecode.byc + pasta media/, portátil para a runtime Android do AGK.', signatures: { paths: [/media\/bytecode\.byc$/i, /bytecode\.byc$/i], dylibs: [], strings: ['AGK::agk', 'AppGameKit', 'agk_interpreter'], plistKeys: [] }, sigText: 'media/bytecode.byc, AGK::agk, AppGameKit' },
+      { id: 'html5game', name: 'HTML5 Game (Phaser / PixiJS / Three.js / ImpactJS)', category: 'game', portability: 'Direta 1:1 (WebView APK)', portLevel: 'direct', phase: 'Fase 4.3.5', androidTarget: 'Android WebView / Capacitor APK', desc: 'Jogos em JavaScript/WebGL/Canvas empacotados em WebView iOS. Podem rodar 1:1 no Android WebView.', signatures: { paths: [/phaser(\.min)?\.js$/i, /pixi(\.min)?\.js$/i, /three(\.min)?\.js$/i, /impact\.js$/i], dylibs: [], strings: ['Phaser.Game', 'PIXI.Application', 'THREE.WebGLRenderer'], plistKeys: [] }, sigText: 'phaser.js, pixi.js, three.js, impact.js' },
+      { id: 'flutter', name: 'Flutter (Dart / Skia / Impeller)', category: 'crossapp', portability: 'Média (Assets + Dart AOT Snapshot)', portLevel: 'med', phase: 'Fase 4.3.6', androidTarget: 'Flutter Android (Assets + Reconstrução)', desc: 'Apps Dart compilados AOT em App.framework + Flutter.framework, com todos os recursos em flutter_assets/AssetManifest.json.', signatures: { paths: [/flutter\.framework/i, /app\.framework\/flutter_assets\//i, /flutter_assets\/assetmanifest/i, /kernel_blob\.bin$/i], dylibs: [/Flutter\.framework/i, /App\.framework/i], strings: ['FlutterEngine', 'io.flutter', 'Dart_Initialize', '_kDartIsolateSnapshotData'], plistKeys: ['FLTEnableImpeller'] }, sigText: 'Flutter.framework, App.framework/flutter_assets/, AssetManifest.json' },
+      { id: 'reactnative', name: 'React Native (JS / Hermes / Expo)', category: 'crossapp', portability: 'Alta (main.jsbundle / Hermes → RN Android)', portLevel: 'high', phase: 'Fase 4.3.5', androidTarget: 'React Native / Expo Android APK', desc: 'Lógica em JavaScript (main.jsbundle) ou bytecode Hermes (.hbc) + assets/, permitindo forte reaproveitamento em RN Android.', signatures: { paths: [/main\.jsbundle$/i, /hermes\.framework/i, /expo/i, /assets\/app\.json$/i], dylibs: [/hermes/i], strings: ['RCTBridge', 'RCTRootView', 'Hermes', '__fbBatchedBridge', 'EXAppDelegate'], plistKeys: [] }, sigText: 'main.jsbundle, hermes.framework, RCTBridge, RCTRootView' },
+      { id: 'cordova', name: 'Apache Cordova / PhoneGap', category: 'crossapp', portability: 'Direta 1:1 (www/ → Android WebView APK)', portLevel: 'direct', phase: 'Fase 4.3.5', androidTarget: 'Cordova / Android WebView APK', desc: 'Aplicativo web completo em www/index.html + config.xml + cordova.js. Conversão quase direta para Android APK.', signatures: { paths: [/www\/cordova\.js$/i, /www\/cordova_plugins\.js$/i, /config\.xml$/i, /www\/index\.html$/i], dylibs: [/Cordova/i], strings: ['CDVViewController', 'CDVPlugin', 'CDVAppDelegate'], plistKeys: [] }, sigText: 'www/index.html, www/cordova.js, config.xml, CDVViewController' },
+      { id: 'capacitor', name: 'Ionic / Capacitor', category: 'crossapp', portability: 'Direta 1:1 (public/ → Capacitor Android)', portLevel: 'direct', phase: 'Fase 4.3.5', androidTarget: 'Capacitor Android APK', desc: 'Sucessor moderno do Cordova com capacitor.config.json e pasta public/index.html. Portabilidade direta para Android.', signatures: { paths: [/capacitor\.config\.json$/i, /capacitor\.framework/i, /public\/index\.html$/i], dylibs: [/Capacitor/i], strings: ['CAPBridgeViewController', 'Capacitor', 'Ionic'], plistKeys: [] }, sigText: 'capacitor.config.json, public/index.html, CAPBridgeViewController' },
+      { id: 'xamarin', name: 'Xamarin.iOS / .NET MAUI', category: 'crossapp', portability: 'Alta (Assemblies .dll/.NET → MAUI Android)', portLevel: 'high', phase: 'Fase 4.3.6', androidTarget: '.NET MAUI / Xamarin.Android APK', desc: 'Apps C#/.NET que contêm metadados/assemblies .dll (ou .aotdata) e runtime Mono.', signatures: { paths: [/xamarin\.ios\.dll$/i, /microsoft\.maui/i, /\.aotdata\./i, /mscorlib\.dll$/i], dylibs: [/libmonosgen/i], strings: ['xamarin_main', 'mono_jit_init', 'Xamarin.Forms', 'Microsoft.Maui'], plistKeys: [] }, sigText: 'Xamarin.iOS.dll, Microsoft.Maui*, *.aotdata.*, xamarin_main' },
+      { id: 'nativescript', name: 'NativeScript', category: 'crossapp', portability: 'Alta (app/*.js → NativeScript Android)', portLevel: 'high', phase: 'Fase 4.3.6', androidTarget: 'NativeScript Android APK', desc: 'Apps JS/TS que chamam APIs nativas com bundle em app/bundle.js e NativeScript.framework.', signatures: { paths: [/nativescript\.framework/i, /app\/bundle\.js$/i, /app\/package\.json$/i], dylibs: [/NativeScript/i], strings: ['TNSRuntime', 'NativeScript'], plistKeys: [] }, sigText: 'NativeScript.framework, app/bundle.js, TNSRuntime' },
+      { id: 'kmp', name: 'Kotlin Multiplatform (KMP / Compose)', category: 'crossapp', portability: 'Alta (Lógica Kotlin compartilhada)', portLevel: 'high', phase: 'Fase 4.3.6', androidTarget: 'Android Kotlin / Jetpack Compose', desc: 'Lógica de negócio escrita em Kotlin/Native compilada como Framework iOS (compose-resources / Skiko).', signatures: { paths: [/compose-resources\//i, /shared\.framework/i], dylibs: [/Shared\.framework/i], strings: ['Kotlin_initRuntimeIfNeeded', 'org.jetbrains.skiko', 'ComposeUIViewController'], plistKeys: [] }, sigText: 'compose-resources/, Kotlin_initRuntimeIfNeeded, ComposeUIViewController' },
+      { id: 'qt', name: 'Qt for iOS (C++ / QML)', category: 'crossapp', portability: 'Média (QML/Assets + Qt Android)', portLevel: 'med', phase: 'Fase 4.3.6', androidTarget: 'Qt for Android APK', desc: 'Aplicações C++/QML compiladas com QtCore/QtQuick/QtGui.', signatures: { paths: [/qt_qml\//i, /\.qml$/i, /\.rcc$/i], dylibs: [/QtCore/i, /QtGui/i, /QtQuick/i], strings: ['QApplication', 'QQmlApplicationEngine', 'qt_ios'], plistKeys: [] }, sigText: '*.qml, *.rcc, QApplication, QQmlApplicationEngine' },
+      { id: 'python_mobile', name: 'Kivy / BeeWare (Python iOS)', category: 'crossapp', portability: 'Direta 1:1 (Scripts .py/.pyc → Buildozer/Briefcase)', portLevel: 'direct', phase: 'Fase 4.3.6', androidTarget: 'Kivy Buildozer / BeeWare Android APK', desc: 'Apps Python empacotados com pasta YourApp/main.py ou lib/python3.*/site-packages.', signatures: { paths: [/lib\/python\d/i, /site-packages\//i, /\.kv$/i, /main\.py$/i], dylibs: [/Python\.framework/i], strings: ['Py_Initialize', 'kivy', 'rubicon.objc', 'toga_iOS'], plistKeys: [] }, sigText: 'lib/python*, *.kv, main.py, Py_Initialize, kivy' },
+      { id: 'rubymotion', name: 'RubyMotion', category: 'crossapp', portability: 'Baixa (Compilado AOT)', portLevel: 'low', phase: 'Ativo (Aba 5D)', androidTarget: 'Extração de Assets + Reescrita', desc: 'Apps escritos em Ruby compilados nativamente para Mach-O via LLVM.', signatures: { paths: [], dylibs: [], strings: ['rb_vm_dispatch', 'RubyMotion', 'macruby'], plistKeys: [] }, sigText: 'rb_vm_dispatch, RubyMotion' },
+      { id: 'uniapp', name: 'Uni-app / Weex / Lynx / Mini-App', category: 'crossapp', portability: 'Alta (Pacote JS/Vue/HTML → Android)', portLevel: 'high', phase: 'Fase 4.3.6', androidTarget: 'Uni-app / WebView Android APK', desc: 'Contêineres híbridos baseados em JS/Vue (Pandora/apps/, weex, lynx) amplamente usados em apps asiáticos.', signatures: { paths: [/pandora\/apps\//i, /weexsdk/i, /lynx\.framework/i, /app-service\.js$/i], dylibs: [/WeexSDK/i, /Lynx/i], strings: ['WXSDKEngine', 'DCUniMP', 'LynxView'], plistKeys: [] }, sigText: 'Pandora/apps/, WXSDKEngine, DCUniMP, LynxView' },
+      { id: 'spritekit', name: 'Apple SpriteKit (2D Nativo)', category: 'native', portability: 'Média (Cenas .sks + Assets → Godot/Canvas)', portLevel: 'med', phase: 'Ativo (Aba 5D)', androidTarget: 'Godot 4 / HTML5 Canvas Android', desc: 'Motor 2D nativo da Apple com cenas serializadas .sks, atlases .atlasc e física Box2D integrada.', signatures: { paths: [/\.sks$/i, /\.atlasc\//i], dylibs: [/SpriteKit/i], strings: ['SKScene', 'SKSpriteNode', 'SKAction', 'SKTextureAtlas'], plistKeys: [] }, sigText: 'SpriteKit.framework, *.sks, *.atlasc/, SKScene' },
+      { id: 'scenekit', name: 'Apple SceneKit (3D Nativo)', category: 'native', portability: 'Média (Modelos .scn/.dae + Assets)', portLevel: 'med', phase: 'Ativo (Aba 5D)', androidTarget: 'Godot 4 / Three.js / Filament Android', desc: 'Motor 3D nativo da Apple baseado em grafos de cena (.scn, .scnassets, .dae).', signatures: { paths: [/\.scn$/i, /\.scnassets\//i, /\.dae$/i], dylibs: [/SceneKit/i], strings: ['SCNScene', 'SCNNode', 'SCNView'], plistKeys: [] }, sigText: 'SceneKit.framework, *.scn, *.scnassets/, SCNScene' },
+      { id: 'realitykit', name: 'Apple RealityKit / ARKit', category: 'native', portability: 'Baixa-Média (Modelos .usdz/.reality → ARCore)', portLevel: 'low', phase: 'Ativo (Aba 5D)', androidTarget: 'ARCore / SceneView Android', desc: 'Experiências de Realidade Aumentada com ativos 3D .usdz e .reality exclusivos da Apple.', signatures: { paths: [/\.usdz$/i, /\.reality$/i], dylibs: [/ARKit/i, /RealityKit/i], strings: ['ARSession', 'ARWorldTrackingConfiguration', 'RealityKit'], plistKeys: [] }, sigText: 'ARKit/RealityKit.framework, *.usdz, *.reality' },
+      { id: 'metal', name: 'Apple Metal (GPU Nativo)', category: 'native', portability: 'Baixa (Shaders .metallib → Vulkan/GLES)', portLevel: 'low', phase: 'Ativo (Aba 5D)', androidTarget: 'Vulkan / OpenGL ES Android', desc: 'API gráfica de baixo nível da Apple usando shaders pré-compilados default.metallib.', signatures: { paths: [/\.metallib$/i], dylibs: [/Metal\.framework/i, /MetalKit/i], strings: ['MTLCreateSystemDefaultDevice', 'MTKView'], plistKeys: [] }, sigText: 'Metal.framework, default.metallib, MTKView' },
+      { id: 'opengles', name: 'OpenGL ES / EAGL (C/C++/Obj-C Nativo)', category: 'native', portability: 'Baixa-Média (touchHLE 32-bit ou SDL2/NDK)', portLevel: 'med', phase: 'Ativo (Aba 5D)', androidTarget: 'touchHLE (32-bit) ou Android NDK + OpenGL ES', desc: 'Jogos e apps gráficos clássicos com shaders .vsh/.fsh e EAGLContext. Apps 32-bit descriptografados são candidatos ao touchHLE.', signatures: { paths: [/\.fsh$/i, /\.vsh$/i, /\.glsl$/i], dylibs: [/OpenGLES/i, /GLKit/i], strings: ['EAGLContext', 'CAEAGLLayer', 'glDrawArrays'], plistKeys: [] }, sigText: 'OpenGLES.framework, *.vsh, *.fsh, EAGLContext' },
+      { id: 'swiftui', name: 'Apple SwiftUI (Nativo Moderno)', category: 'native', portability: 'Baixa (Assets + Reescrita Jetpack Compose)', portLevel: 'low', phase: 'Fase 5.5', androidTarget: 'Kotlin + Jetpack Compose', desc: 'Interface declarativa moderna da Apple em Swift. Assets (.car/PNG/Strings) são reaproveitáveis em Jetpack Compose.', signatures: { paths: [/assets\.car$/i], dylibs: [/SwiftUI/i, /libswiftCore/i], strings: ['SwiftUI', 'UIHostingController'], plistKeys: [] }, sigText: 'SwiftUI.framework, libswiftCore, Assets.car, UIHostingController' },
+      { id: 'uikit', name: 'Apple UIKit / Cocoa Touch (Obj-C / Swift)', category: 'native', portability: 'Baixa (Assets + Reescrita / touchHLE 32-bit)', portLevel: 'low', phase: 'Fase 5.5', androidTarget: 'Kotlin / Jetpack Compose ou touchHLE (32-bit)', desc: 'Framework nativo clássico do iOS com interfaces compiladas (.nib, .storyboardc). Apps 32-bit antigos podem rodar no touchHLE.', signatures: { paths: [/\.storyboardc\//i, /\.nib$/i], dylibs: [/UIKit/i], strings: ['UIApplicationMain', 'UIViewController', 'UITableView'], plistKeys: ['UIMainStoryboardFile', 'NSMainNibFile'] }, sigText: 'UIKit.framework, *.storyboardc, *.nib, UIApplicationMain' }
+    ];
+
+    const UNIVERSAL_MIDDLEWARES = [
+      { id: 'fmod', name: 'FMOD Audio Engine', type: 'Áudio', desc: 'Bancos de áudio interativo (.bank / .fsb).', sigText: '*.bank, *.fsb, FMOD::System', signatures: { paths: [/\.bank$/i, /\.fsb$/i], dylibs: [/fmod/i], strings: ['FMOD::System', 'FMOD_Studio'] } },
+      { id: 'wwise', name: 'Audiokinetic Wwise', type: 'Áudio', desc: 'Bancos de som Wwise (.bnk / .wem).', sigText: '*.bnk, *.wem, AK::SoundEngine', signatures: { paths: [/\.bnk$/i, /\.wem$/i], dylibs: [/AkSoundEngine/i], strings: ['AK::SoundEngine', 'Wwise'] } },
+      { id: 'criware', name: 'CRIWARE (ADX2 / Sofdec2)', type: 'Áudio/Vídeo', desc: 'Middleware japonês (.acb, .awb, .cpk, .usm).', sigText: '*.acb, *.awb, *.cpk, *.usm', signatures: { paths: [/\.(acb|awb|cpk|usm)$/i], dylibs: [], strings: ['criAtom', 'criFs', 'CRIWARE'] } },
+      { id: 'openal', name: 'OpenAL / AudioToolbox', type: 'Áudio', desc: 'Áudio 3D posicional e efeitos de baixa latência.', sigText: 'OpenAL.framework, AudioToolbox', signatures: { paths: [/\.caf$/i], dylibs: [/OpenAL/i, /AudioToolbox/i], strings: ['alSourcePlay', 'AudioServicesPlaySystemSound'] } },
+      { id: 'spine', name: 'Spine 2D Skeletal', type: 'Animação 2D', desc: 'Animações esqueléticas (.skel / .atlas / .json).', sigText: '*.skel, *.atlas, spSkeletonData', signatures: { paths: [/\.skel$/i], dylibs: [], strings: ['spSkeletonData', 'spine::Skeleton'] } },
+      { id: 'live2d', name: 'Live2D Cubism', type: 'Animação 2D', desc: 'Personagens 2D animados (.moc3 / .model3.json).', sigText: '*.moc3, *.model3.json, CubismCore', signatures: { paths: [/\.moc3?$/i, /\.model3\.json$/i], dylibs: [/Live2DCubismCore/i], strings: ['Live2D', 'csmInitializeModelInPlace'] } },
+      { id: 'dragonbones', name: 'DragonBones 2D', type: 'Animação 2D', desc: 'Esqueletos 2D (*_ske.json / *_tex.json).', sigText: '*_ske.json, *_tex.json, dragonBones', signatures: { paths: [/_ske\.(json|dbbin)$/i], dylibs: [], strings: ['dragonBones', 'DBFactory'] } },
+      { id: 'box2d', name: 'Box2D Physics', type: 'Física 2D', desc: 'Motor de física rígida 2D padrão em jogos móveis.', sigText: 'b2World, b2BodyDef, Box2D', signatures: { paths: [], dylibs: [], strings: ['b2World', 'b2BodyDef', 'Box2D'] } },
+      { id: 'physx', name: 'NVIDIA PhysX / Bullet', type: 'Física 3D', desc: 'Física 3D usada por Unity/Unreal/motores C++.', sigText: 'PxScene, btDiscreteDynamicsWorld', signatures: { paths: [], dylibs: [], strings: ['PxCreatePhysics', 'btDiscreteDynamicsWorld'] } },
+      { id: 'coreml', name: 'Apple CoreML / Vision', type: 'IA / ML', desc: 'Modelos locais .mlmodelc (requer conversão p/ TFLite/ONNX).', sigText: '*.mlmodelc, CoreML.framework', signatures: { paths: [/\.mlmodelc\//i], dylibs: [/CoreML/i, /Vision/i], strings: ['MLModel', 'VNImageRequestHandler'] } },
+      { id: 'sqlite', name: 'SQLite Database', type: 'Dados', desc: 'Bancos locais .sqlite/.db compatíveis 1:1 com Android.', sigText: '*.sqlite, *.db, libsqlite3', signatures: { paths: [/\.(sqlite|sqlite3|db)$/i], dylibs: [/libsqlite3/i], strings: ['sqlite3_open'] } },
+      { id: 'realm', name: 'MongoDB Realm', type: 'Dados', desc: 'Banco móvel .realm (compatível com Realm Android).', sigText: '*.realm, Realm.framework', signatures: { paths: [/\.realm$/i], dylibs: [/Realm/i], strings: ['RLMRealm', 'RealmSwift'] } },
+      { id: 'firebase', name: 'Firebase / Analytics / AdMob', type: 'Cloud/Ads', desc: 'GoogleService-Info.plist (substituir por google-services.json).', sigText: 'GoogleService-Info.plist, FirebaseCore', signatures: { paths: [/googleservice-info\.plist$/i], dylibs: [/Firebase/i, /GoogleMobileAds/i], strings: ['FIRApp', 'GADMobileAds'] } },
+      { id: 'storekit', name: 'Apple StoreKit (IAP / DLC)', type: 'Monetização', desc: 'Compras in-app e DLCs (adaptar p/ Billing ou desbloqueio local).', sigText: 'StoreKit.framework, SKPaymentQueue', signatures: { paths: [], dylibs: [/StoreKit/i], strings: ['SKPaymentQueue', 'SKProductsRequest'] } },
+      { id: 'gamekit', name: 'Apple GameKit / Game Center', type: 'Social/Rank', desc: 'Conquistas e placares (adaptar p/ Play Games ou stub offline).', sigText: 'GameKit.framework, GKLocalPlayer', signatures: { paths: [], dylibs: [/GameKit/i], strings: ['GKLocalPlayer', 'GKScore'] } }
+    ];
+
+    // =========================================================================
+    // 1. GLOBAL STATE & MODULAR PHASE HOOKS
+    // =========================================================================
+    const STATE = {
+      parts: [],
+      extras: [],
+      ipaBytes: null,
+      ipaName: '',
+      files: [],
+      appBundlePrefix: '',
+      plist: null,
+      macho: null,
+      detectedEngines: [],
+      detectedMiddlewares: [],
+      iconUrl: null,
+      iconPngBytes: null,
+      selectedFile: null,
+      currentFilter: 'all',
+      catalogCategory: 'all',
+      cciData: null,
+      geData: null,
+      caData: null,
+      acData: null,
+      selectedTarget: 'android-studio'
+    };
+
+    const PHASE_HOOKS = {
+      onIpaReadyPhase4Assets: null,
+      onIpaReadyClickteam: null,
+      onCciReadyDetails: null,
+      onIpaReadyGameEngines: null,
+      onIpaReadyCrossApps: null,
+      onIpaReadyExport: null
+    };
+
+    // =========================================================================
+    // 2. CORE UTILITIES
+    // =========================================================================
+    const $ = (id) => document.getElementById(id);
+
+    function log(msg, type = '') {
+      const el = $('consoleLog');
+      if (!el) return;
+      const ts = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+      const line = document.createElement('div');
+      if (type === 'ok') line.className = 'log-ok';
+      else if (type === 'warn') line.className = 'log-warn';
+      else if (type === 'err') line.className = 'log-err';
+      line.textContent = `[${ts}] ${msg}`;
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function setStatus(text, state = '') {
+      $('statusText').textContent = text;
+      const dot = $('statusDot');
+      dot.className = 'dot' + (state ? ' ' + state : '');
+    }
+
+    function setProgress(pct, label) {
+      $('progressContainer').classList.remove('hidden');
+      $('progressBar').style.width = Math.max(0, Math.min(100, pct)) + '%';
+      $('progressPct').textContent = Math.round(pct) + '%';
+      if (label) $('progressLabel').textContent = label;
+    }
+
+    function formatBytes(n) {
+      if (!n || n < 0) return '0 B';
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      return (n / 1048576).toFixed(2) + ' MB';
+    }
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function readU16LE(u8, o) { return u8[o] | (u8[o + 1] << 8); }
+    function readI16LE(u8, o) { const v = readU16LE(u8, o); return v & 0x8000 ? v - 0x10000 : v; }
+    function readU32LE(u8, o) { return (u8[o] | (u8[o + 1] << 8) | (u8[o + 2] << 16) | (u8[o + 3] << 24)) >>> 0; }
+    function readI32LE(u8, o) { return (u8[o] | (u8[o + 1] << 8) | (u8[o + 2] << 16) | (u8[o + 3] << 24)); }
+    function readU16BE(u8, o) { return (u8[o] << 8) | u8[o + 1]; }
+    function readU32BE(u8, o) { return ((u8[o] << 24) | (u8[o + 1] << 16) | (u8[o + 2] << 8) | u8[o + 3]) >>> 0; }
+
+    const CRC32_TABLE = (() => {
+      const t = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        t[i] = c >>> 0;
+      }
+      return t;
+    })();
+
+    function crc32(bytes) {
+      let c = 0xFFFFFFFF;
+      for (let i = 0; i < bytes.length; i++) c = CRC32_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+      return (c ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    function copyTextSafe(text, feedbackBtn) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (feedbackBtn) {
+          const orig = feedbackBtn.textContent;
+          feedbackBtn.textContent = ok ? '✅ Copiado!' : '⚠️ Selecione manualmente';
+          setTimeout(() => { feedbackBtn.textContent = orig; }, 1800);
+        }
+        return ok;
+      } catch (e) {
+        log('Falha ao copiar: ' + e.message, 'warn');
+        return false;
+      }
+    }
+
+    function triggerDownload(bytesOrBlob, filename, mime = 'application/octet-stream') {
+      const blob = bytesOrBlob instanceof Blob ? bytesOrBlob : new Blob([bytesOrBlob], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
+
+    async function streamDecompress(bytes, format) {
+      const ds = new DecompressionStream(format);
+      const writer = ds.writable.getWriter();
+      writer.write(bytes);
+      writer.close();
+      const chunks = [];
+      const reader = ds.readable.getReader();
+      let total = 0;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        total += value.length;
+      }
+      const out = new Uint8Array(total);
+      let pos = 0;
+      for (const c of chunks) { out.set(c, pos); pos += c.length; }
+      return out;
+    }
+
+    const inflateRaw = (b) => streamDecompress(b, 'deflate-raw');
+    const inflateZlib = (b) => streamDecompress(b, 'deflate');
+    const gunzipBytes = (b) => streamDecompress(b, 'gzip');
+
+    // =========================================================================
+    // 3. NATIVE ZIP READER & WRITER
+    // =========================================================================
+    function isZipBuffer(u8) {
+      return u8 && u8.length >= 4 && u8[0] === 0x50 && u8[1] === 0x4B && (u8[2] === 0x03 || u8[2] === 0x05);
+    }
+
+    function parseZip(u8) {
+      let eocd = -1;
+      const minOffset = Math.max(0, u8.length - 65557);
+      for (let i = u8.length - 22; i >= minOffset; i--) {
+        if (u8[i] === 0x50 && u8[i + 1] === 0x4B && u8[i + 2] === 0x05 && u8[i + 3] === 0x06) { eocd = i; break; }
+      }
+      if (eocd < 0) throw new Error('Assinatura ZIP EOCD não encontrada (arquivo incompleto ou corrompido).');
+
+      const totalEntries = readU16LE(u8, eocd + 10);
+      const cdOffset = readU32LE(u8, eocd + 16);
+      const decoder = new TextDecoder('utf-8');
+      const entries = [];
+      let ptr = cdOffset;
+
+      for (let i = 0; i < totalEntries && ptr + 46 <= u8.length; i++) {
+        if (readU32LE(u8, ptr) !== 0x02014B50) break;
+        const method = readU16LE(u8, ptr + 10);
+        const compSize = readU32LE(u8, ptr + 20);
+        const uncompSize = readU32LE(u8, ptr + 24);
+        const nameLen = readU16LE(u8, ptr + 28);
+        const extraLen = readU16LE(u8, ptr + 30);
+        const commentLen = readU16LE(u8, ptr + 32);
+        const localHeaderOffset = readU32LE(u8, ptr + 42);
+        const name = decoder.decode(u8.subarray(ptr + 46, ptr + 46 + nameLen));
+        ptr += 46 + nameLen + extraLen + commentLen;
+        if (name.endsWith('/')) continue;
+
+        let cachedBytes = null;
+        entries.push({
+          name, method, compSize, size: uncompSize, localHeaderOffset,
+          async getBytes() {
+            if (cachedBytes) return cachedBytes;
+            const lh = localHeaderOffset;
+            if (readU32LE(u8, lh) !== 0x04034B50) throw new Error('Cabeçalho local ZIP inválido para ' + name);
+            const dataStart = lh + 30 + readU16LE(u8, lh + 26) + readU16LE(u8, lh + 28);
+            const slice = u8.subarray(dataStart, dataStart + compSize);
+            if (method === 0) cachedBytes = new Uint8Array(slice);
+            else if (method === 8) cachedBytes = await inflateRaw(slice);
+            else throw new Error(`Método ZIP ${method} não suportado em ${name}`);
+            return cachedBytes;
+          }
+        });
+      }
+      return entries;
+    }
+
+    class ZipBuilder {
+      constructor() { this.files = []; this.enc = new TextEncoder(); }
+      addFile(path, content) {
+        const cleanPath = path.replace(/^\/+/, '');
+        const bytes = typeof content === 'string' ? this.enc.encode(content) : (content instanceof Uint8Array ? content : new Uint8Array(content));
+        this.files.push({ nameBytes: this.enc.encode(cleanPath), bytes, crc: crc32(bytes) });
+      }
+      build() {
+        let localTotal = 0, cdTotal = 0;
+        for (const f of this.files) { localTotal += 30 + f.nameBytes.length + f.bytes.length; cdTotal += 46 + f.nameBytes.length; }
+        const out = new Uint8Array(localTotal + cdTotal + 22);
+        const dv = new DataView(out.buffer);
+        let offset = 0;
+        const offsets = [];
+        for (const f of this.files) {
+          offsets.push(offset);
+          dv.setUint32(offset, 0x04034B50, true); dv.setUint16(offset + 4, 20, true); dv.setUint16(offset + 6, 0x0800, true);
+          dv.setUint32(offset + 14, f.crc, true); dv.setUint32(offset + 18, f.bytes.length, true); dv.setUint32(offset + 22, f.bytes.length, true);
+          dv.setUint16(offset + 26, f.nameBytes.length, true);
+          out.set(f.nameBytes, offset + 30); out.set(f.bytes, offset + 30 + f.nameBytes.length);
+          offset += 30 + f.nameBytes.length + f.bytes.length;
+        }
+        const cdStart = offset;
+        for (let i = 0; i < this.files.length; i++) {
+          const f = this.files[i];
+          dv.setUint32(offset, 0x02014B50, true); dv.setUint16(offset + 4, 20, true); dv.setUint16(offset + 6, 20, true); dv.setUint16(offset + 8, 0x0800, true);
+          dv.setUint32(offset + 16, f.crc, true); dv.setUint32(offset + 20, f.bytes.length, true); dv.setUint32(offset + 24, f.bytes.length, true);
+          dv.setUint16(offset + 28, f.nameBytes.length, true); dv.setUint32(offset + 42, offsets[i], true);
+          out.set(f.nameBytes, offset + 46);
+          offset += 46 + f.nameBytes.length;
+        }
+        dv.setUint32(offset, 0x06054B50, true); dv.setUint16(offset + 8, this.files.length, true); dv.setUint16(offset + 10, this.files.length, true);
+        dv.setUint32(offset + 12, cdTotal, true); dv.setUint32(offset + 16, cdStart, true);
+        return out;
+      }
+    }
+
+    // =========================================================================
+    // 4. APPLE CgBI PNG -> ANDROID STANDARD RGBA PNG DECODER
+    // =========================================================================
+    function isCgbiPng(u8) {
+      return u8 && u8.length >= 16 && u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47 &&
+             u8[12] === 0x43 && u8[13] === 0x67 && u8[14] === 0x42 && u8[15] === 0x49;
+    }
+
+    function paethPredictor(a, b, c) {
+      const p = a + b - c;
+      const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+      return (pa <= pb && pa <= pc) ? a : (pb <= pc ? b : c);
+    }
+
+    async function decodeCgbiToStandardPng(u8) {
+      if (!isCgbiPng(u8)) return u8;
+      let pos = 8, width = 0, height = 0, colorType = 6, totalIdat = 0;
+      const idatChunks = [];
+      while (pos + 12 <= u8.length) {
+        const len = readU32BE(u8, pos);
+        const type = String.fromCharCode(u8[pos + 4], u8[pos + 5], u8[pos + 6], u8[pos + 7]);
+        const data = u8.subarray(pos + 8, pos + 8 + len);
+        pos += 12 + len;
+        if (type === 'IHDR') { width = readU32BE(data, 0); height = readU32BE(data, 4); colorType = data[9]; }
+        else if (type === 'IDAT') { idatChunks.push(data); totalIdat += data.length; }
+        else if (type === 'IEND') break;
+      }
+      if (!width || !height || !totalIdat) return u8;
+
+      const joined = new Uint8Array(totalIdat);
+      let off = 0;
+      for (const c of idatChunks) { joined.set(c, off); off += c.length; }
+      let raw;
+      try { raw = await inflateRaw(joined); } catch (_) { raw = await inflateZlib(joined); }
+
+      const bpp = colorType === 6 ? 4 : (colorType === 2 ? 3 : 4);
+      const stride = width * bpp;
+      const recon = new Uint8Array(height * stride);
+      let inPtr = 0;
+      for (let y = 0; y < height; y++) {
+        const filter = raw[inPtr++];
+        const rowOff = y * stride;
+        for (let x = 0; x < stride; x++) {
+          const val = raw[inPtr++] || 0;
+          const a = x >= bpp ? recon[rowOff + x - bpp] : 0;
+          const b = y > 0 ? recon[rowOff - stride + x] : 0;
+          const c = (x >= bpp && y > 0) ? recon[rowOff - stride + x - bpp] : 0;
+          let out = val;
+          if (filter === 1) out = (val + a) & 0xFF;
+          else if (filter === 2) out = (val + b) & 0xFF;
+          else if (filter === 3) out = (val + ((a + b) >> 1)) & 0xFF;
+          else if (filter === 4) out = (val + paethPredictor(a, b, c)) & 0xFF;
+          recon[rowOff + x] = out;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(width, height);
+      const dst = imgData.data;
+      for (let i = 0, p = 0; i < width * height; i++, p += bpp) {
+        const b = recon[p], g = recon[p + 1], r = recon[p + 2], a = bpp === 4 ? recon[p + 3] : 255;
+        const d = i * 4;
+        if (bpp === 4 && a > 0 && a < 255) {
+          dst[d] = Math.min(255, Math.round((r * 255) / a));
+          dst[d + 1] = Math.min(255, Math.round((g * 255) / a));
+          dst[d + 2] = Math.min(255, Math.round((b * 255) / a));
+          dst[d + 3] = a;
+        } else { dst[d] = r; dst[d + 1] = g; dst[d + 2] = b; dst[d + 3] = a; }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+      return new Uint8Array(await blob.arrayBuffer());
+    }
+
+    // =========================================================================
+    // 5. APPLE PLIST PARSER (XML + BINARY bplist00)
+    // =========================================================================
+    function parsePlist(u8) {
+      if (!u8 || u8.length < 8) return null;
+      if (String.fromCharCode(...u8.subarray(0, 6)) === 'bplist') return parseBinaryPlist(u8);
+      const text = new TextDecoder('utf-8').decode(u8);
+      return text.includes('<plist') ? parseXmlPlist(text) : null;
+    }
+
+    function parseXmlPlist(xmlText) {
+      try {
+        const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+        const parseNode = (node) => {
+          if (!node) return null;
+          const tag = node.tagName;
+          if (tag === 'dict') {
+            const obj = {}, ch = Array.from(node.children);
+            for (let i = 0; i < ch.length; i += 2) if (ch[i]?.tagName === 'key' && ch[i + 1]) obj[ch[i].textContent] = parseNode(ch[i + 1]);
+            return obj;
+          }
+          if (tag === 'array') return Array.from(node.children).map(parseNode);
+          if (tag === 'string' || tag === 'date') return node.textContent;
+          if (tag === 'integer') return parseInt(node.textContent, 10);
+          if (tag === 'real') return parseFloat(node.textContent);
+          if (tag === 'true') return true;
+          if (tag === 'false') return false;
+          if (tag === 'data') return `<data:${node.textContent.trim().length}ch>`;
+          return node.textContent;
+        };
+        return parseNode(doc.querySelector('plist > *'));
+      } catch (_) { return null; }
+    }
+
+    function parseBinaryPlist(u8) {
+      try {
+        if (u8.length < 40) return null;
+        const trailer = u8.length - 32;
+        const offsetSize = u8[trailer + 6], objectRefSize = u8[trailer + 7];
+        const numObjects = readU32BE(u8, trailer + 12), topObject = readU32BE(u8, trailer + 20), offsetTableStart = readU32BE(u8, trailer + 28);
+        const readInt = (pos, size) => { let v = 0; for (let i = 0; i < size; i++) v = v * 256 + u8[pos + i]; return v; };
+        const offsets = [];
+        for (let i = 0; i < numObjects; i++) offsets.push(readInt(offsetTableStart + i * offsetSize, offsetSize));
+        const utf8 = new TextDecoder('utf-8'), utf16be = new TextDecoder('utf-16be');
+
+        const parseObj = (idx, depth = 0) => {
+          if (depth > 32 || idx >= offsets.length) return null;
+          let off = offsets[idx];
+          const marker = u8[off++], type = marker & 0xF0, info = marker & 0x0F;
+          if (marker === 0x00) return null;
+          if (marker === 0x08) return false;
+          if (marker === 0x09) return true;
+          if (type === 0x10) return readInt(off, 1 << info);
+          if (type === 0x20) { const sz = 1 << info, dv = new DataView(u8.buffer, u8.byteOffset + off, sz); return sz === 4 ? dv.getFloat32(0, false) : dv.getFloat64(0, false); }
+          if (type === 0x30) { const dv = new DataView(u8.buffer, u8.byteOffset + off, 8); return new Date((dv.getFloat64(0, false) + 978307200) * 1000).toISOString(); }
+          let count = info;
+          if (info === 0x0F) { const intMarker = u8[off++], sz = 1 << (intMarker & 0x0F); count = readInt(off, sz); off += sz; }
+          if (type === 0x40) return `<binary:${count}B>`;
+          if (type === 0x50) return utf8.decode(u8.subarray(off, off + count));
+          if (type === 0x60) return utf16be.decode(u8.subarray(off, off + count * 2));
+          if (type === 0xA0) { const arr = []; for (let i = 0; i < count; i++) arr.push(parseObj(readInt(off + i * objectRefSize, objectRefSize), depth + 1)); return arr; }
+          if (type === 0xD0) {
+            const obj = {}, keyBase = off, valBase = off + count * objectRefSize;
+            for (let i = 0; i < count; i++) obj[String(parseObj(readInt(keyBase + i * objectRefSize, objectRefSize), depth + 1))] = parseObj(readInt(valBase + i * objectRefSize, objectRefSize), depth + 1);
+            return obj;
+          }
+          return null;
+        };
+        return parseObj(topObject, 0);
+      } catch (_) { return null; }
+    }
+
+    // =========================================================================
+    // 6. MACH-O & FAIRPLAY DRM ANALYZER
+    // =========================================================================
+    function cpuName(cpuType, cpuSub) {
+      if (cpuType === 12) return cpuSub === 9 ? 'armv7 (32-bit)' : (cpuSub === 11 ? 'armv7s (32-bit)' : `arm (32-bit, sub=${cpuSub})`);
+      if (cpuType === 0x0100000C) return 'arm64 (64-bit)';
+      if (cpuType === 0x01000007) return 'x86_64 (Simulator)';
+      if (cpuType === 7) return 'i386 (32-bit Simulator)';
+      return `CPU 0x${cpuType.toString(16)}`;
+    }
+
+    function parseMachO(u8, execPath) {
+      const res = { executable: execPath, size: u8.length, architectures: [], encryptedFairPlay: false, dylibs: [], symbolsSample: [], allStringsText: '' };
+      if (!u8 || u8.length < 32) return res;
+      const slices = [];
+      if (readU32BE(u8, 0) === 0xCAFEBABE) {
+        const nfat = readU32BE(u8, 4);
+        for (let i = 0; i < Math.min(nfat, 8); i++) { const b = 8 + i * 20; slices.push({ off: readU32BE(u8, b + 8), size: readU32BE(u8, b + 12) }); }
+      } else slices.push({ off: 0, size: u8.length });
+
+      const dylibSet = new Set(), dec = new TextDecoder('utf-8');
+      for (const s of slices) {
+        if (s.off + 32 > u8.length) continue;
+        const m = readU32LE(u8, s.off), is64 = (m === 0xFEEDFACF), is32 = (m === 0xFEEDFACE);
+        if (!is32 && !is64) continue;
+        res.architectures.push(cpuName(readU32LE(u8, s.off + 4), readU32LE(u8, s.off + 8) & 0x00FFFFFF));
+        const ncmds = readU32LE(u8, s.off + 16);
+        let cmdOff = s.off + (is64 ? 32 : 28);
+        for (let i = 0; i < ncmds && cmdOff + 8 <= u8.length; i++) {
+          const cmd = readU32LE(u8, cmdOff), cmdSize = readU32LE(u8, cmdOff + 4);
+          if (cmdSize < 8) break;
+          if ((cmd === 0x21 || cmd === 0x2C) && readU32LE(u8, cmdOff + 16) !== 0) res.encryptedFairPlay = true;
+          if (cmd === 0x0C || cmd === 0x80000018 || cmd === 0x8000001F) {
+            const strOff = readU32LE(u8, cmdOff + 8);
+            if (strOff < cmdSize) {
+              let end = cmdOff + strOff;
+              while (end < cmdOff + cmdSize && u8[end] !== 0) end++;
+              const shortName = dec.decode(u8.subarray(cmdOff + strOff, end)).split('/').pop();
+              if (shortName) dylibSet.add(shortName);
+            }
+          }
+          cmdOff += cmdSize;
+        }
+      }
+      res.dylibs = Array.from(dylibSet);
+      const scanLen = Math.min(u8.length, 2600000), foundStrings = [];
+      let cur = '';
+      for (let i = 0; i < scanLen; i++) {
+        const ch = u8[i];
+        if (ch >= 32 && ch <= 126) cur += String.fromCharCode(ch);
+        else { if (cur.length >= 6 && cur.length <= 120) foundStrings.push(cur); cur = ''; }
+      }
+      res.allStringsText = foundStrings.join('\n');
+      res.symbolsSample = foundStrings.filter(s => /Framework|Player|Scene|Engine|Unity|Godot|CRun|Cocos|Flutter|React|Hermes|StoreKit|OpenGL|Sprite|Level|Score/i.test(s)).slice(0, 90);
+      return res;
+    }
+
+    // =========================================================================
+    // 7. UNIVERSAL ENGINE & MIDDLEWARE DETECTOR
+    // =========================================================================
+    function detectAllEnginesAndMiddlewares(files, plist, macho) {
+      const paths = files.map(f => f.relPath || f.path);
+      const dylibs = macho?.dylibs || [], binText = macho?.allStringsText || '';
+      const plistKeys = plist && typeof plist === 'object' ? Object.keys(plist) : [];
+
+      const detectedEngines = [];
+      for (const eng of UNIVERSAL_ENGINES) {
+        let score = 0; const evidence = [];
+        for (const rx of eng.signatures.paths) { const hit = paths.find(p => rx.test(p)); if (hit) { score += 50; evidence.push('Arquivo: ' + hit); } }
+        for (const rx of eng.signatures.dylibs) { const hit = dylibs.find(d => rx.test(d)); if (hit) { score += 30; evidence.push('Framework: ' + hit); } }
+        for (const str of eng.signatures.strings) { if (binText.includes(str)) { score += 20; evidence.push('Símbolo: ' + str); } }
+        for (const k of eng.signatures.plistKeys) { if (plistKeys.includes(k)) { score += 15; evidence.push('Info.plist: ' + k); } }
+        if (score > 0) detectedEngines.push({ ...eng, score, evidence: evidence.slice(0, 6), confidence: score >= 70 ? 'Confirmado' : (score >= 40 ? 'Provável' : 'Sinal Auxiliar') });
+      }
+      detectedEngines.sort((a, b) => b.score - a.score);
+
+      const detectedMiddlewares = [];
+      for (const mw of UNIVERSAL_MIDDLEWARES) {
+        let score = 0; const evidence = [];
+        for (const rx of mw.signatures.paths) { const hit = paths.find(p => rx.test(p)); if (hit) { score += 40; evidence.push(hit); } }
+        for (const rx of mw.signatures.dylibs) { const hit = dylibs.find(d => rx.test(d)); if (hit) { score += 30; evidence.push(hit); } }
+        for (const str of mw.signatures.strings) { if (binText.includes(str)) { score += 20; evidence.push(str); } }
+        if (score > 0) detectedMiddlewares.push({ ...mw, score, evidence: evidence.slice(0, 4) });
+      }
+      detectedMiddlewares.sort((a, b) => b.score - a.score);
+      return { detectedEngines, detectedMiddlewares };
+    }
+
+    function categorizeFile(relPath) {
+      const ext = (relPath.split('.').pop() || '').toLowerCase();
+      if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tga', 'pvr', 'ccz', 'ktx', 'astc', 'svg'].includes(ext)) return 'image';
+      if (['caf', 'wav', 'mp3', 'ogg', 'm4a', 'aac', 'aif', 'aiff', 'flac', 'mid', 'bank', 'fsb', 'bnk'].includes(ext)) return 'audio';
+      if (['plist', 'json', 'xml', 'ini', 'cfg', 'strings', 'yaml', 'yml', 'txt', 'csv', 'sqlite', 'db'].includes(ext)) return 'plist';
+      if (['cci', 'pck', 'ios', 'pak', 'utoc', 'ucas', 'assets', 'dat', 'car', 'love', 'rpa', 'arcd', 'byc', 'swf', 'xnb', 'jsbundle', 'hbc', 'fsh', 'vsh', 'metallib'].includes(ext) || /container\/documents/i.test(relPath)) return 'dlc';
+      if (['dll', 'dylib', 'so', 'a', 'o', 'exe'].includes(ext) || (!relPath.includes('.') && !relPath.endsWith('/'))) return 'binary';
+      return 'other';
+    }
+
+    // =========================================================================
+    // 8. FILE INGESTION & IPA REASSEMBLY (TAB 1)
+    // =========================================================================
+    function extractPartOrder(name) {
+      const m = name.match(/\.part(\d+)/i) || name.match(/part[_-]?(\d+)/i) || name.match(/\.(\d{2,3})$/);
+      return m ? parseInt(m[1], 10) : 0;
+    }
+
+    async function handleIncomingFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) return;
+      setStatus('Lendo arquivos enviados...', 'warn');
+
+      for (const file of files) {
+        try {
+          const buf = new Uint8Array(await file.arrayBuffer());
+          const lower = file.name.toLowerCase();
+          if (lower.endsWith('.ipa')) {
+            STATE.parts = [{ name: file.name, order: 1, bytes: buf, source: 'Direto (.ipa)' }];
+            log(`IPA completo carregado: ${file.name} (${formatBytes(buf.length)})`, 'ok');
+          } else if (lower.endsWith('.zip') && isZipBuffer(buf)) {
+            log(`Inspecionando pacote ZIP: ${file.name} (${formatBytes(buf.length)})...`);
+            const entries = parseZip(buf);
+            if (entries.some(e => /^Payload\/[^/]+\.app\//i.test(e.name))) {
+              STATE.parts = [{ name: file.name.replace(/\.zip$/i, '.ipa'), order: 1, bytes: buf, source: 'ZIP/IPA Direto' }];
+              log(`ZIP reconhecido como IPA direto: ${file.name}`, 'ok');
+            } else {
+              for (const entry of entries) {
+                const eBytes = await entry.getBytes();
+                if (/\.ipa(\.part\d+)?$/i.test(entry.name) || /\.part\d+$/i.test(entry.name)) {
+                  const order = extractPartOrder(entry.name);
+                  STATE.parts = STATE.parts.filter(p => p.name !== entry.name);
+                  STATE.parts.push({ name: entry.name, order, bytes: eBytes, source: file.name });
+                  log(`Parte encontrada em ${file.name}: ${entry.name} (${formatBytes(eBytes.length)})`, 'ok');
+                } else {
+                  STATE.extras.push({ name: entry.name, bytes: eBytes, source: file.name });
+                }
+              }
+            }
+          } else {
+            const order = extractPartOrder(file.name);
+            STATE.parts = STATE.parts.filter(p => p.name !== file.name);
+            STATE.parts.push({ name: file.name, order, bytes: buf, source: 'Arquivo local' });
+            log(`Fragmento adicionado: ${file.name} (${formatBytes(buf.length)})`, 'ok');
+          }
+        } catch (err) { log(`Erro ao ler ${file.name}: ${err.message}`, 'err'); }
+      }
+
+      STATE.parts.sort((a, b) => (a.order - b.order) || a.name.localeCompare(b.name));
+      renderUploadLists();
+      setStatus(`${STATE.parts.length} parte(s) prontas para desconstrução`, 'ok');
+    }
+
+    function renderUploadLists() {
+      $('partsCount').textContent = `${STATE.parts.length} parte(s)`;
+      $('extrasCount').textContent = `${STATE.extras.length} item(ns)`;
+      $('btnProcessIpa').disabled = STATE.parts.length === 0;
+      $('btnReset').disabled = STATE.parts.length === 0 && STATE.extras.length === 0;
+
+      const pc = $('partsContainer');
+      if (!STATE.parts.length) pc.innerHTML = '<p style="font-size:12.5px; color:var(--text-2);">Nenhuma parte carregada ainda.</p>';
+      else {
+        const total = STATE.parts.reduce((s, p) => s + p.bytes.length, 0);
+        pc.innerHTML = STATE.parts.map((p, idx) => `
+          <div class="part-item">
+            <div><span class="badge blue">#${idx + 1}</span> <span class="part-name">${escapeHtml(p.name)}</span>
+              <div style="font-size:11px; color:var(--text-2); margin-top:2px;">Origem: ${escapeHtml(p.source)}</div>
+            </div>
+            <span class="part-meta">${formatBytes(p.bytes.length)}</span>
+          </div>
+        `).join('') + `<div style="font-size:12px; color:var(--accent-2); margin-top:4px; font-family:var(--mono);">Total concatenado: ${formatBytes(total)} (${total.toLocaleString('pt-BR')} bytes)</div>`;
+      }
+
+      const ec = $('extrasContainer');
+      ec.innerHTML = !STATE.extras.length
+        ? '<p style="font-size:12.5px; color:var(--text-2);">Nenhum arquivo extra detectado.</p>'
+        : STATE.extras.map(x => `<div class="part-item"><span class="part-name">${escapeHtml(x.name)}</span><span class="part-meta">${formatBytes(x.bytes.length)}</span></div>`).join('');
+    }
+
+    async function loadAppIcon() {
+      STATE.iconUrl = null;
+      STATE.iconPngBytes = null;
+      const candidates = STATE.files.filter(f =>
+        /^(appicon|icon)/i.test(f.name) && f.ext === 'png'
+        || /^itunesartwork(\.png)?$/i.test(f.name)
+      ).sort((a, b) => {
+        const score = (x) => (/appicon.*(76|60|120|152|180|@2x|@3x)/i.test(x.name) ? 100 : (/icon.*@2x/i.test(x.name) ? 80 : (/itunesartwork/i.test(x.name) ? 70 : 40))) + Math.min(30, x.size / 4096);
+        return score(b) - score(a);
+      });
+
+      for (const cand of candidates.slice(0, 6)) {
+        try {
+          const raw = await cand.getBytes();
+          const pngBytes = isCgbiPng(raw) ? await decodeCgbiToStandardPng(raw) : raw;
+          if (pngBytes && pngBytes.length > 64) {
+            STATE.iconPngBytes = pngBytes;
+            STATE.iconUrl = URL.createObjectURL(new Blob([pngBytes], { type: 'image/png' }));
+            log(`Ícone do app extraído: ${cand.name} (${isCgbiPng(raw) ? 'CgBI → RGBA ✅' : 'PNG padrão'}).`, 'ok');
+            return;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // =========================================================================
+    // 14. RESTORED CORE PIPELINE: CAF->WAV, CLICKTEAM .CCI, DECONSTRUCTORS & UI
+    // =========================================================================
+    function convertCafToWav(u8) {
+      if (!u8 || u8.length < 40) return { ok: false, reason: 'Arquivo .caf muito pequeno' };
+      const magic = String.fromCharCode(u8[0], u8[1], u8[2], u8[3]);
+      if (magic !== 'caff') return { ok: false, reason: 'Assinatura caff ausente' };
+      let pos = 8;
+      let sampleRate = 44100, channels = 1, bitsPerSample = 16, formatId = '', formatFlags = 0;
+      let dataOffset = -1, dataSize = 0;
+      const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+
+      while (pos + 12 <= u8.length) {
+        const chunkType = String.fromCharCode(u8[pos], u8[pos + 1], u8[pos + 2], u8[pos + 3]);
+        const hi = dv.getUint32(pos + 4, false);
+        const lo = dv.getUint32(pos + 8, false);
+        const chunkSize = hi === 0xffffffff && lo === 0xffffffff ? (u8.length - pos - 12) : (hi * 4294967296 + lo);
+        const body = pos + 12;
+        if (chunkType === 'desc' && body + 32 <= u8.length) {
+          sampleRate = Math.round(dv.getFloat64(body, false)) || 44100;
+          formatId = String.fromCharCode(u8[body + 8], u8[body + 9], u8[body + 10], u8[body + 11]);
+          formatFlags = dv.getUint32(body + 12, false);
+          channels = dv.getUint32(body + 24, false) || 1;
+          bitsPerSample = dv.getUint32(body + 28, false) || 16;
+        } else if (chunkType === 'data' && body + 4 <= u8.length) {
+          dataOffset = body + 4;
+          dataSize = Math.max(0, Math.min(chunkSize - 4, u8.length - dataOffset));
+        }
+        if (chunkSize < 0 || body + chunkSize > u8.length) break;
+        pos = body + chunkSize;
+      }
+
+      if (formatId !== 'lpcm' || dataOffset < 0 || dataSize <= 0) {
+        return { ok: false, reason: 'Codec ' + (formatId || 'desconhecido') + ' (somente lpcm suportado direto)' };
+      }
+      const isLittleEndian = Boolean(formatFlags & 2);
+      const pcm = new Uint8Array(dataSize);
+      if (bitsPerSample === 16 && !isLittleEndian) {
+        for (let i = 0; i + 1 < dataSize; i += 2) {
+          pcm[i] = u8[dataOffset + i + 1];
+          pcm[i + 1] = u8[dataOffset + i];
+        }
+      } else {
+        pcm.set(u8.subarray(dataOffset, dataOffset + dataSize));
+      }
+
+      const wav = new Uint8Array(44 + pcm.length);
+      const wv = new DataView(wav.buffer);
+      const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) wav[off + i] = s.charCodeAt(i); };
+      writeStr(0, 'RIFF');
+      wv.setUint32(4, 36 + pcm.length, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      wv.setUint32(16, 16, true);
+      wv.setUint16(20, 1, true);
+      wv.setUint16(22, channels, true);
+      wv.setUint32(24, sampleRate, true);
+      const byteRate = sampleRate * channels * (bitsPerSample / 8);
+      wv.setUint32(28, byteRate, true);
+      wv.setUint16(32, channels * (bitsPerSample / 8), true);
+      wv.setUint16(34, bitsPerSample, true);
+      writeStr(36, 'data');
+      wv.setUint32(40, pcm.length, true);
+      wav.set(pcm, 44);
+      return { ok: true, wavBytes: wav, sampleRate, channels, bitsPerSample };
+    }
+
+    function encodeRgbaToPngSimple(rgba, width, height) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(width, height);
+      imgData.data.set(rgba);
+      ctx.putImageData(imgData, 0, 0);
+      return new Promise((resolve) => {
+        canvas.toBlob(async (blob) => {
+          if (!blob) return resolve(null);
+          resolve(new Uint8Array(await blob.arrayBuffer()));
+        }, 'image/png');
+      });
+    }
+
+    async function decodeCciSpriteToPng(sp) {
+      if (!sp) return null;
+      if (sp.pngBytes) return sp.pngBytes;
+      if (!sp.rawData || !sp.width || !sp.height) return null;
+      let pixels = sp.rawData;
+      if (sp.compressed) {
+        try {
+          pixels = await streamDecompress(sp.rawData, 'deflate');
+        } catch (_) {
+          try { pixels = await streamDecompress(sp.rawData, 'deflate-raw'); } catch (__) { return null; }
+        }
+      }
+      const total = sp.width * sp.height;
+      const rgba = new Uint8ClampedArray(total * 4);
+      const fmt = sp.fmt ?? 0;
+      if (fmt === 0 && pixels.length >= total * 4) {
+        rgba.set(pixels.subarray(0, total * 4));
+      } else if (fmt === 1 && pixels.length >= total * 2) {
+        for (let i = 0; i < total; i++) {
+          const v = pixels[i * 2] | (pixels[i * 2 + 1] << 8);
+          rgba[i * 4]     = ((v >> 12) & 0xF) * 17;
+          rgba[i * 4 + 1] = ((v >> 8) & 0xF) * 17;
+          rgba[i * 4 + 2] = ((v >> 4) & 0xF) * 17;
+          rgba[i * 4 + 3] = (v & 0xF) * 17;
+        }
+      } else if (fmt === 2 && pixels.length >= total * 2) {
+        for (let i = 0; i < total; i++) {
+          const v = pixels[i * 2] | (pixels[i * 2 + 1] << 8);
+          rgba[i * 4]     = Math.round(((v >> 11) & 0x1F) * 255 / 31);
+          rgba[i * 4 + 1] = Math.round(((v >> 6) & 0x1F) * 255 / 31);
+          rgba[i * 4 + 2] = Math.round(((v >> 1) & 0x1F) * 255 / 31);
+          rgba[i * 4 + 3] = (v & 1) ? 255 : 0;
+        }
+      } else if (fmt === 3 && pixels.length >= total * 3) {
+        for (let i = 0; i < total; i++) {
+          rgba[i * 4]     = pixels[i * 3];
+          rgba[i * 4 + 1] = pixels[i * 3 + 1];
+          rgba[i * 4 + 2] = pixels[i * 3 + 2];
+          rgba[i * 4 + 3] = 255;
+        }
+      } else if (fmt === 4 && pixels.length >= total * 2) {
+        for (let i = 0; i < total; i++) {
+          const v = pixels[i * 2] | (pixels[i * 2 + 1] << 8);
+          rgba[i * 4]     = Math.round(((v >> 11) & 0x1F) * 255 / 31);
+          rgba[i * 4 + 1] = Math.round(((v >> 5) & 0x3F) * 255 / 63);
+          rgba[i * 4 + 2] = Math.round((v & 0x1F) * 255 / 31);
+          rgba[i * 4 + 3] = 255;
+        }
+      } else {
+        return null;
+      }
+      const png = await encodeRgbaToPngSimple(rgba, sp.width, sp.height);
+      sp.pngBytes = png;
+      return png;
+    }
+
+    async function parseClickteamCciFile(fileEntry) {
+      const u8 = await fileEntry.getBytes();
+      const magic = String.fromCharCode(u8[0] || 0, u8[1] || 0, u8[2] || 0, u8[3] || 0);
+      if (magic !== 'PAME' && magic !== 'PAMU') return null;
+      const isUnicode = magic === 'PAMU';
+      const CHUNK_NAMES = {
+        0x2222: 'APPHEADER', 0x2223: 'APPNAME', 0x2224: 'APPAUTHOR', 0x2229: 'EXTENSIONS2',
+        0x222B: 'GLOBALVALUES', 0x222C: 'GLOBALSTRINGS', 0x2233: 'BINARYFILES',
+        0x2234: 'EXTENSIONS_DATA', 0x3333: 'FRAME', 0x6666: 'IMAGEBANK',
+        0x6667: 'FONTBANK', 0x6668: 'SOUNDBANK', 0x6669: 'MUSICBANK', 0x7F7F: 'LAST'
+      };
+      const chunks = [];
+      const frames = [];
+      const extensions = [];
+      const objects = [];
+      const sprites = [];
+      const sounds = [];
+      const iniContents = [];
+      let appHeader = { magic, width: 320, height: 480, frameCount: 0, fps: 60 };
+      let pos = 16;
+
+      while (pos + 8 <= u8.length) {
+        const id = readU16LE(u8, pos);
+        const flags = readU16LE(u8, pos + 2);
+        const size = readU32LE(u8, pos + 4);
+        const bodyStart = pos + 8;
+        if (bodyStart + size > u8.length) break;
+        const body = u8.subarray(bodyStart, bodyStart + size);
+        chunks.push({ index: chunks.length, id, hex: '0x' + id.toString(16).toUpperCase().padStart(4, '0'), name: CHUNK_NAMES[id] || 'CHUNK', flags, size });
+
+        let data = body;
+        if (flags & 1) {
+          try {
+            const zOff = body.length > 8 && body[4] === 0x78 ? 4 : (body[8] === 0x78 ? 8 : 0);
+            if (body[zOff] === 0x78) data = await streamDecompress(body.subarray(zOff), 'deflate');
+          } catch (_) {}
+        }
+
+        if (id === 0x2222 && data.length >= 24) {
+          appHeader.width = readU16LE(data, 12) || 320;
+          appHeader.height = readU16LE(data, 14) || 480;
+          appHeader.frameCount = readU16LE(data, 20) || 0;
+        } else if (id === 0x2229) {
+          const text = new TextDecoder('latin1').decode(data);
+          const matches = text.match(/[A-Za-z0-9_.-]{3,32}\.(mfx|ext)/gi) || [];
+          matches.forEach(m => { if (!extensions.includes(m)) extensions.push(m); });
+          ['iOSStore', 'kcini', 'AdvDir', 'iOS', 'GameCenter'].forEach(k => {
+            if (text.includes(k) && !extensions.includes(k)) extensions.push(k);
+          });
+        } else if (id === 0x2233) {
+          const text = new TextDecoder('latin1').decode(data);
+          const iniMatch = text.match(/[A-Za-z0-9_.-]+\.ini/gi) || [];
+          iniMatch.forEach(m => iniContents.push(m));
+        } else if (id === 0x3333) {
+          let fPos = 0, fName = 'Frame ' + frames.length, fW = appHeader.width, fH = appHeader.height;
+          while (fPos + 8 <= data.length) {
+            const subId = readU16LE(data, fPos);
+            const subSize = readU32LE(data, fPos + 4);
+            const subBody = data.subarray(fPos + 8, Math.min(data.length, fPos + 8 + subSize));
+            if (subId === 0x3334 && subBody.length >= 8) {
+              fW = readU32LE(subBody, 0) || fW;
+              fH = readU32LE(subBody, 4) || fH;
+            } else if (subId === 0x3335 && subBody.length > 0) {
+              const rawName = isUnicode
+                ? new TextDecoder('utf-16le').decode(subBody).replace(/\0+$/, '')
+                : new TextDecoder('latin1').decode(subBody).replace(/\0+$/, '');
+              if (rawName.trim()) fName = rawName.trim();
+            }
+            if (subId === 0x7F7F || (subSize === 0 && subId === 0)) break;
+            fPos += 8 + subSize;
+          }
+          frames.push({ index: frames.length, name: fName, width: fW, height: fH, bgColor: '#000000', layers: 1, instances: [] });
+        } else if (id === 0x6666 && data.length > 8) {
+          const count = readU32LE(data, 0);
+          let p = 4;
+          for (let i = 0; i < count && p + 20 <= data.length && sprites.length < 300; i++) {
+            const handle = readU32LE(data, p);
+            const width = readU16LE(data, p + 4);
+            const height = readU16LE(data, p + 6);
+            const hotX = readI16LE(data, p + 8);
+            const hotY = readI16LE(data, p + 10);
+            const actX = readI16LE(data, p + 12);
+            const actY = readI16LE(data, p + 14);
+            const fmt = data[p + 16];
+            const compSize = readU32LE(data, p + 20);
+            const dataStart = p + 24;
+            if (width > 0 && width <= 2048 && height > 0 && height <= 2048 && compSize > 0 && dataStart + compSize <= data.length) {
+              sprites.push({
+                handle, width, height, hotX, hotY, actX, actY, fmt,
+                compressed: data[dataStart] === 0x78,
+                rawData: data.subarray(dataStart, dataStart + compSize)
+              });
+              p = dataStart + compSize;
+            } else {
+              break;
+            }
+          }
+        } else if (id === 0x6668 && data.length > 16) {
+          for (let off = 0; off + 12 < data.length && sounds.length < 200; off++) {
+            if (data[off] === 0x52 && data[off+1] === 0x49 && data[off+2] === 0x46 && data[off+3] === 0x46 &&
+                data[off+8] === 0x57 && data[off+9] === 0x41 && data[off+10] === 0x56 && data[off+11] === 0x45) {
+              const riffSize = readU32LE(data, off + 4) + 8;
+              if (riffSize > 44 && off + riffSize <= data.length) {
+                sounds.push({
+                  name: 'sound_' + String(sounds.length).padStart(3, '0') + '.wav',
+                  kind: 'WAV (RIFF)',
+                  mime: 'audio/wav',
+                  bytes: data.slice(off, off + riffSize)
+                });
+                off += riffSize - 1;
+              }
+            }
+          }
+        }
+
+        if (id === 0x7F7F) break;
+        pos = bodyStart + size;
+      }
+
+      return {
+        filePath: fileEntry.relPath,
+        fileSize: u8.length,
+        summary: {
+          magic,
+          unicode: isUnicode,
+          chunksCount: chunks.length,
+          framesCount: frames.length,
+          spritesCount: sprites.length,
+          soundsCount: sounds.length,
+          extensionsCount: extensions.length
+        },
+        appHeader,
+        chunks,
+        frames,
+        objects,
+        extensions,
+        sprites,
+        sounds,
+        globalValues: [],
+        globalStrings: [],
+        iniContents: iniContents.join('\n') || 'Nenhum .ini detectado no chunk 0x2233.'
+      };
+    }
+
+    function buildUniversalBlueprint() {
+      const p = STATE.plist || {};
+      return {
+        generatedAt: new Date().toISOString(),
+        ipaName: STATE.ipaName,
+        appName: p.CFBundleDisplayName || p.CFBundleName || STATE.ipaName.replace(/\.ipa$/i, ''),
+        bundleId: p.CFBundleIdentifier || 'unknown.bundle.id',
+        version: p.CFBundleShortVersionString || p.CFBundleVersion || '1.0.0',
+        totalFiles: STATE.files.length,
+        detectedEngines: STATE.detectedEngines.map(e => ({ id: e.id, name: e.name, portability: e.portability, androidTarget: e.androidTarget, score: e.score })),
+        detectedMiddlewares: STATE.detectedMiddlewares.map(m => ({ id: m.id, name: m.name, type: m.type })),
+        macho: STATE.macho ? { archs: STATE.macho.archs, encrypted: STATE.macho.encrypted, dylibsCount: STATE.macho.dylibs?.length || 0 } : null,
+        clickteamCci: STATE.cciData ? STATE.cciData.summary : null,
+        recommendedAndroidTarget: recommendAndroidTarget()
+      };
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabName));
+    }
+
+    function renderOverview() {
+      const p = STATE.plist || {};
+      const appName = p.CFBundleDisplayName || p.CFBundleName || STATE.ipaName.replace(/\.ipa$/i, '') || 'Aplicativo iOS';
+      $('ovAppName').textContent = appName;
+      $('ovBundleId').textContent = p.CFBundleIdentifier || 'Bundle ID não encontrado';
+      if (STATE.iconUrl) {
+        $('appIconBox').innerHTML = `<img src="${STATE.iconUrl}" alt="Icon" />`;
+      } else {
+        $('appIconBox').textContent = '📱';
+      }
+
+      const primary = STATE.detectedEngines[0];
+      $('engineBadge').textContent = primary ? primary.name : 'Nativo / Desconhecido';
+      $('ovBadges').innerHTML = [
+        `<span class="badge blue">v${escapeHtml(String(p.CFBundleShortVersionString || p.CFBundleVersion || '1.0'))}</span>`,
+        `<span class="badge purple">${STATE.files.length} arquivos</span>`,
+        STATE.macho?.encrypted ? '<span class="badge err">FairPlay DRM</span>' : '<span class="badge green">Descriptografado</span>'
+      ].join('');
+
+      const rec = recommendAndroidTarget();
+      $('compatVerdict').innerHTML = `<strong>Veredito de Portabilidade:</strong> Alvo recomendado <strong>${escapeHtml(TARGET_LABELS[rec.target] || rec.target)}</strong> — ${escapeHtml(rec.reason)}`;
+
+      $('detectedEnginesList').innerHTML = STATE.detectedEngines.length
+        ? STATE.detectedEngines.map(e => `
+            <div class="detected-item">
+              <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+                <strong>${escapeHtml(e.name)}</strong>
+                <span class="badge ${e.portLevel === 'direct' || e.portLevel === 'high' ? 'green' : 'warn'}">${escapeHtml(e.portability)}</span>
+              </div>
+              <div style="font-size:12px;color:var(--text-1);margin-top:4px;">${escapeHtml(e.desc)}</div>
+              <div style="font-size:11px;color:var(--accent-2);margin-top:4px;font-family:var(--mono);">Evidências: ${escapeHtml((e.matches || []).slice(0, 5).join(', '))}</div>
+            </div>
+          `).join('')
+        : '<p style="font-size:12.5px;color:var(--text-2);">Nenhum motor específico identificado — tratado como aplicativo nativo iOS.</p>';
+
+      $('detectedMiddlewareTags').innerHTML = STATE.detectedMiddlewares.length
+        ? STATE.detectedMiddlewares.map(m => `<span class="tag">${escapeHtml(m.name)} (${escapeHtml(m.type)})</span>`).join('')
+        : '<span class="tag">Nenhum middleware adicional detectado</span>';
+
+      const plistKeys = [
+        ['CFBundleDisplayName', p.CFBundleDisplayName || p.CFBundleName || '—'],
+        ['CFBundleIdentifier', p.CFBundleIdentifier || '—'],
+        ['CFBundleShortVersionString', p.CFBundleShortVersionString || '—'],
+        ['CFBundleVersion', p.CFBundleVersion || '—'],
+        ['CFBundleExecutable', p.CFBundleExecutable || '—'],
+        ['MinimumOSVersion', p.MinimumOSVersion || '—']
+      ];
+      $('plistSummaryTable').innerHTML = plistKeys.map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(String(v))}</td></tr>`).join('');
+
+      const m = STATE.macho;
+      $('machoSummaryTable').innerHTML = m ? [
+        ['Executável', m.execPath || '—'],
+        ['Arquiteturas', (m.archs || []).join(', ') || '—'],
+        ['Criptografia FairPlay', m.encrypted ? 'SIM (cryptid != 0)' : 'NÃO (Pronto para análise)'],
+        ['Dylibs Vinculadas', String(m.dylibs?.length || 0)]
+      ].map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(String(v))}</td></tr>`).join('') : '<tr><td>Status</td><td>Binário Mach-O não localizado</td></tr>';
+
+      $('dylibTags').innerHTML = (m?.dylibs || []).slice(0, 40).map(d => `<span class="tag">${escapeHtml(d.split('/').pop())}</span>`).join('') || '<span class="tag">—</span>';
+
+      const counts = { image: 0, audio: 0, plist: 0, dlc: 0, binary: 0, other: 0 };
+      STATE.files.forEach(f => { counts[f.category] = (counts[f.category] || 0) + 1; });
+      $('statsGrid').innerHTML = [
+        ['Imagens', counts.image],
+        ['Áudios', counts.audio],
+        ['Plist / Dados', counts.plist],
+        ['Engine / DLC', counts.dlc],
+        ['Binários', counts.binary],
+        ['Outros', counts.other]
+      ].map(([lbl, n]) => `<div class="stat-box"><div class="stat-num">${n}</div><div class="stat-lbl">${lbl}</div></div>`).join('');
+
+      $('expAppName').value = appName;
+      $('expPackageId').value = sanitizeAndroidPackage(p.CFBundleIdentifier || 'com.port.' + sanitizeProjectSlug(appName).toLowerCase());
+      $('expVersionName').value = String(p.CFBundleShortVersionString || '1.0.0');
+      $('blueprintPreview').textContent = JSON.stringify(buildUniversalBlueprint(), null, 2);
+      const is32 = (m?.archs || []).some(a => /armv7/i.test(a));
+      $('touchHleHint').innerHTML = is32 && !m?.encrypted
+        ? '<span class="badge green">Compatível com touchHLE (armv7 descriptografado)</span>'
+        : '<span class="badge warn">Use o gerador Android Studio / PortBridge C++ para execução no Android</span>';
+    }
+
+    function renderExplorer() {
+      const q = ($('fileSearch').value || '').trim().toLowerCase();
+      const filtered = STATE.files.filter(f => {
+        if (STATE.currentFilter !== 'all' && f.category !== STATE.currentFilter) return false;
+        if (q && !f.relPath.toLowerCase().includes(q)) return false;
+        return true;
+      });
+      $('fileCountBadge').textContent = String(STATE.files.length);
+      $('fileList').innerHTML = filtered.slice(0, 500).map(f => `
+        <div class="file-item" data-idx="${STATE.files.indexOf(f)}">
+          <span class="file-name">${escapeHtml(f.relPath)}</span>
+          <span class="file-meta">${formatBytes(f.size)}</span>
+        </div>
+      `).join('') || '<p style="padding:12px;font-size:12px;color:var(--text-2);">Nenhum arquivo encontrado para este filtro.</p>';
+
+      $('fileList').querySelectorAll('.file-item').forEach(el => {
+        el.addEventListener('click', () => previewFile(STATE.files[Number(el.dataset.idx)]));
+      });
+    }
+
+    async function previewFile(f) {
+      if (!f) return;
+      STATE.selectedFile = f;
+      $('previewTitle').textContent = f.relPath;
+      $('previewSub').textContent = `${formatBytes(f.size)} • Categoria: ${f.category}`;
+      $('btnDownloadSingle').classList.remove('hidden');
+      $('btnDownloadConvertedPng').classList.add('hidden');
+      const body = $('previewBody');
+      body.innerHTML = '<p style="font-size:12.5px;color:var(--text-1);">Carregando prévia...</p>';
+      try {
+        const bytes = await f.getBytes();
+        if (f.ext === 'png') {
+          const cgbi = isCgbiPng(bytes);
+          const finalPng = cgbi ? await decodeCgbiToStandardPng(bytes) : bytes;
+          const url = URL.createObjectURL(new Blob([finalPng], { type: 'image/png' }));
+          body.innerHTML = `<div style="margin-bottom:8px;font-size:12px;color:var(--accent-2);">${cgbi ? 'PNG Apple CgBI convertido para RGBA padrão ✅' : 'PNG padrão'}</div><img src="${url}" style="max-width:100%;max-height:380px;border-radius:8px;background:#111;padding:6px;" />`;
+          if (cgbi) {
+            $('btnDownloadConvertedPng').classList.remove('hidden');
+            $('btnDownloadConvertedPng').onclick = () => triggerDownload(finalPng, f.name.replace(/\.png$/i, '_android.png'), 'image/png');
+          }
+        } else if (f.ext === 'plist') {
+          const parsed = parsePlist(bytes);
+          body.innerHTML = `<pre class="code-view">${escapeHtml(JSON.stringify(parsed, null, 2))}</pre>`;
+        } else if (['wav', 'mp3', 'm4a', 'ogg', 'caf'].includes(f.ext)) {
+          let playBytes = bytes, mime = 'audio/' + (f.ext === 'mp3' ? 'mpeg' : f.ext);
+          if (f.ext === 'caf') {
+            const conv = convertCafToWav(bytes);
+            if (conv.ok) { playBytes = conv.wavBytes; mime = 'audio/wav'; }
+          }
+          const url = URL.createObjectURL(new Blob([playBytes], { type: mime }));
+          body.innerHTML = `<audio controls src="${url}" style="width:100%;"></audio>`;
+        } else if (['json', 'xml', 'txt', 'js', 'css', 'html', 'ini', 'fsh', 'vsh', 'lua', 'cfg'].includes(f.ext)) {
+          const txt = new TextDecoder('utf-8', { fatal: false }).decode(bytes.subarray(0, 65536));
+          body.innerHTML = `<pre class="code-view">${escapeHtml(txt)}</pre>`;
+        } else {
+          const hex = Array.from(bytes.subarray(0, 256)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+          body.innerHTML = `<div style="font-size:12px;color:var(--text-1);margin-bottom:8px;">Visualização Hex (primeiros 256 bytes):</div><pre class="code-view">${hex}</pre>`;
+        }
+      } catch (err) {
+        body.innerHTML = `<p style="color:#f87171;">Erro ao abrir arquivo: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function renderCciPanel() {
+      const d = STATE.cciData;
+      if (!d) return;
+      $('tabCci').disabled = false;
+      $('cciStatusBadge').textContent = `${d.frames.length}f / ${d.sprites.length}sp`;
+      $('cciTitle').textContent = `Clickteam Fusion (${d.summary.magic}) — ${d.filePath}`;
+      $('cciSubtitle').textContent = `${formatBytes(d.fileSize)} • ${d.summary.chunksCount} chunks • ${d.frames.length} cenas • ${d.sprites.length} sprites • ${d.sounds.length} áudios`;
+      $('cciFramesCount').textContent = String(d.frames.length);
+      $('cciObjectsCount').textContent = String(d.objects.length);
+      $('cciSpritesCount').textContent = String(d.sprites.length);
+      $('cciSoundsCount').textContent = String(d.sounds.length);
+      $('cciHeaderTable').innerHTML = [
+        ['Assinatura', d.summary.magic + (d.summary.unicode ? ' (Unicode)' : ' (ANSI)')],
+        ['Resolução Base', `${d.appHeader.width} × ${d.appHeader.height}`],
+        ['Cenas / Frames', String(d.frames.length)],
+        ['Sprites (ImageBank)', String(d.sprites.length)],
+        ['Áudios (SoundBank)', String(d.sounds.length)]
+      ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+      $('cciExtTags').innerHTML = d.extensions.map(e => `<span class="tag">${escapeHtml(e)}</span>`).join('') || '<span class="tag">Nenhuma extensão extra</span>';
+      $('cciSaveIniView').textContent = d.iniContents;
+      $('cciChunksBody').innerHTML = d.chunks.map(c => `<tr><td>${c.index}</td><td>${c.hex}</td><td>${c.name}</td><td>${c.flags}</td><td>${formatBytes(c.size)}</td><td>OK</td></tr>`).join('');
+      $('cciFrameList').innerHTML = d.frames.map(fr => `<div class="file-item"><span class="file-name">#${fr.index} ${escapeHtml(fr.name)}</span><span class="file-meta">${fr.width}×${fr.height}</span></div>`).join('');
+      $('cciSoundList').innerHTML = d.sounds.slice(0, 80).map(s => `<div class="part-item"><span class="part-name">${escapeHtml(s.name)}</span><span class="part-meta">${formatBytes(s.bytes.length)}</span></div>`).join('') || '<p style="font-size:12px;color:var(--text-2);">Nenhum áudio RIFF extraído.</p>';
+    }
+
+    function renderSecondaryPanels() {
+      const cgbiCount = STATE.files.filter(f => f.ext === 'png').length;
+      const cafCount = STATE.files.filter(f => f.ext === 'caf').length;
+      STATE.acData = { convertedPngCache: new Map(), convertedWavCache: new Map(), cgbiCount, cafCount };
+      $('tabAssetsConv').disabled = false;
+      $('acCountBadge').textContent = String(cgbiCount + cafCount);
+      $('acModuleContent').innerHTML = `<div class="callout ok">Encontrados <strong>${cgbiCount}</strong> arquivos PNG (decodificação CgBI → RGBA automática) e <strong>${cafCount}</strong> arquivos .CAF (conversão PCM → .WAV) prontos para exportação Android na Aba 4.</div>`;
+
+      const gameEngines = STATE.detectedEngines.filter(e => e.category === 'game');
+      $('tabGameEngines').disabled = false;
+      $('geCountBadge').textContent = String(gameEngines.length);
+      $('geModuleContent').innerHTML = gameEngines.length
+        ? gameEngines.map(e => `<div class="card" style="margin-bottom:10px;"><h2>${escapeHtml(e.name)}</h2><p style="font-size:12.5px;color:var(--text-1);">${escapeHtml(e.desc)}</p></div>`).join('')
+        : '<div class="callout">Nenhum motor dedicado de jogo além do padrão detectado.</div>';
+
+      const crossApps = STATE.detectedEngines.filter(e => e.category === 'crossapp');
+      $('tabCrossApps').disabled = false;
+      $('caCountBadge').textContent = String(crossApps.length);
+      $('caModuleContent').innerHTML = crossApps.length
+        ? crossApps.map(e => `<div class="card" style="margin-bottom:10px;"><h2>${escapeHtml(e.name)}</h2><p style="font-size:12.5px;color:var(--text-1);">${escapeHtml(e.desc)}</p></div>`).join('')
+        : '<div class="callout">Nenhum framework híbrido (Cordova/Flutter/RN) detectado neste pacote.</div>';
+    }
+
+    function renderCatalog() {
+      const cat = STATE.catalogCategory || 'all';
+      const q = ($('catalogSearch').value || '').trim().toLowerCase();
+      const detectedIds = new Set(STATE.detectedEngines.map(e => e.id));
+      const list = UNIVERSAL_ENGINES.filter(e => {
+        if (cat === 'detected' && !detectedIds.has(e.id)) return false;
+        if (cat !== 'all' && cat !== 'detected' && e.category !== cat) return false;
+        if (q && !(e.name + ' ' + e.desc + ' ' + e.sigText).toLowerCase().includes(q)) return false;
+        return true;
+      });
+      $('catalogShownCount').textContent = `${list.length} exibidos`;
+      $('catalogGrid').innerHTML = list.map(e => `
+        <div class="engine-card ${detectedIds.has(e.id) ? 'detected' : ''}">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+            <strong>${escapeHtml(e.name)}</strong>
+            <span class="badge ${e.portLevel === 'direct' || e.portLevel === 'high' ? 'green' : 'warn'}">${escapeHtml(e.phase)}</span>
+          </div>
+          <p style="font-size:12px;color:var(--text-1);margin:6px 0;">${escapeHtml(e.desc)}</p>
+          <div style="font-size:11px;font-family:var(--mono);color:var(--text-2);">${escapeHtml(e.sigText)}</div>
+        </div>
+      `).join('');
+
+      $('middlewareGrid').innerHTML = UNIVERSAL_MIDDLEWARES.map(m => `
+        <div class="engine-card">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+            <strong>${escapeHtml(m.name)}</strong>
+            <span class="badge blue">${escapeHtml(m.type)}</span>
+          </div>
+          <p style="font-size:12px;color:var(--text-1);margin:6px 0;">${escapeHtml(m.desc)}</p>
+          <div style="font-size:11px;font-family:var(--mono);color:var(--text-2);">${escapeHtml(m.sigText)}</div>
+        </div>
+      `).join('');
+    }
+
+    async function processReassembledIpa() {
+      if (!STATE.parts.length) return;
+      try {
+        $('btnProcessIpa').disabled = true;
+        setStatus('Remontando IPA…', 'busy');
+        setProgress(10, 'Concatenando partes do IPA...');
+        const total = STATE.parts.reduce((acc, p) => acc + p.bytes.length, 0);
+        const merged = new Uint8Array(total);
+        let off = 0;
+        for (const p of STATE.parts) {
+          merged.set(p.bytes, off);
+          off += p.bytes.length;
+        }
+        STATE.ipaBytes = merged;
+        STATE.ipaName = STATE.parts[0].name.replace(/\.part\d+$/i, '').replace(/\.zip$/i, '.ipa');
+
+        setProgress(30, 'Lendo estrutura ZIP do Payload...');
+        const entries = parseZip(merged);
+        const appEntry = entries.find(e => /Payload\/[^/]+\.app\//i.test(e.path));
+        STATE.appBundlePrefix = appEntry ? appEntry.path.match(/^(Payload\/[^/]+\.app\/)/i)[1] : '';
+        STATE.files = entries.map(e => {
+          const relPath = STATE.appBundlePrefix && e.path.startsWith(STATE.appBundlePrefix)
+            ? e.path.slice(STATE.appBundlePrefix.length) : e.path;
+          const name = relPath.split('/').pop() || relPath;
+          const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+          return { ...e, relPath, name, ext, category: categorizeFile(relPath) };
+        });
+
+        setProgress(50, 'Analisando Info.plist e binário Mach-O...');
+        const plistFile = STATE.files.find(f => /^info\.plist$/i.test(f.relPath)) || STATE.files.find(f => f.name.toLowerCase() === 'info.plist');
+        STATE.plist = plistFile ? parsePlist(await plistFile.getBytes()) : {};
+
+        const execName = STATE.plist?.CFBundleExecutable;
+        const execFile = execName ? STATE.files.find(f => f.relPath === execName || f.name === execName) : null;
+        STATE.macho = execFile ? parseMachO(await execFile.getBytes(), execFile.relPath) : null;
+
+        setProgress(68, 'Detectando motores (39) e middlewares (15)...');
+        const det = detectAllEnginesAndMiddlewares(STATE.files, STATE.plist, STATE.macho);
+        STATE.detectedEngines = det.engines;
+        STATE.detectedMiddlewares = det.middlewares;
+
+        await loadAppIcon();
+
+        setProgress(82, 'Verificando Clickteam Fusion Application.cci...');
+        const cciFile = STATE.files.find(f => /application\.cci$/i.test(f.name));
+        STATE.cciData = cciFile ? await parseClickteamCciFile(cciFile) : null;
+
+        renderOverview();
+        renderExplorer();
+        renderSecondaryPanels();
+        renderCatalog();
+        if (STATE.cciData) renderCciPanel();
+        if (typeof PHASE_HOOKS.onIpaReadyExport === 'function') PHASE_HOOKS.onIpaReadyExport();
+
+        $('tabOverview').disabled = false;
+        $('tabExplorer').disabled = false;
+        $('tabExport').disabled = false;
+        setProgress(100, 'Desconstrução completa!');
+        setStatus('IPA desconstruído ✅', 'ok');
+        log(`IPA analisado com sucesso: ${STATE.files.length} arquivos, motor principal: ${STATE.detectedEngines[0]?.name || 'Nativo iOS'}.`, 'ok');
+        switchTab('overview');
+      } catch (err) {
+        setStatus('Erro ao desconstruir', 'err');
+        log('Erro ao processar IPA: ' + err.message, 'err');
+      } finally {
+        $('btnProcessIpa').disabled = false;
+      }
+    }
+
+    function initApp() {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => { if (!btn.disabled) switchTab(btn.dataset.tab); });
+      });
+
+      const dz = $('dropzone');
+      const fi = $('fileInput');
+      $('btnPickFiles').addEventListener('click', () => fi.click());
+      fi.addEventListener('change', (e) => handleIncomingFiles(e.target.files));
+      dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+      dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('dragover'); handleIncomingFiles(e.dataTransfer.files); });
+
+      $('btnProcessIpa').addEventListener('click', processReassembledIpa);
+      $('btnReset').addEventListener('click', () => {
+        STATE.parts = []; STATE.extras = []; STATE.files = []; STATE.cciData = null;
+        renderUploadLists();
+        setStatus('Pronto', '');
+      });
+      $('btnOpenCatalogFromUpload').addEventListener('click', () => switchTab('catalog'));
+      $('btnGotoExport').addEventListener('click', () => switchTab('export'));
+      $('btnCciToAndroid').addEventListener('click', () => switchTab('export'));
+
+      $('fileSearch').addEventListener('input', renderExplorer);
+      $('filterChips').querySelectorAll('.chip').forEach(ch => {
+        ch.addEventListener('click', () => {
+          $('filterChips').querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+          ch.classList.add('active');
+          STATE.currentFilter = ch.dataset.filter;
+          renderExplorer();
+        });
+      });
+
+      $('btnDownloadSingle').addEventListener('click', async () => {
+        if (!STATE.selectedFile) return;
+        triggerDownload(await STATE.selectedFile.getBytes(), STATE.selectedFile.name);
+      });
+
+      $('btnDownloadIpa').addEventListener('click', () => {
+        if (STATE.ipaBytes) triggerDownload(STATE.ipaBytes, STATE.ipaName || 'app_unificado.ipa', 'application/octet-stream');
+      });
+
+      const copyBp = (e) => copyTextSafe(JSON.stringify(buildUniversalBlueprint(), null, 2), e.currentTarget);
+      $('btnCopyBlueprintTop').addEventListener('click', copyBp);
+      $('btnCopyBlueprint').addEventListener('click', copyBp);
+      $('btnDownloadBlueprint').addEventListener('click', () => {
+        triggerDownload(JSON.stringify(buildUniversalBlueprint(), null, 2), 'blueprint_universal.json', 'application/json');
+      });
+
+      $('cciSubtabs').querySelectorAll('.subtab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          $('cciSubtabs').querySelectorAll('.subtab-btn').forEach(x => x.classList.remove('active'));
+          document.querySelectorAll('#panel-cci .subpanel').forEach(p => p.classList.remove('active'));
+          btn.classList.add('active');
+          const sub = $('sub-' + btn.dataset.sub);
+          if (sub) sub.classList.add('active');
+        });
+      });
+
+      $('btnExtractAllSprites').addEventListener('click', async () => {
+        if (!STATE.cciData) return;
+        const grid = $('cciSpriteGrid');
+        grid.innerHTML = '';
+        for (const sp of STATE.cciData.sprites.slice(0, 60)) {
+          const png = await decodeCciSpriteToPng(sp);
+          if (!png) continue;
+          const url = URL.createObjectURL(new Blob([png], { type: 'image/png' }));
+          const div = document.createElement('div');
+          div.className = 'sprite-card';
+          div.innerHTML = `<img src="${url}" /><span>#${sp.handle} (${sp.width}×${sp.height})</span>`;
+          grid.appendChild(div);
+        }
+        $('btnDownloadSpritesZip').disabled = false;
+      });
+
+      $('catalogCategoryChips').querySelectorAll('.chip').forEach(ch => {
+        ch.addEventListener('click', () => {
+          $('catalogCategoryChips').querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+          ch.classList.add('active');
+          STATE.catalogCategory = ch.dataset.cat;
+          renderCatalog();
+        });
+      });
+      $('catalogSearch').addEventListener('input', renderCatalog);
+
+      renderCatalog();
+    }
+
+    // =========================================================================
+    // [HOOK POINT: PHASE 5 (MULTI-TARGET ANDROID EXPORTER + GITHUB ACTIONS CI)]
+    // 20. PHASE 5: MULTI-TARGET ANDROID GENERATORS (5 TEMPLATES) + CLOUD CI APK
+    // =========================================================================
+    const TARGET_LABELS = {
+      'android-studio': 'Android Studio (Kotlin + WebView/Canvas)',
+      'godot4': 'Godot 4 Android (Jogos 2D/3D)',
+      'capacitor': 'WebView / Capacitor 1:1 (HTML5/Cordova)',
+      'flutter-rn': 'Flutter / React Native (Cross-App)',
+      'compose-native': 'Jetpack Compose (Kotlin Material 3)'
+    };
+
+    function sanitizeAndroidPackage(raw) {
+      let cleaned = String(raw || 'com.port.iosapp')
+        .toLowerCase()
+        .replace(/[^a-z0-9._]/g, '_')
+        .replace(/\.+/g, '.')
+        .replace(/^\.+|\.+$/g, '');
+      const parts = cleaned.split('.').filter(Boolean).map(seg => /^[0-9]/.test(seg) ? 'app_' + seg : seg);
+      if (parts.length < 2) return 'com.port.' + (parts[0] || 'iosapp');
+      return parts.join('.');
+    }
+
+    function sanitizeProjectSlug(raw) {
+      return String(raw || 'IosPortApp').replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'IosPortApp';
+    }
+
+    function escapeXmlText(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+    }
+
+    function getExportConfig() {
+      const appName = ($('expAppName').value || '').trim() || 'IosPortApp';
+      const packageId = sanitizeAndroidPackage($('expPackageId').value);
+      const versionName = ($('expVersionName').value || '').trim() || '1.0.0';
+      const minSdk = Math.max(21, Math.min(34, parseInt($('expMinSdk').value, 10) || 24));
+      const targetSdk = Math.max(minSdk, Math.min(35, parseInt($('expTargetSdk').value, 10) || 34));
+      const orientation = $('expOrientation').value || 'sensorPortrait';
+      const isFlutter = STATE.detectedEngines.some(e => e.id === 'flutter') || Boolean(STATE.caData?.modules?.some(m => m.id === 'flutter'));
+      const isReactNative = STATE.detectedEngines.some(e => e.id === 'reactnative') || Boolean(STATE.caData?.modules?.some(m => m.id === 'reactnative'));
+      return {
+        target: STATE.selectedTarget || 'android-studio',
+        appName,
+        slug: sanitizeProjectSlug(appName),
+        packageId,
+        packagePath: packageId.replace(/\./g, '/'),
+        versionName,
+        minSdk,
+        targetSdk,
+        orientation,
+        convertCgbi: $('chkConvertCgbi').checked,
+        convertCaf: $('chkConvertCaf').checked,
+        includeCi: $('chkIncludeCi').checked,
+        includeSigning: $('chkIncludeSigning').checked,
+        includeBinaries: $('chkIncludeBinaries').checked,
+        crossFlavor: isReactNative && !isFlutter ? 'react-native' : 'flutter'
+      };
+    }
+
+    function recommendAndroidTarget() {
+      const primary = STATE.detectedEngines[0]?.id || '';
+      const hasWebMod = STATE.caData?.modules?.some(m => m.id === 'cordova_web');
+      const hasRpgMaker = STATE.geData?.modules?.some(m => m.id === 'rpgmaker');
+      if (['cordova', 'capacitor', 'construct', 'gdevelop', 'rpgmaker', 'html5game'].includes(primary) || hasWebMod || hasRpgMaker) {
+        return { target: 'capacitor', reason: 'App/Jogo baseado em HTML5/WebView — conversão 1:1 direta para APK.' };
+      }
+      if (['flutter', 'reactnative'].includes(primary)) {
+        return { target: 'flutter-rn', reason: `Detectado ${STATE.detectedEngines[0].name} — estrutura pronta para reconstrução cross-platform.` };
+      }
+      if (['godot', 'cocos', 'gamemaker', 'spritekit', 'scenekit', 'buildbox'].includes(primary)) {
+        return { target: 'godot4', reason: `Motor de jogo (${STATE.detectedEngines[0].name}) — Godot 4 oferece cena, sprites e exportação APK nativa.` };
+      }
+      if (['swiftui', 'uikit'].includes(primary)) {
+        return { target: 'compose-native', reason: 'App nativo UIKit/SwiftUI — Jetpack Compose (Material 3) é o equivalente moderno no Android.' };
+      }
+      if (primary === 'clickteam' || STATE.cciData) {
+        return { target: 'android-studio', reason: 'Clickteam Fusion (.cci) — Android Studio com host HTML5 Canvas + sprites/áudios extraídos do .cci.' };
+      }
+      return { target: 'android-studio', reason: 'Template Android Studio Universal com todos os assets iOS convertidos.' };
+    }
+
+    function setSelectedTarget(targetId) {
+      STATE.selectedTarget = targetId;
+      $('targetSelectorGrid').querySelectorAll('.target-card').forEach(card => {
+        card.classList.toggle('active', card.dataset.target === targetId);
+      });
+      refreshCiYamlPreview();
+    }
+
+    // --- 20A. DYNAMIC GITHUB ACTIONS CI WORKFLOW GENERATOR ---
+    function generateGithubActionsWorkflow(cfg) {
+      const signStepGradle = cfg.includeSigning ? `
+      - name: Gerar Keystore de Assinatura & Compilar Release APK
+        run: |
+          if [ -n "\${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "\${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+            KS_PASS="\${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+            KEY_ALIAS="\${{ secrets.ANDROID_KEY_ALIAS }}"
+            KEY_PASS="\${{ secrets.ANDROID_KEY_PASSWORD }}"
+          else
+            KS_PASS="androidport123"
+            KEY_ALIAS="portkey"
+            KEY_PASS="androidport123"
+            keytool -genkeypair -v -keystore release.keystore -alias "$KEY_ALIAS" \\
+              -keyalg RSA -keysize 2048 -validity 10000 \\
+              -storepass "$KS_PASS" -keypass "$KEY_PASS" \\
+              -dname "CN=${cfg.slug}, OU=Port, O=AndroidStudio, L=BR, S=SP, C=BR"
+          fi
+          gradle assembleRelease \\
+            -Pandroid.injected.signing.store.file="$PWD/release.keystore" \\
+            -Pandroid.injected.signing.store.password="$KS_PASS" \\
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \\
+            -Pandroid.injected.signing.key.password="$KEY_PASS"
+
+      - name: Publicar Release APK Assinado
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${cfg.slug}-release-signed-apk
+          path: app/build/outputs/apk/release/*.apk
+` : '';
+
+      if (cfg.target === 'godot4') {
+        return `name: Build Godot 4 Android APK (${cfg.slug})
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-godot-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Projeto
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17 & Android SDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Instalar Godot 4.3 Headless + Templates Android
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q Godot_v4.3-stable_linux.x86_64.zip
+          chmod +x Godot_v4.3-stable_linux.x86_64
+          mkdir -p ~/.local/share/godot/export_templates/4.3.stable
+          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+          unzip -q Godot_v4.3-stable_export_templates.tpz -d templates_tmp
+          mv templates_tmp/templates/* ~/.local/share/godot/export_templates/4.3.stable/
+          keytool -genkeypair -v -keystore debug.keystore -alias androiddebugkey \\
+            -keyalg RSA -keysize 2048 -validity 10000 \\
+            -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Exportar APK Android (Godot 4)
+        run: |
+          mkdir -p build/android
+          ./Godot_v4.3-stable_linux.x86_64 --headless --export-debug "Android" build/android/${cfg.slug}.apk
+
+      - name: Publicar APK como Artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${cfg.slug}-godot4-apk
+          path: build/android/*.apk
+`;
+      }
+
+      if (cfg.target === 'flutter-rn' && cfg.crossFlavor === 'flutter') {
+        return `name: Build Flutter Android APK (${cfg.slug})
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-flutter-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Projeto
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Inicializar Pasta Android & Compilar APK
+        run: |
+          flutter create . --platforms=android --org ${cfg.packageId.split('.').slice(0, 2).join('.') || 'com.port'} --project-name ${cfg.slug.toLowerCase()}
+          flutter pub get
+          flutter build apk --${cfg.includeSigning ? 'release' : 'debug'}
+
+      - name: Publicar APK Flutter
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${cfg.slug}-flutter-apk
+          path: build/app/outputs/flutter-apk/*.apk
+`;
+      }
+
+      if (cfg.target === 'flutter-rn' && cfg.crossFlavor === 'react-native') {
+        return `name: Build React Native Android APK (${cfg.slug})
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-rn-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Projeto
+        uses: actions/checkout@v4
+
+      - name: Configurar Node 20 & Java 17
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Compilar Host Android React Native (Debug APK)
+        run: gradle assembleDebug
+${signStepGradle}
+      - name: Publicar Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${cfg.slug}-rn-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+`;
+      }
+
+      // Default Gradle workflow for android-studio, capacitor and compose-native
+      return `name: Build Android APK (${cfg.slug} - ${cfg.target})
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Projeto
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Gradle 8.7 (sem exigir wrapper binário)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Compilar Debug APK
+        run: gradle assembleDebug
+
+      - name: Publicar Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${cfg.slug}-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+${signStepGradle}`;
+    }
+
+    function refreshCiYamlPreview() {
+      const cfg = getExportConfig();
+      $('ciYamlPreview').textContent = generateGithubActionsWorkflow(cfg);
+      $('btnBuildAndroidZip').textContent = `🤖 Gerar ${TARGET_LABELS[cfg.target]?.split('(')[0].trim() || 'Projeto'} + CI (.zip)`;
+    }
+
+    // --- 20B. SHARED ASSET CONVERSION PIPELINE ---
+    async function populateConvertedIpaAssets(zb, cfg, destPrefix, onProgress, filterFn = null) {
+      const stats = { copied: 0, cgbiConverted: 0, cafConverted: 0, skipped: 0 };
+      const list = STATE.files.filter(f => {
+        if (/^_CodeSignature\//i.test(f.relPath) || /^SC_Info\//i.test(f.relPath) || /CodeResources$/i.test(f.name)) return false;
+        if (!cfg.includeBinaries && f.category === 'binary' && f.size > 100000 && !/\.(dll|so)$/i.test(f.name)) return false;
+        if (filterFn && !filterFn(f)) return false;
+        return true;
+      });
+
+      for (let i = 0; i < list.length; i++) {
+        const f = list[i];
+        if (i % 8 === 0 && onProgress) {
+          onProgress(Math.round((i / Math.max(1, list.length)) * 75), `Convertendo assets (${i + 1}/${list.length}): ${f.name}...`);
+          await new Promise(r => setTimeout(r, 0));
+        }
+        try {
+          let bytes = await f.getBytes();
+          let outRel = f.relPath;
+
+          if (cfg.convertCgbi && f.ext === 'png' && isCgbiPng(bytes)) {
+            const cached = STATE.acData?.convertedPngCache?.get(f.path);
+            bytes = cached || await decodeCgbiToStandardPng(bytes);
+            if (STATE.acData?.convertedPngCache) STATE.acData.convertedPngCache.set(f.path, bytes);
+            stats.cgbiConverted++;
+          } else if (cfg.convertCaf && f.ext === 'caf') {
+            const cachedWav = STATE.acData?.convertedWavCache?.get(f.path);
+            if (cachedWav) {
+              bytes = cachedWav;
+              outRel = outRel.replace(/\.caf$/i, '.wav');
+              stats.cafConverted++;
+            } else {
+              const res = convertCafToWav(bytes);
+              if (res.ok && res.wavBytes) {
+                bytes = res.wavBytes;
+                outRel = outRel.replace(/\.caf$/i, '.wav');
+                if (STATE.acData?.convertedWavCache) STATE.acData.convertedWavCache.set(f.path, bytes);
+                stats.cafConverted++;
+              }
+            }
+          }
+          zb.addFile(destPrefix + outRel, bytes);
+          stats.copied++;
+        } catch (_) {
+          stats.skipped++;
+        }
+      }
+      return stats;
+    }
+
+    async function appendClickteamExtractedBundle(zb, baseDir, onProgress) {
+      const d = STATE.cciData;
+      if (!d) return { sprites: 0, sounds: 0 };
+      let spCount = 0, sndCount = 0;
+      const spriteManifest = [];
+
+      const cap = Math.min(d.sprites.length, 300);
+      for (let i = 0; i < cap; i++) {
+        const sp = d.sprites[i];
+        if (i % 15 === 0 && onProgress) {
+          onProgress(76 + Math.round((i / Math.max(1, cap)) * 12), `Empacotando sprites do .cci (${i + 1}/${cap})...`);
+          await new Promise(r => setTimeout(r, 0));
+        }
+        try {
+          const png = await decodeCciSpriteToPng(sp);
+          if (png) {
+            const fn = `cci_sprites/sprite_${String(sp.handle).padStart(4, '0')}.png`;
+            zb.addFile(baseDir + fn, png);
+            spriteManifest.push({ handle: sp.handle, file: fn, w: sp.width, h: sp.height, hotX: sp.hotX, hotY: sp.hotY, actX: sp.actX, actY: sp.actY });
+            spCount++;
+          }
+        } catch (_) {}
+      }
+
+      for (const s of d.sounds.slice(0, 200)) {
+        zb.addFile(baseDir + 'cci_audio/' + s.name, s.bytes);
+        sndCount++;
+      }
+
+      zb.addFile(baseDir + 'cci_manifest.json', JSON.stringify({
+        summary: d.summary,
+        appHeader: d.appHeader,
+        extensions: d.extensions,
+        globalValues: d.globalValues,
+        globalStrings: d.globalStrings,
+        saveIni: d.iniContents,
+        frames: d.frames.map(f => ({ index: f.index, name: f.name, width: f.width, height: f.height, bgColor: f.bgColor, layers: f.layers, instances: f.instances.slice(0, 400) })),
+        objects: d.objects.slice(0, 500),
+        sprites: spriteManifest,
+        sounds: d.sounds.slice(0, 200).map(s => ({ name: s.name, kind: s.kind, mime: s.mime }))
+      }, null, 2));
+
+      return { sprites: spCount, sounds: sndCount };
+    }
+
+    function addBaseGradleFiles(zb, cfg, composeMode = false) {
+      zb.addFile('settings.gradle.kts', `pluginManagement {\n    repositories { google(); mavenCentral(); gradlePluginPortal() }\n}\ndependencyResolutionManagement {\n    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)\n    repositories { google(); mavenCentral() }\n}\nrootProject.name = "${cfg.slug}"\ninclude(":app")\n`);
+      zb.addFile('build.gradle.kts', `plugins {\n    id("com.android.application") version "8.5.0" apply false\n    id("org.jetbrains.kotlin.android") version "1.9.24" apply false\n}\n`);
+      zb.addFile('gradle.properties', `org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8\nandroid.useAndroidX=true\nkotlin.code.style=official\nandroid.nonTransitiveRClass=true\n`);
+
+      if (composeMode) {
+        zb.addFile('app/build.gradle.kts', `plugins {\n    id("com.android.application")\n    id("org.jetbrains.kotlin.android")\n}\nandroid {\n    namespace = "${cfg.packageId}"\n    compileSdk = ${cfg.targetSdk}\n    defaultConfig {\n        applicationId = "${cfg.packageId}"\n        minSdk = ${cfg.minSdk}\n        targetSdk = ${cfg.targetSdk}\n        versionCode = 1\n        versionName = "${cfg.versionName}"\n    }\n    buildTypes {\n        release {\n            isMinifyEnabled = false\n            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")\n        }\n    }\n    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }\n    kotlinOptions { jvmTarget = "17" }\n    buildFeatures { compose = true }\n    composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }\n}\ndependencies {\n    implementation(platform("androidx.compose:compose-bom:2024.06.00"))\n    implementation("androidx.core:core-ktx:1.13.1")\n    implementation("androidx.activity:activity-compose:1.9.0")\n    implementation("androidx.compose.ui:ui")\n    implementation("androidx.compose.ui:ui-graphics")\n    implementation("androidx.compose.material3:material3")\n}\n`);
+      } else {
+        zb.addFile('app/build.gradle.kts', `plugins {\n    id("com.android.application")\n    id("org.jetbrains.kotlin.android")\n}\nandroid {\n    namespace = "${cfg.packageId}"\n    compileSdk = ${cfg.targetSdk}\n    defaultConfig {\n        applicationId = "${cfg.packageId}"\n        minSdk = ${cfg.minSdk}\n        targetSdk = ${cfg.targetSdk}\n        versionCode = 1\n        versionName = "${cfg.versionName}"\n    }\n    buildTypes {\n        release {\n            isMinifyEnabled = false\n            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")\n        }\n    }\n    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }\n    kotlinOptions { jvmTarget = "17" }\n}\ndependencies {\n    implementation("androidx.core:core-ktx:1.13.1")\n    implementation("androidx.appcompat:appcompat:1.7.0")\n    implementation("androidx.webkit:webkit:1.11.0")\n}\n`);
+      }
+
+      zb.addFile('app/proguard-rules.pro', '# Regras ProGuard personalizadas\n');
+      zb.addFile('app/src/main/res/values/strings.xml', `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <string name="app_name">${escapeXmlText(cfg.appName)}</string>\n</resources>\n`);
+      if (STATE.iconPngBytes) {
+        zb.addFile('app/src/main/res/drawable/ic_launcher.png', STATE.iconPngBytes);
+      }
+
+      const iconAttr = STATE.iconPngBytes ? ' android:icon="@drawable/ic_launcher"' : '';
+      const themeAttr = composeMode ? ' android:theme="@android:style/Theme.Material.NoActionBar"' : ' android:theme="@style/Theme.AppCompat.Light.NoActionBar"';
+      zb.addFile('app/src/main/AndroidManifest.xml', `<?xml version="1.0" encoding="utf-8"?>\n<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />\n    <application\n        android:label="@string/app_name"${iconAttr}\n        android:hardwareAccelerated="true"\n        android:usesCleartextTraffic="true"${themeAttr}>\n        <activity\n            android:name=".MainActivity"\n            android:exported="true"\n            android:screenOrientation="${cfg.orientation}"\n            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize">\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN" />\n                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n        </activity>\n    </application>\n</manifest>\n`);
+    }
+
+    function buildCanvasHostHtml(cfg, hasCci) {
+      return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>${escapeHtml(cfg.appName)}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #090d16; color: #f3f6fc; font-family: system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+    header { padding: 12px 16px; background: #111827; border-bottom: 1px solid #2b3854; display: flex; justify-content: space-between; align-items: center; }
+    main { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    canvas { width: 100%; max-width: 720px; margin: 0 auto; background: #000; border: 1px solid #334155; border-radius: 10px; display: block; }
+    .card { background: #111827; border: 1px solid #2b3854; border-radius: 10px; padding: 12px; font-size: 13px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    button, select { background: #1e293b; color: #f8fafc; border: 1px solid #38bdf8; border-radius: 8px; padding: 8px 12px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>${escapeHtml(cfg.appName)}</strong>
+    <span style="font-size:12px;color:#38bdf8;">Android Canvas Runtime Host</span>
+  </header>
+  <main>
+    <canvas id="gameCanvas" width="320" height="480"></canvas>
+    <div class="card">
+      <div id="status">Carregando manifesto e assets convertidos do IPA...</div>
+      <div class="row">
+        <select id="frameSelect" style="display:none;"></select>
+        <button id="btnPlaySound" style="display:none;">🔊 Testar Áudio</button>
+      </div>
+    </div>
+  </main>
+  <script>
+    (async () => {
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+      const status = document.getElementById('status');
+      const bp = await fetch('./blueprint_universal.json').then(r => r.json()).catch(() => null);
+      ${hasCci ? `
+      const cci = await fetch('./cci_manifest.json').then(r => r.json()).catch(() => null);
+      if (cci && cci.frames && cci.frames.length) {
+        const sel = document.getElementById('frameSelect');
+        sel.style.display = 'inline-block';
+        cci.frames.forEach((f, i) => {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = '#' + (i + 1) + ' ' + f.name + ' (' + f.width + 'x' + f.height + ')';
+          sel.appendChild(opt);
+        });
+        const drawFrame = (idx) => {
+          const f = cci.frames[idx];
+          canvas.width = f.width || 320;
+          canvas.height = f.height || 480;
+          ctx.fillStyle = f.bgColor || '#0f172a';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = 'bold 16px sans-serif';
+          ctx.fillText(f.name + ' (' + f.instances.length + ' objetos)', 14, 28);
+          for (const inst of f.instances) {
+            ctx.fillStyle = '#10b981';
+            ctx.fillRect(inst.x - 4, inst.y - 4, 8, 8);
+          }
+          status.textContent = 'Clickteam .cci carregado: ' + cci.frames.length + ' fases, ' + (cci.sprites?.length || 0) + ' sprites e ' + (cci.sounds?.length || 0) + ' áudios prontos em assets/.';
+        };
+        sel.onchange = () => drawFrame(Number(sel.value));
+        drawFrame(0);
+        if (cci.sounds && cci.sounds.length) {
+          const sb = document.getElementById('btnPlaySound');
+          sb.style.display = 'inline-block';
+          sb.onclick = () => new Audio('./cci_audio/' + cci.sounds[0].name).play().catch(() => {});
+        }
+        return;
+      }` : ''}
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.fillText('${escapeHtml(cfg.appName)}', 20, 50);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '13px sans-serif';
+      ctx.fillText('Assets convertidos prontos em assets/ios_assets/', 20, 82);
+      status.textContent = bp ? ('Motor detectado: ' + (bp.detectedEngines?.[0]?.name || 'iOS Nativo') + ' • ' + bp.totalFiles + ' arquivos mapeados.') : 'Host pronto.';
+    })();
+  <\/script>
+</body>
+</html>`;
+    }
+
+    function buildWebViewMainActivityKt(cfg, startUrl) {
+      return `package ${cfg.packageId}
+
+import android.annotation.SuppressLint
+import android.os.Bundle
+import android.webkit.*
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.webkit.WebViewAssetLoader
+
+class MainActivity : AppCompatActivity() {
+    private lateinit var webView: WebView
+
+    @SuppressLint("SetJavaScriptEnabled")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
+        webView = WebView(this)
+        setContentView(webView)
+
+        val assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            allowFileAccess = true
+            mediaPlaybackRequiresUserGesture = false
+            useWideViewPort = true
+            loadWithOverviewMode = true
+        }
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                return assetLoader.shouldInterceptRequest(request.url)
+            }
+        }
+        webView.webChromeClient = WebChromeClient()
+        webView.loadUrl("${startUrl}")
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (this::webView.isInitialized && webView.canGoBack()) webView.goBack()
+        else super.onBackPressed()
+    }
+}
+`;
+    }
+
+    // --- 20C. THE 5 MULTI-TARGET PROJECT BUILDERS ---
+    async function buildTargetAndroidStudio(zb, cfg, onProgress) {
+      addBaseGradleFiles(zb, cfg, false);
+      zb.addFile(`app/src/main/java/${cfg.packagePath}/MainActivity.kt`, buildWebViewMainActivityKt(cfg, 'https://appassets.androidplatform.net/assets/www/index.html'));
+      const stats = await populateConvertedIpaAssets(zb, cfg, 'app/src/main/assets/ios_assets/', onProgress);
+      const cciStats = await appendClickteamExtractedBundle(zb, 'app/src/main/assets/www/', onProgress);
+      zb.addFile('app/src/main/assets/www/blueprint_universal.json', JSON.stringify(buildUniversalBlueprint(), null, 2));
+      zb.addFile('app/src/main/assets/www/index.html', buildCanvasHostHtml(cfg, Boolean(STATE.cciData)));
+      return { ...stats, ...cciStats, summaryNote: `Android Studio (Kotlin/Canvas): ${stats.copied} assets (${stats.cgbiConverted} CgBI, ${stats.cafConverted} CAF→WAV)` + (cciStats.sprites ? ` + ${cciStats.sprites} sprites/${cciStats.sounds} áudios .cci` : '') };
+    }
+
+    async function buildTargetGodot4(zb, cfg, onProgress) {
+      const winW = STATE.cciData?.appHeader?.windowWidth || (cfg.orientation === 'sensorLandscape' ? 1280 : 720);
+      const winH = STATE.cciData?.appHeader?.windowHeight || (cfg.orientation === 'sensorLandscape' ? 720 : 1280);
+      const orientCode = cfg.orientation === 'sensorLandscape' ? 0 : 1;
+
+      zb.addFile('project.godot', `; Engine configuration file.\nconfig_version=5\n\n[application]\nconfig/name="${cfg.appName.replace(/"/g, '')}"\nrun/main_scene="res://scenes/Main.tscn"\nconfig/features=PackedStringArray("4.3", "Mobile")\nconfig/icon="res://icon.png"\n\n[display]\nwindow/size/viewport_width=${winW}\nwindow/size/viewport_height=${winH}\nwindow/stretch/mode="canvas_items"\nwindow/stretch/aspect="keep"\nwindow/handheld/orientation=${orientCode}\n\n[rendering]\nrenderer/rendering_method="mobile"\n`);
+
+      zb.addFile('export_presets.cfg', `[preset.0]\nname="Android"\nplatform="Android"\nrunnable=true\nexport_filter="all_resources"\nexport_path="build/android/${cfg.slug}.apk"\n\n[preset.0.options]\npackage/unique_name="${cfg.packageId}"\npackage/name="${cfg.appName.replace(/"/g, '')}"\nversion/code=1\nversion/name="${cfg.versionName}"\ngradle_build/min_sdk="${cfg.minSdk}"\ngradle_build/target_sdk="${cfg.targetSdk}"\narchitectures/arm64-v8a=true\narchitectures/armeabi-v7a=true\n`);
+
+      zb.addFile('scenes/Main.tscn', `[gd_scene load_steps=2 format=3]\n\n[ext_resource type="Script" path="res://scripts/Main.gd" id="1"]\n\n[node name="Main" type="Node2D"]\nscript = ExtResource("1")\n\n[node name="CanvasLayer" type="CanvasLayer" parent="."]\n\n[node name="TitleLabel" type="Label" parent="CanvasLayer"]\noffset_left = 24.0\noffset_top = 24.0\ntext = "${cfg.appName.replace(/"/g, '')} — Godot 4 Android Port"\n`);
+
+      zb.addFile('scripts/Main.gd', `extends Node2D\n\nfunc _ready() -> void:\n\tprint("Godot 4 Android Port iniciado: ${cfg.appName.replace(/"/g, '')}")\n\tif FileAccess.file_exists("res://cci_manifest.json"):\n\t\tvar txt := FileAccess.get_file_as_string("res://cci_manifest.json")\n\t\tvar data = JSON.parse_string(txt)\n\t\tif typeof(data) == TYPE_DICTIONARY:\n\t\t\tprint("Clickteam .cci importado com ", data.get("frames", []).size(), " frames!")\n`);
+
+      if (STATE.iconPngBytes) zb.addFile('icon.png', STATE.iconPngBytes);
+
+      const godotMod = STATE.geData?.modules?.find(m => m.id === 'godot');
+      let pckRestored = 0;
+      if (godotMod && godotMod.archives?.[0]) {
+        const arch = godotMod.archives[0];
+        for (const ent of arch.entries) {
+          if (ent.size > 0 && ent.offset + ent.size <= arch.file.size) {
+            zb.addFile('extracted_pck/' + ent.cleanPath, ent.getBytes());
+            pckRestored++;
+          }
+        }
+      }
+
+      const stats = await populateConvertedIpaAssets(zb, cfg, 'assets/ios_converted/', onProgress);
+      const cciStats = await appendClickteamExtractedBundle(zb, '', onProgress);
+      return { ...stats, ...cciStats, summaryNote: `Godot 4 Android: project.godot + export_presets.cfg + ${stats.copied} assets (${stats.cgbiConverted} CgBI, ${stats.cafConverted} CAF→WAV)` + (pckRestored ? ` + ${pckRestored} arq. .pck` : '') };
+    }
+
+    async function buildTargetCapacitorWeb(zb, cfg, onProgress) {
+      addBaseGradleFiles(zb, cfg, false);
+
+      const webMod = STATE.caData?.modules?.find(m => m.id === 'cordova_web');
+      const rpgMod = STATE.geData?.modules?.find(m => m.id === 'rpgmaker');
+      const startPage = webMod?.configMeta?.contentSrc || 'index.html';
+      zb.addFile(`app/src/main/java/${cfg.packagePath}/MainActivity.kt`, buildWebViewMainActivityKt(cfg, `https://appassets.androidplatform.net/assets/www/${startPage}`));
+
+      zb.addFile('capacitor.config.json', JSON.stringify({ appId: cfg.packageId, appName: cfg.appName, webDir: 'app/src/main/assets/www', server: { androidScheme: 'https' } }, null, 2));
+      zb.addFile('package.json', JSON.stringify({ name: cfg.slug.toLowerCase(), version: cfg.versionName, private: true, dependencies: { '@capacitor/core': '^6.1.0', '@capacitor/android': '^6.1.0' } }, null, 2));
+
+      let stats;
+      if (webMod && webMod.webFiles?.length) {
+        const pref = webMod.webRootPrefix === '(raiz)' ? '' : webMod.webRootPrefix;
+        stats = { copied: 0, cgbiConverted: 0, cafConverted: 0, skipped: 0 };
+        for (let i = 0; i < webMod.webFiles.length; i++) {
+          const f = webMod.webFiles[i];
+          if (i % 10 === 0) { onProgress(Math.round((i / webMod.webFiles.length) * 85), `Copiando Web Root 1:1 (${i + 1}/${webMod.webFiles.length})...`); await new Promise(r => setTimeout(r, 0)); }
+          const rel = pref && f.relPath.toLowerCase().startsWith(pref.toLowerCase()) ? f.relPath.slice(pref.length) : f.relPath;
+          let bytes = await f.getBytes();
+          let outRel = rel;
+          if (cfg.convertCgbi && f.ext === 'png' && isCgbiPng(bytes)) { bytes = await decodeCgbiToStandardPng(bytes); stats.cgbiConverted++; }
+          else if (cfg.convertCaf && f.ext === 'caf') { const r = convertCafToWav(bytes); if (r.ok && r.wavBytes) { bytes = r.wavBytes; outRel = outRel.replace(/\.caf$/i, '.wav'); stats.cafConverted++; } }
+          zb.addFile('app/src/main/assets/www/' + outRel, bytes);
+          stats.copied++;
+        }
+      } else if (rpgMod && rpgMod.webFiles?.length) {
+        const pref = rpgMod.rootPrefix || '';
+        stats = await populateConvertedIpaAssets(zb, cfg, 'app/src/main/assets/www/', onProgress, (f) => !pref || f.relPath.startsWith(pref));
+      } else {
+        stats = await populateConvertedIpaAssets(zb, cfg, 'app/src/main/assets/ios_assets/', onProgress);
+        zb.addFile('app/src/main/assets/www/index.html', buildCanvasHostHtml(cfg, Boolean(STATE.cciData)));
+        zb.addFile('app/src/main/assets/www/blueprint_universal.json', JSON.stringify(buildUniversalBlueprint(), null, 2));
+      }
+
+      return { ...stats, summaryNote: `WebView / Capacitor 1:1: ${stats.copied} arquivos em assets/www/ (${stats.cgbiConverted} CgBI, ${stats.cafConverted} CAF→WAV)` };
+    }
+
+    async function buildTargetFlutterOrRn(zb, cfg, onProgress) {
+      if (cfg.crossFlavor === 'react-native') {
+        addBaseGradleFiles(zb, cfg, false);
+        zb.addFile(`app/src/main/java/${cfg.packagePath}/MainActivity.kt`, buildWebViewMainActivityKt(cfg, 'https://appassets.androidplatform.net/assets/www/index.html'));
+        zb.addFile('app/src/main/assets/www/index.html', buildCanvasHostHtml(cfg, false));
+        zb.addFile('app/src/main/assets/www/blueprint_universal.json', JSON.stringify(buildUniversalBlueprint(), null, 2));
+
+        const rnMod = STATE.caData?.modules?.find(m => m.id === 'reactnative');
+        if (rnMod?.bundleFile) {
+          zb.addFile('app/src/main/assets/index.android.bundle', await rnMod.bundleFile.getBytes());
+        }
+        zb.addFile('package.json', JSON.stringify({ name: cfg.slug.toLowerCase(), version: cfg.versionName, private: true, scripts: { android: 'react-native run-android' }, dependencies: { react: '18.2.0', 'react-native': '0.74.0' } }, null, 2));
+        zb.addFile('app.json', JSON.stringify({ name: cfg.slug, displayName: cfg.appName }, null, 2));
+        const stats = await populateConvertedIpaAssets(zb, cfg, 'app/src/main/assets/ios_assets/', onProgress);
+        return { ...stats, summaryNote: `React Native Kit + Host Android: ${rnMod?.bundleFile ? 'index.android.bundle incluído + ' : ''}${stats.copied} assets convertidos` };
+      }
+
+      // Flutter target
+      const flMod = STATE.caData?.modules?.find(m => m.id === 'flutter');
+      const pkgs = (flMod?.packages || []).filter(p => !['flutter', 'engine', 'skia', 'dart', 'sky_engine'].includes(p.toLowerCase()));
+      const pubspec = `name: ${cfg.slug.toLowerCase()}\ndescription: Reconstruido de ${STATE.ipaName || 'IPA'} para Android\npublish_to: "none"\nversion: ${cfg.versionName}+1\n\nenvironment:\n  sdk: ">=3.2.0 <4.0.0"\n\ndependencies:\n  flutter:\n    sdk: flutter\n  cupertino_icons: ^1.0.8\n${pkgs.slice(0, 40).map(p => `  # ${p}: any  # Detectado em NOTICES.Z — descomente apos verificar versao`).join('\n')}\n\nflutter:\n  uses-material-design: true\n  assets:\n    - assets/ios_assets/\n`;
+      zb.addFile('pubspec.yaml', pubspec);
+      zb.addFile('lib/main.dart', `import 'package:flutter/material.dart';\n\nvoid main() => runApp(const PortedIosApp());\n\nclass PortedIosApp extends StatelessWidget {\n  const PortedIosApp({super.key});\n  @override\n  Widget build(BuildContext context) {\n    return MaterialApp(\n      title: '${cfg.appName.replace(/'/g, "\\'")}',\n      theme: ThemeData(colorSchemeSeed: Colors.lightBlue, useMaterial3: true, brightness: Brightness.dark),\n      home: Scaffold(\n        appBar: AppBar(title: const Text('${cfg.appName.replace(/'/g, "\\'")}')),\n        body: const Center(\n          child: Padding(\n            padding: EdgeInsets.all(24),\n            child: Text('Scaffold Flutter Android reconstruido com assets convertidos (CgBI -> RGBA).', textAlign: TextAlign.center),\n          ),\n        ),\n      ),\n    );\n  }\n}\n`);
+      const stats = await populateConvertedIpaAssets(zb, cfg, 'assets/ios_assets/', onProgress);
+      return { ...stats, summaryNote: `Flutter Android: pubspec.yaml (${pkgs.length} pacotes mapeados) + lib/main.dart + ${stats.copied} assets convertidos` };
+    }
+
+    async function buildTargetComposeNative(zb, cfg, onProgress) {
+      addBaseGradleFiles(zb, cfg, true);
+      zb.addFile(`app/src/main/java/${cfg.packagePath}/MainActivity.kt`, `package ${cfg.packageId}
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val assetList = try { assets.list("ios_assets")?.toList() ?: emptyList() } catch (_: Exception) { emptyList() }
+        setContent {
+            MaterialTheme(colorScheme = darkColorScheme()) {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    Scaffold(
+                        topBar = {
+                            @OptIn(ExperimentalMaterial3Api::class)
+                            TopAppBar(title = { Text("${cfg.appName.replace(/"/g, '\\"')}") })
+                        }
+                    ) { pad ->
+                        Column(modifier = Modifier.padding(pad).padding(16.dp)) {
+                            Text("Migracao UIKit/SwiftUI -> Jetpack Compose", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Assets iOS convertidos (CgBI/CAF) em assets/ios_assets/: \${assetList.size} itens na raiz.", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.height(12.dp))
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(assetList) { item ->
+                                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                                        Text(item, modifier = Modifier.padding(12.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+`);
+      const storyboards = STATE.files.filter(f => /\.(storyboardc|nib)$/i.test(f.name) || /\.storyboardc\//i.test(f.relPath)).map(f => f.relPath);
+      zb.addFile('app/src/main/assets/ios_migration_manifest.json', JSON.stringify({
+        sourceIpa: STATE.ipaName,
+        iosFrameworks: STATE.macho?.dylibs || [],
+        storyboardsAndNibs: storyboards,
+        suggestedAndroidMapping: {
+          UIKit: 'Jetpack Compose / Material 3',
+          SwiftUI: 'Jetpack Compose Declarative UI',
+          CoreData_SQLite: 'Room / SQLite',
+          StoreKit: 'Google Play Billing Library',
+          AVFoundation_OpenAL: 'ExoPlayer (Media3) / SoundPool / Oboe'
+        }
+      }, null, 2));
+      const stats = await populateConvertedIpaAssets(zb, cfg, 'app/src/main/assets/ios_assets/', onProgress);
+      return { ...stats, summaryNote: `Jetpack Compose (Material 3): MainActivity.kt + mapa UIKit/SwiftUI + ${stats.copied} assets (${stats.cgbiConverted} CgBI, ${stats.cafConverted} CAF→WAV)` };
+    }
+
+    async function executeMultiTargetExport() {
+      if (!STATE.files.length) return;
+      const cfg = getExportConfig();
+      const wrap = $('exportProgressWrap'), txt = $('exportProgressText'), bar = $('exportProgressBar');
+      wrap.classList.remove('hidden');
+      const setExp = (pct, msg) => { bar.style.width = pct + '%'; txt.textContent = msg; };
+
+      try {
+        $('btnBuildAndroidZip').disabled = true;
+        setExp(5, `Iniciando gerador: ${TARGET_LABELS[cfg.target]}...`);
+        const zb = new ZipBuilder();
+
+        let result;
+        if (cfg.target === 'godot4') result = await buildTargetGodot4(zb, cfg, setExp);
+        else if (cfg.target === 'capacitor') result = await buildTargetCapacitorWeb(zb, cfg, setExp);
+        else if (cfg.target === 'flutter-rn') result = await buildTargetFlutterOrRn(zb, cfg, setExp);
+        else if (cfg.target === 'compose-native') result = await buildTargetComposeNative(zb, cfg, setExp);
+        else result = await buildTargetAndroidStudio(zb, cfg, setExp);
+
+        setExp(90, 'Adicionando Blueprint Universal, README e GitHub Actions CI...');
+        zb.addFile('blueprint_universal.json', JSON.stringify(buildUniversalBlueprint(), null, 2));
+        if (cfg.includeCi) {
+          zb.addFile('.github/workflows/build-apk.yml', generateGithubActionsWorkflow(cfg));
+        }
+        zb.addFile('README_ANDROID.md', `# ${cfg.appName} — Projeto Android (${TARGET_LABELS[cfg.target]})\n\nGerado automaticamente a partir de \`${STATE.ipaName}\`.\n\n## Como gerar o arquivo .APK em 2 minutos (sem instalar Android Studio)\n1. Extraia este ZIP em uma pasta.\n2. Crie um repositório no GitHub (pode ser privado) e faça upload dos arquivos mantendo a pasta \`.github/workflows/build-apk.yml\`.\n3. Abra a aba **Actions** no GitHub e aguarde o build concluir.\n4. Baixe o artefato \`.apk\` pronto para instalar no Android!\n\n## Compilação Local (Android Studio)\n- Abra a pasta raiz no **Android Studio (JDK 17)** e execute **Build → Build Bundle(s) / APK(s) → Build APK(s)**.\n\n## Resumo da Conversão\n- ${result.summaryNote}\n`);
+
+        setExp(96, 'Compactando arquivo ZIP final...');
+        await new Promise(r => setTimeout(r, 20));
+        const zipBytes = zb.build();
+        const fileName = `${cfg.slug}_${cfg.target}_android.zip`;
+        triggerDownload(zipBytes, fileName, 'application/zip');
+
+        setExp(100, `✅ Concluído! ${result.summaryNote} • Arquivo: ${fileName} (${formatBytes(zipBytes.length)})`);
+        log(`Exportação Fase 5 concluída: ${fileName} (${formatBytes(zipBytes.length)}) — ${result.summaryNote}`, 'ok');
+      } catch (err) {
+        setExp(0, '❌ Erro na exportação: ' + err.message);
+        log('Erro ao gerar projeto Android: ' + err.message, 'err');
+      } finally {
+        $('btnBuildAndroidZip').disabled = false;
+      }
+    }
+
+    function onIpaReadyPhase5Export() {
+      const p = STATE.plist || {};
+      const orients = Array.isArray(p.UISupportedInterfaceOrientations) ? p.UISupportedInterfaceOrientations.join(' ') : String(p.UIInterfaceOrientation || '');
+      if (/Landscape/i.test(orients) && !/Portrait/i.test(orients)) $('expOrientation').value = 'sensorLandscape';
+      else if (/Portrait/i.test(orients) && !/Landscape/i.test(orients)) $('expOrientation').value = 'sensorPortrait';
+      else $('expOrientation').value = 'unspecified';
+
+      const rec = recommendAndroidTarget();
+      $('exportTargetRecBadge').textContent = `Recomendado: ${TARGET_LABELS[rec.target].split('(')[0].trim()}`;
+      $('exportAutoTargetBanner').innerHTML = `<strong>🎯 Recomendação Inteligente: ${escapeHtml(TARGET_LABELS[rec.target])}</strong> — ${escapeHtml(rec.reason)} Selecione abaixo qualquer um dos 5 alvos ou clique direto em gerar com CI na nuvem.`;
+      setSelectedTarget(rec.target);
+    }
+
+    function initPhase5ExportControls() {
+      $('targetSelectorGrid').querySelectorAll('.target-card').forEach(card => {
+        card.addEventListener('click', () => setSelectedTarget(card.dataset.target));
+      });
+
+      ['expAppName', 'expPackageId', 'expVersionName', 'expMinSdk', 'expTargetSdk', 'expOrientation', 'chkIncludeSigning', 'chkIncludeCi'].forEach(id => {
+        const el = $(id);
+        if (el) el.addEventListener('input', refreshCiYamlPreview);
+        if (el) el.addEventListener('change', refreshCiYamlPreview);
+      });
+
+      $('btnBuildAndroidZip').addEventListener('click', executeMultiTargetExport);
+      $('btnDownloadCiYaml').addEventListener('click', () => {
+        const cfg = getExportConfig();
+        triggerDownload(generateGithubActionsWorkflow(cfg), 'build-apk.yml', 'text/yaml');
+      });
+      $('btnCopyCiYaml').addEventListener('click', (e) => {
+        copyTextSafe(generateGithubActionsWorkflow(getExportConfig()), e.currentTarget);
+      });
+
+      refreshCiYamlPreview();
+    }
+
+    PHASE_HOOKS.onIpaReadyExport = onIpaReadyPhase5Export;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initApp();
+      initPhase5ExportControls();
+    });
+  </script>
+</body>
+</html>
