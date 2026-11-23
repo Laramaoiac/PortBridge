@@ -562,7 +562,7 @@ index f973abf6..f224f967 100644
      export_c_func!(ExtAudioFileDispose(_)),
  ];
 diff --git a/src/frameworks/core_animation/composition.rs b/src/frameworks/core_animation/composition.rs
-index 84706130..51d64bf8 100644
+index 84706130..bb38a044 100644
 --- a/src/frameworks/core_animation/composition.rs
 +++ b/src/frameworks/core_animation/composition.rs
 @@ -70,6 +70,9 @@ pub fn recomposite_if_necessary(env: &mut Environment, force: bool) -> Option<In
@@ -575,6 +575,18 @@ index 84706130..51d64bf8 100644
      if find_fullscreen_eagl_layer(env) != nil {
          // No composition done, EAGLContext will present directly.
          log_dbg!("Using CAEAGLLayer fast path, skipping composition");
+@@ -120,6 +123,11 @@ pub fn recomposite_if_necessary(env: &mut Environment, force: bool) -> Option<In
+         .composition
+         .recomposite_next = new_recomposite_next;
+ 
++    // PortBridge: pending layoutSubviews before drawing (UIKit layout pass)
++    for &window in &windows {
++        crate::frameworks::uikit::ui_view::layout_if_needed(env, window);
++    }
++
+     let window_layers: Vec<id> = windows
+         .into_iter()
+         .map(|window| {
 diff --git a/src/frameworks/core_foundation.rs b/src/frameworks/core_foundation.rs
 index 205be446..2a0f17b4 100644
 --- a/src/frameworks/core_foundation.rs
@@ -1889,8 +1901,71 @@ index 840d763a..d11c51a8 100644
  @end
  
  };
+diff --git a/src/frameworks/uikit/ui_touch.rs b/src/frameworks/uikit/ui_touch.rs
+index 1461475d..cdb004e0 100644
+--- a/src/frameworks/uikit/ui_touch.rs
++++ b/src/frameworks/uikit/ui_touch.rs
+@@ -72,11 +72,13 @@ pub const CLASSES: ClassExports = objc_classes! {
+ - (CGPoint)locationInView:(id)that_view { // UIView*
+     let &UITouchHostObject { location, window, .. } = env.objc.borrow(this);
+     let location_in_window: CGPoint = msg![env; window convertPoint:location fromWindow:nil];
+-    if that_view == nil {
++    let result: CGPoint = if that_view == nil {
+         location_in_window
+     } else {
+         msg![env; that_view convertPoint:location_in_window fromView:window]
+-    }
++    };
++    log_dbg!("[touch locationInView:{:?}] screen {:?} -> {:?}", that_view, location, result);
++    result
+ }
+ - (CGPoint)previousLocationInView:(id)that_view { // UIView*
+     let &UITouchHostObject { previous_location, window, .. } = env.objc.borrow(this);
+@@ -236,6 +238,28 @@ fn handle_touches_down(env: &mut Environment, map: HashMap<FingerId, Coords>) {
+             continue;
+         };
+ 
++        if crate::log::ENABLED_MODULES.contains(&module_path!()) {
++            fn dump(env: &mut Environment, v: id, depth: usize) {
++                let c: crate::objc::Class = msg![env; v class];
++                let name = env.objc.get_class_name(c).to_string();
++                let f: CGRect = msg![env; v frame];
++                let hidden: bool = msg![env; v isHidden];
++                let alpha: crate::frameworks::core_graphics::CGFloat = msg![env; v alpha];
++                let layer: id = msg![env; v layer];
++                let contents: id = msg![env; layer contents];
++                let (x, y, w, h) = (f.origin.x, f.origin.y, f.size.width, f.size.height);
++                log!("{}{:?} {} [{},{} {}x{}] hidden={} alpha={} contents={}", "  ".repeat(depth), v, name,
++                     x, y, w, h, hidden, alpha, contents != nil);
++                let subs: id = msg![env; v subviews];
++                let n: crate::frameworks::foundation::NSUInteger = msg![env; subs count];
++                for i in 0..n {
++                    let sv: id = msg![env; subs objectAtIndex:i];
++                    dump(env, sv, depth + 1);
++                }
++            }
++            log!("--- árvore de views no toque:");
++            dump(env, window, 0);
++        }
+         let view: id = msg![env; window hitTest:location_in_window withEvent:event];
+         if view == nil {
+             log!(
+@@ -246,8 +270,12 @@ fn handle_touches_down(env: &mut Environment, map: HashMap<FingerId, Coords>) {
+             continue;
+         } else {
+             log_dbg!(
+-                "Found view {:?} with frame {:?} for touch at {:?} in window {:?}",
++                "Found view {:?} ({}) with frame {:?} for touch at {:?} in window {:?}",
+                 view,
++                {
++                    let c: crate::objc::Class = msg![env; view class];
++                    env.objc.get_class_name(c).to_string()
++                },
+                 {
+                     let f: CGRect = msg![env; view frame];
+                     f
 diff --git a/src/frameworks/uikit/ui_view.rs b/src/frameworks/uikit/ui_view.rs
-index b4dc3af0..87b1013e 100644
+index b4dc3af0..fd593eeb 100644
 --- a/src/frameworks/uikit/ui_view.rs
 +++ b/src/frameworks/uikit/ui_view.rs
 @@ -72,6 +72,9 @@ pub struct State {
@@ -1903,26 +1978,56 @@ index b4dc3af0..87b1013e 100644
  }
  
  pub(super) struct UIViewHostObject {
-@@ -87,6 +90,9 @@ pub(super) struct UIViewHostObject {
+@@ -87,6 +90,12 @@ pub(super) struct UIViewHostObject {
      clears_context_before_drawing: bool,
      user_interaction_enabled: bool,
      multiple_touch_enabled: bool,
 +    /// PortBridge: UIViewAutoresizing mask and autoresizesSubviews.
 +    autoresizing_mask: NSUInteger,
 +    autoresizes_subviews: bool,
++    /// PortBridge: set by setNeedsLayout and by changes that require layout
++    /// (size change, addSubview); cleared when layoutSubviews runs.
++    needs_layout: bool,
  }
  impl HostObject for UIViewHostObject {}
  impl Default for UIViewHostObject {
-@@ -102,10 +108,75 @@ impl Default for UIViewHostObject {
+@@ -102,10 +111,102 @@ impl Default for UIViewHostObject {
              clears_context_before_drawing: true,
              user_interaction_enabled: true,
              multiple_touch_enabled: false,
 +            autoresizing_mask: 0,
 +            autoresizes_subviews: true,
++            needs_layout: true,
          }
      }
  }
  
++/// PortBridge: deferred layout, like UIKit's layout pass. Views marked with
++/// `needs_layout` (new views, size changes, addSubview, setNeedsLayout) get
++/// `layoutSubviews` before the next composition, top-down. Before this,
++/// touchHLE only laid views out once after launch, so subviews of controls
++/// created later (e.g. the images inside ZENONIA 3's menu buttons) stayed 0x0.
++pub fn layout_if_needed(env: &mut Environment, view: id) {
++    if view == nil {
++        return;
++    }
++    let host = env.objc.borrow_mut::<UIViewHostObject>(view);
++    let needs = std::mem::replace(&mut host.needs_layout, false);
++    if needs {
++        () = msg![env; view layoutSubviews];
++    }
++    let subviews = env.objc.borrow::<UIViewHostObject>(view).subviews.clone();
++    for subview in subviews {
++        layout_if_needed(env, subview);
++    }
++}
++
++fn set_needs_layout(env: &mut Environment, view: id) {
++    if view != nil {
++        env.objc.borrow_mut::<UIViewHostObject>(view).needs_layout = true;
++    }
++}
++
 +/// PortBridge: UIView autoresizing. When a view's size changes, each subview's
 +/// flexible parts (left margin / width / right margin, and the vertical
 +/// equivalents) share the difference in proportion to their current sizes.
@@ -1989,7 +2094,7 @@ index b4dc3af0..87b1013e 100644
  #[derive(Default)]
  struct UIViewAnimationDelegateHostObject {
      animation_id: id, // NSString*
-@@ -393,6 +464,19 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -393,6 +494,19 @@ pub const CLASSES: ClassExports = objc_classes! {
      () = msg![env; this setTag:tag];
      () = msg![env; this setMultipleTouchEnabled:multi_touch_enabled];
  
@@ -2009,27 +2114,56 @@ index b4dc3af0..87b1013e 100644
      for i in 0..subview_count {
          let subview: id = msg![env; subviews objectAtIndex:i];
          () = msg![env; this addSubview:subview];
-@@ -625,6 +709,8 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -448,6 +562,14 @@ pub const CLASSES: ClassExports = objc_classes! {
+     // nothing.
+ }
+ 
++- (())setNeedsLayout {
++    set_needs_layout(env, this);
++}
++
++- (())layoutIfNeeded {
++    layout_if_needed(env, this);
++}
++
+ - (id)superview {
+     env.objc.borrow::<UIViewHostObject>(this).superview
+ }
+@@ -499,6 +621,9 @@ pub const CLASSES: ClassExports = objc_classes! {
+         let this_layer = this_obj.layer;
+         () = msg![env; this_layer addSublayer:subview_layer];
+     }
++    // PortBridge: UIKit lays out both views after addSubview:
++    set_needs_layout(env, this);
++    set_needs_layout(env, view);
+ }
+ 
+ - (())insertSubview:(id)view atIndex:(NSInteger)index {
+@@ -625,6 +750,9 @@ pub const CLASSES: ClassExports = objc_classes! {
          clears_context_before_drawing: _,
          user_interaction_enabled: _,
          multiple_touch_enabled: _,
 +        autoresizing_mask: _,
 +        autoresizes_subviews: _,
++        needs_layout: _,
      } = std::mem::take(env.objc.borrow_mut(this));
  
      release(env, layer);
-@@ -724,7 +810,9 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -724,7 +852,12 @@ pub const CLASSES: ClassExports = objc_classes! {
  }
  - (())setBounds:(CGRect)bounds {
      let layer = env.objc.borrow::<UIViewHostObject>(this).layer;
 -    msg![env; layer setBounds:bounds]
 +    let old: CGRect = msg![env; layer bounds];
 +    () = msg![env; layer setBounds:bounds];
++    if old.size.width != bounds.size.width || old.size.height != bounds.size.height {
++        set_needs_layout(env, this);
++    }
 +    autoresize_subviews(env, this, old.size, bounds.size);
  }
  - (CGPoint)center {
      // FIXME: what happens if [layer anchorPoint] isn't (0.5, 0.5)?
-@@ -739,9 +827,24 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -739,9 +872,27 @@ pub const CLASSES: ClassExports = objc_classes! {
      let layer = env.objc.borrow::<UIViewHostObject>(this).layer;
      msg![env; layer frame]
  }
@@ -2051,11 +2185,14 @@ index b4dc3af0..87b1013e 100644
 +    let old: CGRect = msg![env; layer bounds];
 +    () = msg![env; layer setFrame:frame];
 +    let new: CGRect = msg![env; layer bounds];
++    if old.size.width != new.size.width || old.size.height != new.size.height {
++        set_needs_layout(env, this);
++    }
 +    autoresize_subviews(env, this, old.size, new.size);
  }
  - (CGAffineTransform)transform {
      let layer = env.objc.borrow::<UIViewHostObject>(this).layer;
-@@ -893,10 +996,16 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -893,10 +1044,16 @@ pub const CLASSES: ClassExports = objc_classes! {
  }
  
  - (())setAutoresizingMask:(NSUInteger)mask {
@@ -2098,6 +2235,80 @@ index 7dc25397..d894dc1f 100644
  - (())show {
      log!("TODO: [(UIAlertView*){:?} show]", this);
  }
+diff --git a/src/frameworks/uikit/ui_view/ui_control/ui_button.rs b/src/frameworks/uikit/ui_view/ui_control/ui_button.rs
+index dec8a968..d1ee381b 100644
+--- a/src/frameworks/uikit/ui_view/ui_control/ui_button.rs
++++ b/src/frameworks/uikit/ui_view/ui_control/ui_button.rs
+@@ -6,7 +6,7 @@
+ //! `UIButton`.
+ 
+ use super::{UIControlState, UIControlStateNormal};
+-use crate::frameworks::core_graphics::{CGFloat, CGPoint, CGRect};
++use crate::frameworks::core_graphics::{CGFloat, CGPoint, CGRect, CGSize};
+ use crate::frameworks::foundation::ns_string::{from_rust_string, get_static_str, to_rust_string};
+ use crate::frameworks::foundation::NSInteger;
+ use crate::frameworks::uikit::ui_font::UITextAlignmentCenter;
+@@ -85,6 +85,8 @@ fn update(env: &mut Environment, this: id) {
+     let image_view: id = msg![env; this imageView];
+     let image: id = msg![env; this currentImage];
+     () = msg![env; image_view setImage:image];
++    // PortBridge: image/title changed: lay out again before the next frame
++    () = msg![env; this setNeedsLayout];
+ 
+     let background_image_view: id = msg![env; this backgroundImageView];
+     let background_image: id = msg![env; this currentBackgroundImage];
+@@ -255,8 +257,49 @@ pub const CLASSES: ClassExports = objc_classes! {
+     let bounds: CGRect = msg![env; this bounds];
+ 
+     () = msg![env; background_image_view setFrame:bounds];
+-    () = msg![env; label setFrame:bounds];
+-    // TODO: layout for image
++
++    // PortBridge: image layout. The image keeps its natural size (shrunk to
++    // fit if larger) and is centered; with a title, image and title are
++    // centered together, image on the left (UIButton's default content
++    // alignment). Without this the image view stayed 0x0 and buttons that
++    // only have an image (e.g. ZENONIA 3's ring menu) were invisible.
++    let image_view = env.objc.borrow::<UIButtonHostObject>(this).image_view;
++    let image: id = msg![env; this currentImage];
++    let title: id = msg![env; this currentTitle];
++    let has_title = title != nil && {
++        let len: crate::frameworks::foundation::NSUInteger = msg![env; title length];
++        len > 0
++    };
++    let (bx, by, bw, bh) = (bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height);
++    let mut image_w: CGFloat = 0.0;
++    if image != nil {
++        let size: CGSize = msg![env; image size];
++        let (mut w, mut h) = (size.width, size.height);
++        if w > bw || h > bh {
++            let k = (bw / w).min(bh / h);
++            w *= k;
++            h *= k;
++        }
++        image_w = w;
++        let x = if has_title { bx } else { bx + (bw - w) / 2.0 };
++        let frame = CGRect {
++            origin: CGPoint { x, y: by + (bh - h) / 2.0 },
++            size: CGSize { width: w, height: h },
++        };
++        () = msg![env; image_view setFrame:frame];
++    } else {
++        let zero = CGRect::default();
++        () = msg![env; image_view setFrame:zero];
++    }
++    let label_frame = if image != nil && has_title {
++        CGRect {
++            origin: CGPoint { x: bx + image_w, y: by },
++            size: CGSize { width: (bw - image_w).max(0.0), height: bh },
++        }
++    } else {
++        bounds
++    };
++    () = msg![env; label setFrame:label_frame];
+ 
+ }
+ 
 diff --git a/src/frameworks/uikit/ui_view/ui_image_view.rs b/src/frameworks/uikit/ui_view/ui_image_view.rs
 index c6fd2939..4b0d07a1 100644
 --- a/src/frameworks/uikit/ui_view/ui_image_view.rs

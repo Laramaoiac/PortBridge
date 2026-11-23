@@ -244,6 +244,38 @@ não aparecem: o jogo desenha texto com **CoreText** (`CTFont*`, `CTFramesetter*
 **Super Kamasutra HD** (app UIKit com nibs) abre, mas a lista usa `UITableView`, que o
 touchHLE não implementa.
 
+### ZENONIA 3: do menu ao jogo (Ghidra + laboratório)
+
+O laboratório mostrava o menu em anel sem as opções e sem resposta aos toques. Com o
+Ghidra (`tools/ghidra/`): as funções CoreText do jogo são só a classe C++ `CGxFontIOS`
+(achada pela vtable e pelo RTTI), e ela nem chegava a ser criada — não era o texto.
+O despejo da árvore de views no toque mostrou o resto: o menu é **UIKit** (6 `UIButton`
+de 82×61), mas as subviews dos botões tinham 0×0, e um popup invisível ("Thank you for
+purchasing… FREE 5000 ZEN") engolia os toques.
+
+| Causa | Correção no patch |
+|---|---|
+| O touchHLE só chamava `layoutSubviews` uma vez, depois de abrir o app; views criadas depois nunca eram dispostas | passo de layout como o do UIKit: `needs_layout` (views novas, mudança de tamanho, `addSubview:`), `setNeedsLayout`, `layoutIfNeeded` e layout pendente antes de cada composição |
+| `-[UIButton layoutSubviews]` não posicionava a imagem ("TODO") | imagem no tamanho natural (encolhe se não couber), centralizada; com título, os dois centralizados juntos |
+
+Depois disso: popup, menu completo (COMMUNITY, OPTIONS, NEWGAME, CONTINUE, HELP, ABOUT),
+escolha de espaço e de classe, introdução e cenas da história (125 s sem erros no log).
+A interface do jogo em si é OpenGL e lê o toque **uma vez por quadro**: um clique de
+0 ms do `xdotool` não era visto. O `hle-run` agora segura cada toque por 120 ms, como um
+dedo de verdade. CoreText não foi necessário (o texto do jogo é fonte bitmap própria).
+
+### 64 bits: o que falta de verdade
+
+- IPAs **universais** (armv7 + arm64, comuns de 2013 a 2017) já entram: o conversor e o
+  touchHLE usam a fatia armv7. O limite é a API do iOS 7–10 que eles usam.
+- IPAs **só arm64** (iOS 11+) precisam de um touchHLE de 64 bits: frontend A64 do
+  dynarmic (existe), ponteiros de 64 bits em todo o emulador (`GuestUSize`, `Ptr`,
+  estruturas do CF/Foundation/UIKit escritas na memória do jogo), ABI arm64 do
+  Objective-C (isa não ponteiro, `objc_msgSend` arm64, listas de métodos relativas),
+  runtime do Swift e, para jogos modernos, Metal. É um projeto de meses, a começar por
+  um protótipo que carrega um Mach-O arm64 e executa até a primeira API ausente.
+  Precisa de IPAs arm64 **descriptografados** para medir.
+
 ### Processo universal + laboratório de compatibilidade
 
 Não existe forma de rodar *qualquer* IPA: código de 64 bits, executáveis

@@ -263,8 +263,12 @@ def _input(env: dict, wid: str, action: str) -> None:
                 time.sleep(0.03)
             subprocess.run(["xdotool", "mouseup", "1"], env=env, capture_output=True, timeout=5)
         else:
+            # Toque de verdade dura ~100 ms. Engines que leem o estado do toque a cada
+            # quadro (ex.: interface OpenGL do ZENONIA 3) não veem um clique instantâneo.
             x, y = map(int, action.split(","))
-            move(x, y, "click", "1")
+            move(x, y, "mousedown", "1")
+            time.sleep(0.12)
+            subprocess.run(["xdotool", "mouseup", "1"], env=env, capture_output=True, timeout=5)
     except (ValueError, subprocess.SubprocessError, OSError):
         pass
 

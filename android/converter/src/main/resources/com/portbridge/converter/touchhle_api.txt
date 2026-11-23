@@ -7454,6 +7454,7 @@ M lastObject
 M lastPathComponent
 M layer
 M layerClass
+M layoutIfNeeded
 M layoutSubviews
 M leading
 M length
@@ -7769,6 +7770,7 @@ M setName:
 M setNavigationBarHidden:
 M setNeedsDisplay
 M setNeedsDisplayOnBoundsChange:
+M setNeedsLayout
 M setNetworkActivityIndicatorVisible:
 M setNumberOfLines:
 M setNumberOfLoops:
