@@ -562,21 +562,107 @@ index f973abf6..f224f967 100644
      export_c_func!(ExtAudioFileDispose(_)),
  ];
 diff --git a/src/frameworks/core_animation/ca_eagl_layer.rs b/src/frameworks/core_animation/ca_eagl_layer.rs
-index 36b8132c..d5911c55 100644
+index 36b8132c..c344401d 100644
 --- a/src/frameworks/core_animation/ca_eagl_layer.rs
 +++ b/src/frameworks/core_animation/ca_eagl_layer.rs
-@@ -75,6 +75,11 @@ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
-         assert!(layer != nil);
+@@ -46,8 +46,17 @@ pub const CLASSES: ClassExports = objc_classes! {
+ /// and present it directly from the app's context. This function is used to
+ /// determine when that will happen.
+ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
++    find_fullscreen_eagl_layer_and_half_turn(env).0
++}
++
++/// PortBridge: like [find_fullscreen_eagl_layer], also accepting layers
++/// rotated by 180° (SunFlowers draws upside down and turns its OpenGL ES view
++/// around with `CGAffineTransformMakeRotation(M_PI)`). The `bool` says whether
++/// the frame has to be presented rotated by 180° to look as it would after
++/// composition.
++pub fn find_fullscreen_eagl_layer_and_half_turn(env: &mut Environment) -> (id, bool) {
+     if env.options.force_composition {
+-        return nil;
++        return (nil, false);
+     }
  
-         let layer_host_obj: &CALayerHostObject = env.objc.borrow(layer);
-+        crate::objc::trace_once(0x7000_0000_0000_0000 | layer.to_bits() as u64, || format!(
-+            "DEBUG fullscreen walk: layer {:?} bounds {:?} pos {:?} anchor {:?} hidden {} opacity {} identity {} opaque {} sublayers {}",
-+            layer, layer_host_obj.bounds, layer_host_obj.position, layer_host_obj.anchor_point,
-+            layer_host_obj.hidden, layer_host_obj.opacity, layer_host_obj.affine_transform.is_identity(),
-+            layer_host_obj.opaque, layer_host_obj.sublayers.len()));
+     let windows = env.framework_state.uikit.ui_view.ui_window.windows.clone();
+@@ -58,7 +67,7 @@ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
+         .rev()
+         .find(|&window| !msg![env; window isHidden])
+     else {
+-        return nil;
++        return (nil, false);
+     };
  
+     let screen_bounds: CGRect = {
+@@ -67,6 +76,7 @@ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
+     };
+ 
+     let mut layer: id = msg![env; top_window layer];
++    let mut half_turn = false;
+ 
+     // Descend through the hierarchy, looking only at the last layer in each
+     // list of children, since that should be the one on top.
+@@ -79,21 +89,33 @@ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
          // This is stricter than it should be. In theory we should accumulate
          // the transforms and handle different anchor points etc, but real apps
+         // probably only use this common case.
+-        if layer_host_obj.bounds.size != screen_bounds.size
+-            || layer_host_obj.bounds.origin != (CGPoint { x: 0.0, y: 0.0 })
++        // PortBridge: compared with a tolerance. Apps that rotate their
++        // OpenGL ES view to follow the device (CGAffineTransformMakeRotation
++        // with 0 or 2π) get sin() ≈ 1e-7 instead of 0 in single precision,
++        // and bounds like 320.00006x480.00003; SunFlowers does this. Such a
++        // layer still covers the screen exactly and can use the fast path.
++        let near = |a: f32, b: f32| (a - b).abs() < 0.01;
++        let t = layer_host_obj.affine_transform;
++        let axis_aligned = t.b.abs() < 1e-4 && t.c.abs() < 1e-4 && near(t.tx, 0.0) && near(t.ty, 0.0);
++        let near_identity = axis_aligned && (t.a - 1.0).abs() < 1e-4 && (t.d - 1.0).abs() < 1e-4;
++        let near_half_turn = axis_aligned && (t.a + 1.0).abs() < 1e-4 && (t.d + 1.0).abs() < 1e-4;
++        if !near(layer_host_obj.bounds.size.width, screen_bounds.size.width)
++            || !near(layer_host_obj.bounds.size.height, screen_bounds.size.height)
++            || !near(layer_host_obj.bounds.origin.x, 0.0)
++            || !near(layer_host_obj.bounds.origin.y, 0.0)
+             || layer_host_obj.anchor_point != (CGPoint { x: 0.5, y: 0.5 })
+-            || layer_host_obj.position
+-                != (CGPoint {
+-                    x: screen_bounds.size.width / 2.0,
+-                    y: screen_bounds.size.height / 2.0,
+-                })
++            || !near(layer_host_obj.position.x, screen_bounds.size.width / 2.0)
++            || !near(layer_host_obj.position.y, screen_bounds.size.height / 2.0)
+             || layer_host_obj.hidden
+             || layer_host_obj.opacity != 1.0
+             // TODO: support affine transforms that result in a full-screen
+             //       layer (typical example is 90° rotation).
+-            || !layer_host_obj.affine_transform.is_identity()
++            || !(near_identity || near_half_turn)
+         {
+-            return nil;
++            return (nil, false);
++        }
++        if near_half_turn {
++            half_turn = !half_turn;
+         }
+ 
+         if let Some(&next) = layer_host_obj.sublayers.last() {
+@@ -104,15 +126,15 @@ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
+     }
+ 
+     if !env.objc.borrow::<CALayerHostObject>(layer).opaque {
+-        return nil;
++        return (nil, false);
+     }
+ 
+     let ca_eagl_layer_class: Class = msg_class![env; CAEAGLLayer class];
+     if !msg![env; layer isKindOfClass:ca_eagl_layer_class] {
+-        return nil;
++        return (nil, false);
+     }
+ 
+-    layer
++    (layer, half_turn)
+ }
+ 
+ /// For use by `EAGLContext` when presenting to a `CAEAGLLayer`:
 diff --git a/src/frameworks/core_graphics/cg_image.rs b/src/frameworks/core_graphics/cg_image.rs
 index a6b936a3..02aa0031 100644
 --- a/src/frameworks/core_graphics/cg_image.rs
@@ -1041,9 +1127,18 @@ index b00645cc..da60c4ea 100644
  
  #[derive(Default)]
 diff --git a/src/frameworks/opengles/eagl.rs b/src/frameworks/opengles/eagl.rs
-index 32a0b5ce..e1065916 100644
+index 32a0b5ce..38fd9806 100644
 --- a/src/frameworks/opengles/eagl.rs
 +++ b/src/frameworks/opengles/eagl.rs
+@@ -7,7 +7,7 @@
+ 
+ use crate::dyld::{ConstantExports, HostConstant};
+ use crate::frameworks::core_animation::ca_eagl_layer::{
+-    find_fullscreen_eagl_layer, get_pixels_vec_for_presenting, present_pixels,
++    find_fullscreen_eagl_layer_and_half_turn, get_pixels_vec_for_presenting, present_pixels,
+ };
+ use crate::frameworks::core_graphics::{CGRect, CGSize};
+ use crate::frameworks::foundation::ns_string::get_static_str;
 @@ -15,7 +15,7 @@ use crate::frameworks::foundation::NSUInteger;
  use crate::gles::gles11_raw as gles11; // constants only
  use crate::gles::gles11_raw::types::*;
@@ -1215,40 +1310,25 @@ index 32a0b5ce..e1065916 100644
      if env.options.print_fps {
          env
              .objc
-@@ -298,7 +362,7 @@ pub const CLASSES: ClassExports = objc_classes! {
-         .renderbuffer_drawable_bindings
-         .borrow()
-         .get(&renderbuffer) else {
--        log_dbg!("Can't present a renderbuffer {:?} not bound to a drawable!", renderbuffer);
-+        log!("Can't present a renderbuffer {:?} not bound to a drawable!", renderbuffer);
-         return false;
-     };
+@@ -277,7 +341,7 @@ pub const CLASSES: ClassExports = objc_classes! {
+             .count_frame(format_args!("EAGLContext {this:?}"));
+     }
  
-@@ -337,7 +401,7 @@ pub const CLASSES: ClassExports = objc_classes! {
-         // copied back to system RAM, and then will have to be copied to VRAM
-         // again during composition. find_fullscreen_eagl_layer() exists to
-         // avoid this.
--        log_dbg!(
-+        log!(
-             "There is no fullscreen layer, presenting renderbuffer {:?} to layer {:?} by copying to RAM (slow path).",
-             renderbuffer,
-             drawable,
-@@ -532,6 +596,14 @@ unsafe fn read_renderbuffer(gles: &mut dyn GLES, mut pixel_buffer: Vec<u8>) -> (
-         Instant::now().saturating_duration_since(before)
-     );
-     pixel_buffer.set_len(size);
-+    {
-+        static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-+        if N.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 120 == 0 {
-+            let nz = pixel_buffer.chunks(4).filter(|p| p[0] | p[1] | p[2] != 0).count();
-+            let c = &pixel_buffer[(size / 2) & !3..(size / 2 & !3) + 4];
-+            log!("DEBUG read_renderbuffer {}x{}: {} non-black px, center {:?}, glGetError {:#x}", width, height, nz, c, gles.GetError());
-+        }
-+    }
+-    let fullscreen_layer = find_fullscreen_eagl_layer(env);
++    let (fullscreen_layer, half_turn) = find_fullscreen_eagl_layer_and_half_turn(env);
  
-     // Clean up the framebuffer object since we no longer need it.
-     gles.DeleteFramebuffersOES(1, &src_framebuffer);
-@@ -542,11 +614,181 @@ unsafe fn read_renderbuffer(gles: &mut dyn GLES, mut pixel_buffer: Vec<u8>) -> (
+     // Unclear from documentation if this method requires the context to be
+     // current, but it would be weird if it didn't?
+@@ -312,7 +376,7 @@ pub const CLASSES: ClassExports = objc_classes! {
+         );
+         // re-borrow
+         unsafe {
+-            present_renderbuffer(env);
++            present_renderbuffer(env, half_turn);
+         }
+     } else {
+         if fullscreen_layer != nil {
+@@ -542,14 +606,184 @@ unsafe fn read_renderbuffer(gles: &mut dyn GLES, mut pixel_buffer: Vec<u8>) -> (
      (pixel_buffer, width_u32, height_u32)
  }
  
@@ -1261,7 +1341,7 @@ index 32a0b5ce..e1065916 100644
 +/// Android drivers report that state wrongly: Ninja Striker enables GL_BLEND
 +/// once at startup, and on a Samsung phone blending was gone after the first
 +/// frame, so the green color key showed behind every sprite.
-+unsafe fn present_renderbuffer(env: &mut Environment) {
++unsafe fn present_renderbuffer(env: &mut Environment, half_turn: bool) {
 +    let ctx_id = env
 +        .framework_state
 +        .opengles
@@ -1273,7 +1353,7 @@ index 32a0b5ce..e1065916 100644
 +        (host.presenter.is_some(), host.presenter_failed)
 +    };
 +    if failed {
-+        return present_renderbuffer_in_place(env);
++        return present_renderbuffer_in_place(env, half_turn);
 +    }
 +    if !has_presenter {
 +        // The app's context must be current so the new one shares with it.
@@ -1300,14 +1380,14 @@ index 32a0b5ce..e1065916 100644
 +            None => {
 +                log!("PortBridge: could not create a shared context for presenting; using the in-place path.");
 +                host.presenter_failed = true;
-+                return present_renderbuffer_in_place(env);
++                return present_renderbuffer_in_place(env, half_turn);
 +            }
 +        }
 +    }
 +
 +    let started = Instant::now();
 +    let viewport = env.window.as_mut().unwrap().viewport();
-+    let rotation_matrix = env.window.as_mut().unwrap().rotation_matrix();
++    let rotation_matrix = with_half_turn(env.window.as_mut().unwrap().rotation_matrix(), half_turn);
 +    let virtual_cursor_visible_at = env.window.as_mut().unwrap().virtual_cursor_visible_at();
 +
 +    // Read which renderbuffer to show (app context; nothing is changed there).
@@ -1427,10 +1507,28 @@ index 32a0b5ce..e1065916 100644
  /// [present_frame], trying to avoid noticeably modifying OpenGL ES state while
  /// doing so. The front and back buffers are then swapped.
 -unsafe fn present_renderbuffer(env: &mut Environment) {
-+unsafe fn present_renderbuffer_in_place(env: &mut Environment) {
++unsafe fn present_renderbuffer_in_place(env: &mut Environment, half_turn: bool) {
      // Save these for when we need to draw the frame
      let viewport = env.window.as_mut().unwrap().viewport();
-     let rotation_matrix = env.window.as_mut().unwrap().rotation_matrix();
+-    let rotation_matrix = env.window.as_mut().unwrap().rotation_matrix();
++    let rotation_matrix = with_half_turn(env.window.as_mut().unwrap().rotation_matrix(), half_turn);
+     let virtual_cursor_visible_at = env.window.as_mut().unwrap().virtual_cursor_visible_at();
+ 
+     let gles_ctx = super::get_thread_context(
+@@ -760,3 +994,13 @@ unsafe fn present_renderbuffer(env: &mut Environment) {
+ 
+     // { let err = gles.GetError(); if err != 0 { panic!("{:#x}", err); } }
+ }
++
++/// PortBridge: adds the 180° turn of the app's layer (see
++/// [find_fullscreen_eagl_layer_and_half_turn]) to the device rotation.
++fn with_half_turn(rotation: crate::matrix::Matrix<2>, half_turn: bool) -> crate::matrix::Matrix<2> {
++    if half_turn {
++        rotation.multiply(&crate::matrix::Matrix::<2>::z_rotation(std::f32::consts::PI))
++    } else {
++        rotation
++    }
++}
 diff --git a/src/frameworks/opengles/gles2_guest.rs b/src/frameworks/opengles/gles2_guest.rs
 new file mode 100644
 index 00000000..065e4df9

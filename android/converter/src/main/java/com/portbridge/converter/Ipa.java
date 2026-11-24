@@ -36,7 +36,7 @@ public final class Ipa {
     public List<String> archs = new ArrayList<>();
     /** Avisos de compatibilidade (o APK é gerado, mas o jogo pode não funcionar). */
     public List<String> warnings = new ArrayList<>();
-    /** Gráficos: "gles1", "gles2" (só ES 2.0, sem caminho ES 1.1) ou "gles1+gles2". */
+    /** Gráficos importados: "gles1", "gles2" ou "gles1+gles2" (vazio se nenhum). */
     public String graphics = "";
     public byte[] icon;  // JPEG ou PNG que o Android consegue abrir
 
@@ -99,14 +99,9 @@ public final class Ipa {
         } else if (archs.stream().anyMatch(a -> a.startsWith("armv"))) {
             runtime = Runtime.HLE;
             engine = "nativo (ARM 32 bits)";
+            // OpenGL ES 1.1 e 2.0 são suportados pelo runtime (o 2.0 pelo patch do
+            // PortBridge no touchHLE); a API vai para o portbridge.json e o relatório.
             graphics = MachO.graphicsApi(exe);
-            if (graphics.equals("gles2")) {
-                warnings.add("usa só OpenGL ES 2.0 (shaders); o runtime de emulação (touchHLE) "
-                        + "implementa apenas OpenGL ES 1.1, então o jogo deve abrir com a tela preta");
-            } else if (graphics.equals("gles1+gles2")) {
-                warnings.add("tem código OpenGL ES 2.0 e 1.1; funciona só se o jogo voltar para o "
-                        + "ES 1.1 quando o 2.0 não está disponível");
-            }
         } else {
             reason = "só há código ARM de 64 bits (" + String.join(", ", archs) + "): ainda não suportado";
         }
