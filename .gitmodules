@@ -1,3 +1,4 @@
 [submodule "third_party/touchHLE"]
 	path = third_party/touchHLE
 	url = https://github.com/touchHLE/touchHLE.git
+	ignore = dirty
