@@ -1025,7 +1025,7 @@ index b00645cc..da60c4ea 100644
  
  #[derive(Default)]
 diff --git a/src/frameworks/opengles/eagl.rs b/src/frameworks/opengles/eagl.rs
-index 32a0b5ce..732a83c9 100644
+index 32a0b5ce..e1065916 100644
 --- a/src/frameworks/opengles/eagl.rs
 +++ b/src/frameworks/opengles/eagl.rs
 @@ -15,7 +15,7 @@ use crate::frameworks::foundation::NSUInteger;
@@ -1199,7 +1199,40 @@ index 32a0b5ce..732a83c9 100644
      if env.options.print_fps {
          env
              .objc
-@@ -542,11 +606,181 @@ unsafe fn read_renderbuffer(gles: &mut dyn GLES, mut pixel_buffer: Vec<u8>) -> (
+@@ -298,7 +362,7 @@ pub const CLASSES: ClassExports = objc_classes! {
+         .renderbuffer_drawable_bindings
+         .borrow()
+         .get(&renderbuffer) else {
+-        log_dbg!("Can't present a renderbuffer {:?} not bound to a drawable!", renderbuffer);
++        log!("Can't present a renderbuffer {:?} not bound to a drawable!", renderbuffer);
+         return false;
+     };
+ 
+@@ -337,7 +401,7 @@ pub const CLASSES: ClassExports = objc_classes! {
+         // copied back to system RAM, and then will have to be copied to VRAM
+         // again during composition. find_fullscreen_eagl_layer() exists to
+         // avoid this.
+-        log_dbg!(
++        log!(
+             "There is no fullscreen layer, presenting renderbuffer {:?} to layer {:?} by copying to RAM (slow path).",
+             renderbuffer,
+             drawable,
+@@ -532,6 +596,14 @@ unsafe fn read_renderbuffer(gles: &mut dyn GLES, mut pixel_buffer: Vec<u8>) -> (
+         Instant::now().saturating_duration_since(before)
+     );
+     pixel_buffer.set_len(size);
++    {
++        static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
++        if N.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 120 == 0 {
++            let nz = pixel_buffer.chunks(4).filter(|p| p[0] | p[1] | p[2] != 0).count();
++            let c = &pixel_buffer[(size / 2) & !3..(size / 2 & !3) + 4];
++            log!("DEBUG read_renderbuffer {}x{}: {} non-black px, center {:?}, glGetError {:#x}", width, height, nz, c, gles.GetError());
++        }
++    }
+ 
+     // Clean up the framebuffer object since we no longer need it.
+     gles.DeleteFramebuffersOES(1, &src_framebuffer);
+@@ -542,11 +614,181 @@ unsafe fn read_renderbuffer(gles: &mut dyn GLES, mut pixel_buffer: Vec<u8>) -> (
      (pixel_buffer, width_u32, height_u32)
  }
  
@@ -2557,10 +2590,30 @@ index 7dc25397..d894dc1f 100644
      log!("TODO: [(UIAlertView*){:?} show]", this);
  }
 diff --git a/src/frameworks/uikit/ui_view/ui_window.rs b/src/frameworks/uikit/ui_view/ui_window.rs
-index 1998df42..93073fa5 100644
+index 1998df42..9c5afcb3 100644
 --- a/src/frameworks/uikit/ui_view/ui_window.rs
 +++ b/src/frameworks/uikit/ui_view/ui_window.rs
-@@ -64,6 +64,16 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -22,7 +22,9 @@ use crate::frameworks::uikit::ui_device::{
+     UIDeviceOrientationLandscapeLeft, UIDeviceOrientationLandscapeRight,
+     UIDeviceOrientationPortraitUpsideDown,
+ };
+-use crate::objc::{id, msg, msg_class, msg_super, nil, objc_classes, ClassExports};
++use crate::objc::{
++    id, msg, msg_class, msg_super, nil, objc_classes, release, retain, ClassExports,
++};
+ 
+ #[derive(Default)]
+ pub struct State {
+@@ -33,6 +35,8 @@ pub struct State {
+     /// The most recent window which received `makeKeyAndVisible` message.
+     /// Non-retaining!
+     pub key_window: Option<id>,
++    /// PortBridge: `rootViewController` of each window (retained).
++    pub root_view_controllers: std::collections::HashMap<id, id>,
+ }
+ 
+ pub const CLASSES: ClassExports = objc_classes! {
+@@ -64,6 +68,16 @@ pub const CLASSES: ClassExports = objc_classes! {
  // NSCoding implementation
  - (id)initWithCoder:(id)coder {
      let this = msg_super![env; this initWithCoder:coder];
@@ -2577,6 +2630,62 @@ index 1998df42..93073fa5 100644
      // Undocumented: windows seem to be hidden by default on iOS, unlike views.
      // Super call to bypass the overriden setter on this class, which would post
      // a notification.
+@@ -81,6 +95,9 @@ pub const CLASSES: ClassExports = objc_classes! {
+ }
+ 
+ - (())dealloc {
++    if let Some(vc) = env.framework_state.uikit.ui_view.ui_window.root_view_controllers.remove(&this) {
++        release(env, vc);
++    }
+     if let Some(key_window) = env.framework_state.uikit.ui_view.ui_window.key_window {
+         if key_window == this {
+             env.framework_state.uikit.ui_view.ui_window.key_window = None;
+@@ -130,6 +147,45 @@ pub const CLASSES: ClassExports = objc_classes! {
+     () = msg![env; this setHidden:false];
+ }
+ 
++// PortBridge: iOS 4 root view controller. The controller's view replaces
++// the previous root view, sized to the application frame (the whole screen
++// when the status bar is hidden). Without this the app's view was never in
++// the window: nothing was composited and an OpenGL ES view kept the size it
++// had in its nib (often 320x460, made with a simulated status bar).
++- (id)rootViewController {
++    env.framework_state.uikit.ui_view.ui_window.root_view_controllers.get(&this).copied().unwrap_or(nil)
++}
++- (())setRootViewController:(id)controller {
++    let old = env.framework_state.uikit.ui_view.ui_window.root_view_controllers.get(&this).copied();
++    if old == Some(controller) {
++        return;
++    }
++    if controller != nil {
++        retain(env, controller);
++    }
++    if let Some(old) = old {
++        let old_view: id = msg![env; old view];
++        if old_view != nil {
++            () = msg![env; old_view removeFromSuperview];
++        }
++        env.framework_state.uikit.ui_view.ui_window.root_view_controllers.remove(&this);
++        release(env, old);
++    }
++    if controller == nil {
++        return;
++    }
++    env.framework_state.uikit.ui_view.ui_window.root_view_controllers.insert(this, controller);
++    let view: id = msg![env; controller view];
++    if view != nil {
++        let screen: id = msg_class![env; UIScreen mainScreen];
++        let frame: CGRect = msg![env; screen applicationFrame];
++        () = msg![env; view setFrame:frame];
++        () = msg![env; controller viewWillAppear:false];
++        () = msg![env; this addSubview:view];
++        () = msg![env; controller viewDidAppear:false];
++    }
++}
++
+ // We only model the single main screen
+ - (id)screen {
+     msg_class![env; UIScreen mainScreen]
 diff --git a/src/frameworks/uikit/ui_view_controller.rs b/src/frameworks/uikit/ui_view_controller.rs
 index d0a73bc3..e7c803a7 100644
 --- a/src/frameworks/uikit/ui_view_controller.rs
