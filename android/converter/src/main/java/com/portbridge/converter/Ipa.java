@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -21,6 +23,12 @@ public final class Ipa {
         CLICKTEAM,
         /** Executável ARM de 32 bits sem engine conhecida: emulação de alto nível (touchHLE). */
         HLE,
+        /**
+         * App web (Cordova/PhoneGap/Ionic, Capacitor, RPG Maker MV/MZ, Construct, HTML5):
+         * o conteúdo web roda num WebView com a ponte do PortBridge. Não usa o
+         * executável, então serve para 64 bits e para IPAs com FairPlay.
+         */
+        WEB,
         /** Não suportado ainda (64 bits, engine sem runtime etc.). */
         UNSUPPORTED
     }
@@ -30,6 +38,10 @@ public final class Ipa {
     public String name = "", bundleId = "", version = "1.0", executable = "";
     public String minimumOs = "";
     public boolean portrait = true;
+    /** "portrait", "landscape" ou "any" (UISupportedInterfaceOrientations). */
+    public String orientation = "any";
+    /** Rota web: pasta do conteúdo dentro do .app ("www", "public" ou "") e página inicial. */
+    public String webRoot = "", webStart = "index.html";
     public Runtime runtime = Runtime.UNSUPPORTED;
     public String engine = "desconhecida";
     public String reason = "";
@@ -81,6 +93,9 @@ public final class Ipa {
             if (o != null) orient.add(o);
         }
         portrait = orient.isEmpty() || orient.stream().anyMatch(o -> o.contains("Portrait"));
+        boolean anyPortrait = orient.stream().anyMatch(o -> o.contains("Portrait"));
+        boolean anyLandscape = orient.stream().anyMatch(o -> o.contains("Landscape"));
+        orientation = anyPortrait && !anyLandscape ? "portrait" : anyLandscape && !anyPortrait ? "landscape" : "any";
 
         // engine
         boolean clickteam = false;
@@ -91,9 +106,21 @@ public final class Ipa {
         }
         byte[] exe = zip.getEntry(appDir + executable) != null ? readAll(zip, appDir + executable) : new byte[0];
         archs = MachO.archs(exe);
+        Set<String> rels = new HashSet<>();
+        for (String n : names) if (n.startsWith(appDir)) rels.add(n.substring(appDir.length()));
+        String[] web = clickteam ? null : WebApp.detect(rels, exe, path -> readAll(zip, appDir + path));
         if (clickteam) {
             runtime = Runtime.CLICKTEAM;
             engine = "Clickteam Fusion";
+        } else if (web != null) {
+            runtime = Runtime.WEB;
+            engine = web[0];
+            webRoot = web[1];
+            webStart = web[2];
+            if (MachO.encrypted(exe)) {
+                warnings.add("o executável está com FairPlay, mas o conteúdo web não é criptografado: "
+                        + "a conversão funciona; só plugins nativos específicos do app ficam sem efeito");
+            }
         } else if (archs.isEmpty()) {
             reason = "executável não encontrado ou não é Mach-O";
         } else if (MachO.encrypted(exe)) {

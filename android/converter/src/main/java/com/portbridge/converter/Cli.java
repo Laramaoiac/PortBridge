@@ -16,7 +16,7 @@ import javax.imageio.ImageIO;
  * Conversor de linha de comando (Linux, Windows, macOS; precisa de Java 17+):
  *
  *   java -jar portbridge-converter.jar Jogo.ipa [-o pasta] [--template-clickteam t.apk]
- *        [--template-hle t.apk] [--key-dir ~/.portbridge]
+ *        [--template-hle t.apk] [--template-web t.apk] [--key-dir ~/.portbridge]
  *   java -jar portbridge-converter.jar --check Jogo.ipa
  *        (só verifica a compatibilidade com o runtime de emulação, sem gerar o APK)
  */
@@ -33,6 +33,7 @@ public final class Cli {
                 case "--key-dir": keyDir = new File(args[++i]); break;
                 case "--template-clickteam": templates.put(Ipa.Runtime.CLICKTEAM, new File(args[++i])); break;
                 case "--template-hle": templates.put(Ipa.Runtime.HLE, new File(args[++i])); break;
+                case "--template-web": templates.put(Ipa.Runtime.WEB, new File(args[++i])); break;
                 case "--inspect": inspectOnly = true; break;
                 case "--check": checkOnly = true; break;
                 default: ipa = new File(args[i]);
@@ -51,6 +52,11 @@ public final class Cli {
                 System.exit(1);
             } else if (info.runtime == Ipa.Runtime.CLICKTEAM) {
                 System.out.println("Rota: runtime Clickteam do PortBridge (não usa emulação)");
+            } else if (info.runtime == Ipa.Runtime.WEB) {
+                System.out.println("Rota: app web (" + info.engine + ") num WebView com a ponte do PortBridge; "
+                        + "conteúdo em " + (info.webRoot.isEmpty() ? "(raiz do .app)" : info.webRoot + "/")
+                        + ", página inicial " + info.webStart);
+                for (String w : info.warnings) System.out.println("aviso: " + w);
             } else if (info.hle == null) {
                 System.out.println("Rota: emulação (touchHLE); não foi possível verificar o executável");
             } else {
@@ -66,7 +72,7 @@ public final class Cli {
             for (String w : info.warnings) System.out.println("aviso: " + w);
             return;
         }
-        for (Ipa.Runtime rt : new Ipa.Runtime[] {Ipa.Runtime.CLICKTEAM, Ipa.Runtime.HLE}) {
+        for (Ipa.Runtime rt : new Ipa.Runtime[] {Ipa.Runtime.CLICKTEAM, Ipa.Runtime.HLE, Ipa.Runtime.WEB}) {
             if (templates.containsKey(rt)) continue;
             InputStream res = Cli.class.getResourceAsStream("/templates/" + rt.name().toLowerCase() + ".apk");
             if (res != null) {

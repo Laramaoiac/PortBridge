@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Template dos APKs gerados para apps web de iOS (Cordova/PhoneGap/Ionic, Capacitor,
+// RPG Maker MV/MZ, Construct, HTML5): um WebView com a ponte do PortBridge, sem
+// código nativo, então roda em qualquer arquitetura e serve também para IPAs de
+// 64 bits. O conversor troca pacote, nome, versão e ícone, copia a pasta web do
+// IPA para assets/web e assina.
+android {
+    namespace 'com.portbridge.web'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.portbridge.rtplaceholder'   // Converter.PLACEHOLDER_PACKAGE
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName '@@PB_VERSION@@'                    // Converter.PLACEHOLDER_VERSION
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig null   // o conversor assina cada APK gerado
+            vcsInfo.include false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA']
+        }
+    }
+}
+
+dependencies {
+    implementation project(':webruntime')
+}
