@@ -264,6 +264,15 @@ A interface do jogo em si é OpenGL e lê o toque **uma vez por quadro**: um cli
 0 ms do `xdotool` não era visto. O `hle-run` agora segura cada toque por 120 ms, como um
 dedo de verdade. CoreText não foi necessário (o texto do jogo é fonte bitmap própria).
 
+**Velocidade.** No celular o ZENONIA 3 rodava rápido demais. O jogo não tem laço próprio:
+o `CMvApp` (framework da Gamevil) agenda o próximo passo com um timer de uma vez do Core
+Foundation — `CFRunLoopTimerCreate(…, fireDate = agora + N ms, interval = 0, …)`, com N
+entre 33 e 40 ms (alvo de 40 ms por quadro, 25 quadros/s, menos o tempo gasto no quadro;
+achado com o Ghidra e medido no log). O touchHLE ignorava o `fireDate` e disparava o timer
+em 0,1 ms, então o jogo andava na velocidade da apresentação (60 quadros/s, mais que o
+dobro). Correção: o primeiro disparo segue o `fireDate`. Medido no servidor: 24–25
+quadros/s, o ritmo original.
+
 ### 64 bits: o que falta de verdade
 
 - IPAs **universais** (armv7 + arm64, comuns de 2013 a 2017) já entram: o conversor e o

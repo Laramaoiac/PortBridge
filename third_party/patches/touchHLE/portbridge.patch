@@ -774,7 +774,7 @@ index 00000000..170c3e86
 +    export_c_func!(CFReadStreamClose(_)),
 +];
 diff --git a/src/frameworks/core_foundation/cf_run_loop_timer.rs b/src/frameworks/core_foundation/cf_run_loop_timer.rs
-index 95e83e7b..4d6a61b4 100644
+index 95e83e7b..bcfa821f 100644
 --- a/src/frameworks/core_foundation/cf_run_loop_timer.rs
 +++ b/src/frameworks/core_foundation/cf_run_loop_timer.rs
 @@ -16,7 +16,7 @@ use crate::frameworks::core_foundation::time::{CFAbsoluteTime, CFTimeInterval};
@@ -786,7 +786,16 @@ index 95e83e7b..4d6a61b4 100644
  };
  use crate::Environment;
  
-@@ -74,11 +74,16 @@ fn CFRunLoopTimerCreate(
+@@ -39,7 +39,7 @@ unsafe impl SafeRead for CFRunLoopTimerContext {}
+ fn CFRunLoopTimerCreate(
+     env: &mut Environment,
+     allocator: CFAllocatorRef,
+-    _fire_date: CFAbsoluteTime, // TODO
++    fire_date: CFAbsoluteTime,
+     interval: CFTimeInterval,
+     flags: CFOptionFlags,
+     order: CFIndex,
+@@ -74,11 +74,26 @@ fn CFRunLoopTimerCreate(
      let selector = env.objc.lookup_selector("timerFireMethod:").unwrap();
  
      let repeats = interval > 0.0;
@@ -800,6 +809,16 @@ index 95e83e7b..4d6a61b4 100644
 +                                                 selector:selector
 +                                                 userInfo:nil
 +                                                  repeats:repeats];
++    // PortBridge: honour the fire date. Apps use one-shot CF timers
++    // (interval 0) as "run this at now + N ms" to pace their game loop
++    // (ZENONIA 3: the next step is scheduled 10+ ms ahead). Ignoring it made
++    // every such timer fire after 0.1 ms, so the game ran as fast as frames
++    // could be presented (about twice the intended speed).
++    let now = super::time::CFAbsoluteTimeGetCurrent(env);
++    let delay = (fire_date - now).max(0.0);
++    log_dbg!("CFRunLoopTimerCreate: fire in {:.1} ms, interval {} s", delay * 1000.0, interval);
++    let delay = std::time::Duration::from_secs_f64(delay.min(365.0 * 24.0 * 3600.0));
++    crate::frameworks::foundation::ns_timer::set_first_fire_after(env, timer, delay);
 +    // PortBridge: "Create" rule — the caller owns the result and will
 +    // CFRelease it. +timerWithTimeInterval: returns an autoreleased timer, so
 +    // without this retain the app's CFRelease over-released it (ZENONIA 3
@@ -808,7 +827,7 @@ index 95e83e7b..4d6a61b4 100644
  }
  
  fn CFRunLoopAddTimer(
-@@ -100,10 +105,43 @@ fn CFRunLoopTimerInvalidate(env: &mut Environment, timer: CFRunLoopTimerRef) {
+@@ -100,10 +115,43 @@ fn CFRunLoopTimerInvalidate(env: &mut Environment, timer: CFRunLoopTimerRef) {
      () = msg![env; timer invalidate];
  }
  
@@ -1001,6 +1020,19 @@ index 4435cc49..44051be7 100644
      export_c_func!(CFURLGetFileSystemRepresentation(_, _, _, _)),
      export_c_func!(CFURLCreateFromFileSystemRepresentation(_, _, _, _)),
      export_c_func!(CFURLCreateWithBytes(_, _, _, _, _)),
+diff --git a/src/frameworks/core_foundation/time.rs b/src/frameworks/core_foundation/time.rs
+index 1378dd8e..d0cb7613 100644
+--- a/src/frameworks/core_foundation/time.rs
++++ b/src/frameworks/core_foundation/time.rs
+@@ -41,7 +41,7 @@ impl_GuestRet_for_large_struct!(CFGregorianDate);
+ 
+ /// Absolute time is measured in seconds relative to the absolute reference date
+ /// of Jan 1 2001 00:00:00 GMT.
+-fn CFAbsoluteTimeGetCurrent(_env: &mut Environment) -> CFAbsoluteTime {
++pub fn CFAbsoluteTimeGetCurrent(_env: &mut Environment) -> CFAbsoluteTime {
+     SystemTime::now()
+         .duration_since(apple_epoch())
+         .unwrap()
 diff --git a/src/frameworks/core_graphics/cg_image.rs b/src/frameworks/core_graphics/cg_image.rs
 index a6b936a3..02aa0031 100644
 --- a/src/frameworks/core_graphics/cg_image.rs
@@ -1501,7 +1533,7 @@ index 99906b07..8d5f5f0d 100644
          _ => unimplemented!()
      };
 diff --git a/src/frameworks/foundation/ns_timer.rs b/src/frameworks/foundation/ns_timer.rs
-index 68fc992d..e978cdf0 100644
+index 68fc992d..0e738a60 100644
 --- a/src/frameworks/foundation/ns_timer.rs
 +++ b/src/frameworks/foundation/ns_timer.rs
 @@ -66,6 +66,18 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -1523,6 +1555,20 @@ index 68fc992d..e978cdf0 100644
      log_dbg!(
          "New {} timer {:?}, interval {}s, target [{:?} {}], user info {:?}",
          if repeats { "repeating" } else { "single-use" },
+@@ -166,6 +178,13 @@ pub fn set_time_interval(env: &mut Environment, timer: id, interval: NSTimeInter
+     host_object.rust_interval = Duration::from_secs_f64(interval);
+ }
+ 
++/// PortBridge: for `CFRunLoopTimerCreate`, whose first firing is at an
++/// absolute fire date (not `now + interval`).
++pub fn set_first_fire_after(env: &mut Environment, timer: id, delay: Duration) {
++    let host_object = env.objc.borrow_mut::<NSTimerHostObject>(timer);
++    host_object.due_by = Some(Instant::now().checked_add(delay).unwrap());
++}
++
+ /// For use by `NSRunLoop`
+ pub(super) fn set_run_loop(env: &mut Environment, timer: id, run_loop: id) {
+     let host_object = env.objc.borrow_mut::<NSTimerHostObject>(timer);
 diff --git a/src/frameworks/opengles/eagl.rs b/src/frameworks/opengles/eagl.rs
 index 32a0b5ce..fc85a8e5 100644
 --- a/src/frameworks/opengles/eagl.rs
