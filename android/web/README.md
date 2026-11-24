@@ -58,8 +58,8 @@ inteira no navegador (o IPA não sai do aparelho), por isso funciona no Google A
   `src/services/apkZipAlignSigner.ts` (WebCrypto);
 - usa `public/templates/web.apk`, cópia deste template. O build é reproduzível e o CI
   confere a cópia; depois de mudar este módulo, rode `gradle :web:syncStudioTemplate`;
-- a ponte é importada de `android/webruntime/.../bridge.js` no build do Studio, então o
-  APK gerado no navegador é igual ao do app conversor;
+- a ponte vai dentro do template (`portbridge/bridge.js`), então o Studio não depende
+  da pasta `android/` e o APK gerado no navegador é igual ao do app conversor;
 - a chave de assinatura fica no `localStorage` do navegador: converta as atualizações de
   um app no mesmo navegador para o Android aceitar instalar por cima.
 

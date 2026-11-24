@@ -1,7 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Download, FileUp, Globe, Loader2 } from 'lucide-react';
-// A ponte vem do código do Android: o APK gerado aqui é igual ao do app conversor.
-import bridgeJs from '../../android/webruntime/src/main/resources/portbridge/bridge.js?raw';
 import {
   convertWebIpa,
   inspectWebIpa,
@@ -52,7 +50,8 @@ export const WebRouteConverterPanel: React.FC = () => {
       const res = await fetch(`${import.meta.env.BASE_URL}templates/web.apk`);
       if (!res.ok) throw new Error('template web.apk não encontrado em /templates/web.apk');
       const template = new Uint8Array(await res.arrayBuffer());
-      const r = await convertWebIpa(await file.arrayBuffer(), template, bridgeJs, (m) => setSteps((s) => [...s, m]));
+      // A ponte vem dentro do template (o mesmo do app conversor Android).
+      const r = await convertWebIpa(await file.arrayBuffer(), template, null, (m) => setSteps((s) => [...s, m]));
       setResult(r);
       triggerBrowserDownload(new Blob([r.apk as Uint8Array<ArrayBuffer>], { type: 'application/vnd.android.package-archive' }), r.fileName);
     } catch (e) {

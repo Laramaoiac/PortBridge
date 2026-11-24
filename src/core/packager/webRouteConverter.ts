@@ -282,13 +282,14 @@ function patchString(s: string, info: WebIpaInfo): string {
 
 /**
  * Converte um IPA web em APK assinado.
- * @param template bytes de templates/web.apk (módulo android/web)
- * @param bridgeJs conteúdo atual de android/webruntime/.../portbridge/bridge.js
+ * @param template bytes de templates/web.apk (módulo android/web; já traz a ponte)
+ * @param bridgeJs outra versão da ponte (opcional; por padrão fica a do template,
+ *                 que o CI mantém igual a android/webruntime/.../portbridge/bridge.js)
  */
 export async function convertWebIpa(
   ipaBytes: Uint8Array | ArrayBuffer,
   template: Uint8Array | ArrayBuffer,
-  bridgeJs: string,
+  bridgeJs?: string | null,
   onStep: Step = () => {}
 ): Promise<WebConversionResult> {
   onStep('Lendo o IPA');
@@ -299,6 +300,7 @@ export async function convertWebIpa(
 
   const entries: RawApkEntry[] = [];
   const tpl = await JSZip.loadAsync(template);
+  if (!tpl.file('portbridge/bridge.js') && !bridgeJs) throw new Error('template web.apk sem a ponte do PortBridge');
   const icon = await pickIcon(zip, info);
   onStep('Montando o APK a partir do template web');
   for (const name of Object.keys(tpl.files)) {
@@ -306,7 +308,7 @@ export async function convertWebIpa(
     if (f.dir || name.startsWith('META-INF/')) continue;
     let data = await f.async('uint8array');
     if (name === 'AndroidManifest.xml') data = replaceAxmlStrings(data, (s) => patchString(s, info));
-    else if (name === 'portbridge/bridge.js') data = new TextEncoder().encode(bridgeJs);
+    else if (name === 'portbridge/bridge.js' && bridgeJs) data = new TextEncoder().encode(bridgeJs);
     else if (icon && /^res\/mipmap-[a-z]+(-v\d+)?\/ic_launcher\.png$/.test(name)) data = icon;
     entries.push({ name, data, storeUncompressed: name === 'resources.arsc' || name.endsWith('.png') });
   }

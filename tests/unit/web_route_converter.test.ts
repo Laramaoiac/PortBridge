@@ -85,7 +85,8 @@ test('gera APK assinado com conteúdo web, ponte atual e metadados', async () =>
     'www/cordova.js': '// cordova-ios',
     'www/audio/theme.mp3': new Uint8Array([0x49, 0x44, 0x33, 1, 2, 3]),
   }, ['UIInterfaceOrientationPortrait']);
-  const r = await convertWebIpa(ipa, TEMPLATE, BRIDGE, (m) => steps.push(m));
+  // sem ponte explícita: usa a do template, que deve ser a atual do Android
+  const r = await convertWebIpa(ipa, TEMPLATE, null, (m) => steps.push(m));
   assert.equal(r.fileName, 'Jogo Acao.apk');
   assert.equal(r.info.packageName, suggestedPackage('com.exemplo.Jogo-Web'));
   assert.equal(r.info.packageName, 'com.portbridge.port.com.exemplo.jogo_web');
