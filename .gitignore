@@ -12,3 +12,6 @@ tests/samples/
 build/
 player/build/
 player/third_party/
+
+# Python
+__pycache__/
