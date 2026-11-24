@@ -52,35 +52,45 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Gradle 8.14.3
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
       - name: Setup Android SDK & NDK r28
         uses: android-actions/setup-android@v3
 
       - name: Install CMake & NDK
+        # precisa ser a mesma versão de ndkVersion em android/runtime/build.gradle
         run: |
-          sdkmanager "ndk;28.0.13004108" "cmake;3.22.1" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "ndk;28.2.13676358" "cmake;3.22.1" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Fetch SDL2, miniz, dr_libs, stb & Liberation fonts
         run: |
           mkdir -p player/third_party/miniz player/third_party/dr_libs player/third_party/stb player/third_party/fonts
           git clone --depth 1 --branch release-2.30.11 https://github.com/libsdl-org/SDL.git player/third_party/SDL
-          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz.c -o player/third_party/miniz/miniz.c
-          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz.h -o player/third_party/miniz/miniz.h
-          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_common.h -o player/third_party/miniz/miniz_common.h
-          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tdef.c -o player/third_party/miniz/miniz_tdef.c
-          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tdef.h -o player/third_party/miniz/miniz_tdef.h
-          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tinfl.c -o player/third_party/miniz/miniz_tinfl.c
-          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tinfl.h -o player/third_party/miniz/miniz_tinfl.h
-          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_zip.c -o player/third_party/miniz/miniz_zip.c
-          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_zip.h -o player/third_party/miniz/miniz_zip.h
-          curl -sSL https://raw.githubusercontent.com/mackron/dr_libs/master/dr_mp3.h -o player/third_party/dr_libs/dr_mp3.h
-          curl -sSL https://raw.githubusercontent.com/mackron/dr_libs/master/dr_wav.h -o player/third_party/dr_libs/dr_wav.h
-          curl -sSL https://raw.githubusercontent.com/nothings/stb/master/stb_truetype.h -o player/third_party/stb/stb_truetype.h
-          curl -sSL https://github.com/liberationfonts/liberation-fonts/raw/main/src/LiberationSans-Regular.ttf -o player/third_party/fonts/LiberationSans-Regular.ttf
-          curl -sSL https://github.com/liberationfonts/liberation-fonts/raw/main/src/LiberationSans-Bold.ttf -o player/third_party/fonts/LiberationSans-Bold.ttf
+          curl -fsSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz.c -o player/third_party/miniz/miniz.c
+          curl -fsSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz.h -o player/third_party/miniz/miniz.h
+          curl -fsSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_common.h -o player/third_party/miniz/miniz_common.h
+          curl -fsSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tdef.c -o player/third_party/miniz/miniz_tdef.c
+          curl -fsSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tdef.h -o player/third_party/miniz/miniz_tdef.h
+          curl -fsSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tinfl.c -o player/third_party/miniz/miniz_tinfl.c
+          curl -fsSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tinfl.h -o player/third_party/miniz/miniz_tinfl.h
+          curl -fsSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_zip.c -o player/third_party/miniz/miniz_zip.c
+          curl -fsSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_zip.h -o player/third_party/miniz/miniz_zip.h
+          curl -fsSL https://raw.githubusercontent.com/mackron/dr_libs/master/dr_mp3.h -o player/third_party/dr_libs/dr_mp3.h
+          curl -fsSL https://raw.githubusercontent.com/mackron/dr_libs/master/dr_wav.h -o player/third_party/dr_libs/dr_wav.h
+          curl -fsSL https://raw.githubusercontent.com/nothings/stb/master/stb_truetype.h -o player/third_party/stb/stb_truetype.h
+          # o repositório liberation-fonts só tem os fontes .sfd; os .ttf vêm do pacote do Ubuntu
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-liberation
+          cp /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf \
+             /usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf player/third_party/fonts/
 
       - name: Compile libmain.so (with iOSStore + RuntimeI18n) + PortBridge APK
         working-directory: android
-        run: gradle :app:assembleRelease --no-daemon
+        # -Ppb.noHle: o template HLE precisa do submódulo third_party/touchHLE,
+        # de tools/touchhle_patches.sh, Rust e cargo-ndk, que ainda não estão no repositório.
+        run: gradle :app:assembleRelease -Ppb.noHle --no-daemon
 
       - name: Upload Compiled PortBridge APK
         uses: actions/upload-artifact@v4
