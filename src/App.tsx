@@ -23,6 +23,8 @@ import { QuickGuidedWizard } from './components/QuickGuidedWizard';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { NativePortBridgePanel } from './components/NativePortBridgePanel';
 import { UniversalStudioPanel } from './components/UniversalStudioPanel';
+import { TranslationPtBrPanel } from './components/TranslationPtBrPanel';
+import type { TranslationPack } from './core/i18n/translationPipeline.ts';
 import {
   Download,
   FolderArchive,
@@ -39,6 +41,7 @@ type ActiveSection =
   | 'simulator'
   | 'native'
   | 'studio'
+  | 'i18n'
   | 'saves'
   | 'converter'
   | 'frameworks'
@@ -251,35 +254,45 @@ export default function App() {
     [savesByIpaId, currentIpa]
   );
 
-  // Automatically compile the functional, signed 1:1 Port APK in memory so it is ALWAYS ready for immediate download
+  const [enablePtBr, setEnablePtBr] = useState<boolean>(true);
+  const [ptBrPack, setPtBrPack] = useState<TranslationPack | null>(null);
+
+  // Automatically compile the functional, signed 1:1 Port APK in memory (debounced to avoid RSA re-signing per keystroke)
   useEffect(() => {
     if (manualUploadInProgressRef.current) return;
     let active = true;
     let createdUrl: string | null = null;
-    setIsBuildingApk(true);
 
-    constructReadyApkArtifact(currentIpa, apkConfig, currentSaves, {
-      preferredEngine,
-    })
-      .then((artifact) => {
-        if (!active) {
-          URL.revokeObjectURL(artifact.blobUrl);
-          return;
-        }
-        createdUrl = artifact.blobUrl;
-        setReadyApk(artifact);
+    const timer = window.setTimeout(() => {
+      if (!active) return;
+      setIsBuildingApk(true);
+
+      constructReadyApkArtifact(currentIpa, apkConfig, currentSaves, {
+        preferredEngine,
+        enablePtBrTranslation: enablePtBr,
+        translationPack: ptBrPack,
       })
-      .finally(() => {
-        if (active) setIsBuildingApk(false);
-      });
+        .then((artifact) => {
+          if (!active) {
+            URL.revokeObjectURL(artifact.blobUrl);
+            return;
+          }
+          createdUrl = artifact.blobUrl;
+          setReadyApk(artifact);
+        })
+        .finally(() => {
+          if (active) setIsBuildingApk(false);
+        });
+    }, 450);
 
     return () => {
       active = false;
+      window.clearTimeout(timer);
       if (createdUrl) {
         URL.revokeObjectURL(createdUrl);
       }
     };
-  }, [currentIpa, apkConfig, currentSaves, preferredEngine]);
+  }, [currentIpa, apkConfig, currentSaves, preferredEngine, enablePtBr, ptBrPack]);
 
   const updateCurrentSaves = (nextSaves: SaveKeyValuePair[]) => {
     setSavesByIpaId((prev) => ({
@@ -546,6 +559,17 @@ export default function App() {
             </button>
             <button
               type="button"
+              onClick={() => setActiveSection('i18n')}
+              className={`h-14 inline-flex items-center border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                activeSection === 'i18n'
+                  ? 'text-white border-[#FF7A1A]'
+                  : 'border-transparent hover:text-white'
+              }`}
+            >
+              Tradução PT-BR
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveSection('saves')}
               className={`h-14 inline-flex items-center border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeSection === 'saves'
@@ -598,6 +622,7 @@ export default function App() {
             { id: 'simulator', label: 'Simulador' },
             { id: 'native', label: 'C++ & Loja' },
             { id: 'studio', label: 'Studio 39' },
+            { id: 'i18n', label: 'PT-BR' },
             { id: 'saves', label: 'Saves' },
             { id: 'converter', label: 'Avançado' },
           ].map((tab) => (
@@ -667,6 +692,17 @@ export default function App() {
 
         {/* VIEW 2C: UNIVERSAL IPA DECONSTRUCTOR & 5-TARGET ANDROID STUDIO */}
         {activeSection === 'studio' && <UniversalStudioPanel />}
+
+        {/* VIEW 2D: NON-DESTRUCTIVE PT-BR TRANSLATION ENGINE */}
+        {activeSection === 'i18n' && (
+          <TranslationPtBrPanel
+            ipa={currentIpa}
+            enablePtBr={enablePtBr}
+            onToggleEnablePtBr={setEnablePtBr}
+            activePack={ptBrPack}
+            onChangePack={setPtBrPack}
+          />
+        )}
 
         {/* VIEW 3: SAVE DATA MIGRATOR */}
         {activeSection === 'saves' && (
@@ -805,6 +841,13 @@ export default function App() {
                     }`}
                   >
                     Info.plist vs AndroidManifest.xml
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('frameworks')}
+                    className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  >
+                    Frameworks &amp; Permissões
                   </button>
                 </div>
 

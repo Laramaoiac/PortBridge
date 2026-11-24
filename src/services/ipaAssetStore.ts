@@ -1,5 +1,6 @@
-import { RawApkEntry } from './apkZipAlignSigner';
-import { ExtractedAssetManifest } from './applePortRuntimeBuilder';
+import type { RawApkEntry } from './apkZipAlignSigner.ts';
+import type { ExtractedAssetManifest } from './applePortRuntimeBuilder.ts';
+import type { ExtractedI18nEntry, TranslationPack } from '../core/i18n/translationPipeline.ts';
 
 export type RuntimeBuildMode =
   | 'web_bundle_native'
@@ -13,6 +14,8 @@ export interface PersistedIpaAssets {
   extractedAssetEntries?: RawApkEntry[];
   extractedManifest?: ExtractedAssetManifest;
   machOSymbols?: string[];
+  extractedI18nEntries?: ExtractedI18nEntry[];
+  ptBrTranslationPack?: TranslationPack;
   cachedDynamicHtml?: string;
   runtimeBuildMode?: RuntimeBuildMode;
 }

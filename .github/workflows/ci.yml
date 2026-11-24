@@ -1,0 +1,91 @@
+name: PortBridge CI (Tests, C++17 Native & Android Build)
+
+on:
+  push:
+    branches: [ main, master, 'feat/**' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify-core-ts-and-cpp:
+    name: Core Binary Parsers, i18n & C++17 Native Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run zero-dependency Node 22 binary & i18n test suite
+        run: node --test tests/unit/*.test.ts
+
+      - name: Compile and run C++17 native runtime tests (iOSStore + RuntimeI18n)
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -Iplayer/src \
+            player/tests/native_runtime_test.cpp \
+            player/src/runtime/i18n.cpp \
+            -o /tmp/pb_native_test
+          /tmp/pb_native_test
+
+      - name: Install npm dependencies, typecheck and build Web Studio
+        run: |
+          npm install
+          npm run lint
+          npm run build
+
+  build-android-native-apk:
+    name: Build PortBridge Native (libmain.so + Converter APK)
+    runs-on: ubuntu-latest
+    needs: verify-core-ts-and-cpp
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK & NDK r28
+        uses: android-actions/setup-android@v3
+
+      - name: Install CMake & NDK
+        run: |
+          sdkmanager "ndk;28.0.13004108" "cmake;3.22.1" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Fetch SDL2, miniz, dr_libs, stb & Liberation fonts
+        run: |
+          mkdir -p player/third_party/miniz player/third_party/dr_libs player/third_party/stb player/third_party/fonts
+          git clone --depth 1 --branch release-2.30.11 https://github.com/libsdl-org/SDL.git player/third_party/SDL
+          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz.c -o player/third_party/miniz/miniz.c
+          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz.h -o player/third_party/miniz/miniz.h
+          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_common.h -o player/third_party/miniz/miniz_common.h
+          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tdef.c -o player/third_party/miniz/miniz_tdef.c
+          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tdef.h -o player/third_party/miniz/miniz_tdef.h
+          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tinfl.c -o player/third_party/miniz/miniz_tinfl.c
+          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_tinfl.h -o player/third_party/miniz/miniz_tinfl.h
+          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_zip.c -o player/third_party/miniz/miniz_zip.c
+          curl -sSL https://raw.githubusercontent.com/richgel999/miniz/3.0.2/miniz_zip.h -o player/third_party/miniz/miniz_zip.h
+          curl -sSL https://raw.githubusercontent.com/mackron/dr_libs/master/dr_mp3.h -o player/third_party/dr_libs/dr_mp3.h
+          curl -sSL https://raw.githubusercontent.com/mackron/dr_libs/master/dr_wav.h -o player/third_party/dr_libs/dr_wav.h
+          curl -sSL https://raw.githubusercontent.com/nothings/stb/master/stb_truetype.h -o player/third_party/stb/stb_truetype.h
+          curl -sSL https://github.com/liberationfonts/liberation-fonts/raw/main/src/LiberationSans-Regular.ttf -o player/third_party/fonts/LiberationSans-Regular.ttf
+          curl -sSL https://github.com/liberationfonts/liberation-fonts/raw/main/src/LiberationSans-Bold.ttf -o player/third_party/fonts/LiberationSans-Bold.ttf
+
+      - name: Compile libmain.so (with iOSStore + RuntimeI18n) + PortBridge APK
+        working-directory: android
+        run: gradle :app:assembleRelease --no-daemon
+
+      - name: Upload Compiled PortBridge APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: portbridge-native-apk
+          path: |
+            android/app/build/outputs/apk/**/*.apk
+            android/runtime/build/outputs/apk/**/*.apk

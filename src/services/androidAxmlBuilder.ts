@@ -1,4 +1,4 @@
-import { ApkBuildConfig, IpaPackageModel } from '../types/migration';
+import type { ApkBuildConfig, IpaPackageModel } from '../types/migration.ts';
 
 /**
  * Pure TypeScript Android Binary XML (AXML) & Resource Table (resources.arsc) Compiler

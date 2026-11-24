@@ -4,7 +4,8 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
-    "types": ["vite/client", "vite-plugin-pwa/client"],
+    "resolveJsonModule": true,
+    "types": ["node", "vite/client", "vite-plugin-pwa/client"],
     "lib": [
       "ES2022",
       "DOM",
@@ -24,5 +25,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": ["dist"]
+  "exclude": ["dist", "android", "player", "third_party"]
 }

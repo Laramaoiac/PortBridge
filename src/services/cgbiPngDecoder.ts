@@ -2,8 +2,10 @@
  * Decodes Apple iOS "CgBI"-crushed PNGs (8/16-bit RGBA/BGRA, BGR, Grayscale, and
  * 1/2/4/8-bit PLTE + tRNS indexed palettes up to 4096x4096), Cocos2d/PowerVR (.pvr & .pvr.ccz)
  * uncompressed/zlib sprite sheets, JPEG/PNG iTunesArtwork files, and Apple CoreAudio (.caf)
- * linear PCM sound effects into standard Android-compatible W3C PNG and RIFF WAV files.
+ * linear PCM ('lpcm') + IMA4 ADPCM ('ima4') sound effects into standard Android-compatible W3C PNG and RIFF WAV files.
  */
+import { encodeRgbaToStandardPng } from '../core/transcoder/pngEncoder.ts';
+import { transcodeCafToWav } from '../core/transcoder/cafTranscoder.ts';
 
 export interface DecodedImageResult {
   pngBytes: Uint8Array;
@@ -167,7 +169,14 @@ async function encodeRgbaPixelsToPng(
   width: number,
   height: number
 ): Promise<DecodedImageResult | null> {
-  if (typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') {
+    try {
+      const pngBytes = await encodeRgbaToStandardPng(rgba, width, height);
+      return { pngBytes, width, height };
+    } catch {
+      return null;
+    }
+  }
   try {
     const canvas = document.createElement('canvas');
     canvas.width = width;
@@ -180,14 +189,22 @@ async function encodeRgbaPixelsToPng(
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((outBlob) => resolve(outBlob), 'image/png')
     );
-    if (!blob) return null;
+    if (!blob) {
+      const pngBytes = await encodeRgbaToStandardPng(rgba, width, height);
+      return { pngBytes, width, height };
+    }
     return {
       pngBytes: new Uint8Array(await blob.arrayBuffer()),
       width,
       height,
     };
   } catch {
-    return null;
+    try {
+      const pngBytes = await encodeRgbaToStandardPng(rgba, width, height);
+      return { pngBytes, width, height };
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -449,10 +466,6 @@ export async function convertIosImageToStandardPngWithMeta(
     return null;
   }
 
-  if (typeof document === 'undefined') {
-    return null;
-  }
-
   try {
     let pos = 8;
     let width = 0;
@@ -607,102 +620,10 @@ export async function convertIosPngToStandardPng(
 }
 
 /**
- * Converts uncompressed Apple CoreAudio (.caf) linear PCM ('lpcm') sound effects
- * into standard RIFF WAVE (.wav) bytes playable by Android WebView!
+ * Converts Apple CoreAudio (.caf) linear PCM ('lpcm') and IMA4 ADPCM ('ima4') sound effects
+ * into standard RIFF WAVE (.wav) bytes playable by Android WebView and native audio engines!
  */
 export function convertAppleCafToWav(cafBytes: Uint8Array): Uint8Array | null {
-  if (
-    cafBytes.byteLength < 64 ||
-    cafBytes[0] !== 0x63 ||
-    cafBytes[1] !== 0x61 ||
-    cafBytes[2] !== 0x66 ||
-    cafBytes[3] !== 0x66
-  ) {
-    return null;
-  }
-
-  let pos = 8;
-  let sampleRate = 44100;
-  let formatId = '';
-  let formatFlags = 0;
-  let channels = 1;
-  let bitsPerChannel = 16;
-  let pcmData: Uint8Array | null = null;
-
-  const view = new DataView(cafBytes.buffer, cafBytes.byteOffset, cafBytes.byteLength);
-
-  while (pos + 12 <= cafBytes.byteLength) {
-    const chunkType = String.fromCharCode(
-      cafBytes[pos],
-      cafBytes[pos + 1],
-      cafBytes[pos + 2],
-      cafBytes[pos + 3]
-    );
-    const sizeHigh = readU32BE(cafBytes, pos + 4);
-    const sizeLow = readU32BE(cafBytes, pos + 8);
-    const chunkSize =
-      sizeHigh === 0xffffffff
-        ? cafBytes.byteLength - (pos + 12)
-        : sizeHigh * 0x100000000 + sizeLow;
-    const dataStart = pos + 12;
-
-    if (chunkType === 'desc' && chunkSize >= 32 && dataStart + 32 <= cafBytes.byteLength) {
-      sampleRate = Math.round(view.getFloat64(dataStart, false)) || 44100;
-      formatId = String.fromCharCode(
-        cafBytes[dataStart + 8],
-        cafBytes[dataStart + 9],
-        cafBytes[dataStart + 10],
-        cafBytes[dataStart + 11]
-      );
-      formatFlags = readU32BE(cafBytes, dataStart + 12);
-      channels = readU32BE(cafBytes, dataStart + 24) || 1;
-      bitsPerChannel = readU32BE(cafBytes, dataStart + 28) || 16;
-    } else if (chunkType === 'data' && chunkSize > 4) {
-      const audioStart = dataStart + 4;
-      const audioEnd = Math.min(cafBytes.byteLength, dataStart + chunkSize);
-      if (audioEnd > audioStart) {
-        pcmData = cafBytes.subarray(audioStart, audioEnd);
-      }
-      break;
-    }
-
-    if (chunkSize < 0 || dataStart + chunkSize > cafBytes.byteLength) break;
-    pos = dataStart + chunkSize;
-  }
-
-  if (formatId !== 'lpcm' || !pcmData || (bitsPerChannel !== 16 && bitsPerChannel !== 8)) {
-    return null;
-  }
-
-  const isLittleEndian = (formatFlags & 2) !== 0;
-  const wavPcm = new Uint8Array(pcmData.byteLength);
-  if (!isLittleEndian && bitsPerChannel === 16) {
-    for (let i = 0; i + 1 < pcmData.byteLength; i += 2) {
-      wavPcm[i] = pcmData[i + 1];
-      wavPcm[i + 1] = pcmData[i];
-    }
-  } else {
-    wavPcm.set(pcmData);
-  }
-
-  const byteRate = sampleRate * channels * (bitsPerChannel / 8);
-  const blockAlign = channels * (bitsPerChannel / 8);
-  const wavOut = new Uint8Array(44 + wavPcm.byteLength);
-  const wv = new DataView(wavOut.buffer);
-
-  wavOut.set([0x52, 0x49, 0x46, 0x46], 0);
-  wv.setUint32(4, 36 + wavPcm.byteLength, true);
-  wavOut.set([0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20], 8);
-  wv.setUint32(16, 16, true);
-  wv.setUint16(20, 1, true);
-  wv.setUint16(22, channels, true);
-  wv.setUint32(24, sampleRate, true);
-  wv.setUint32(28, byteRate, true);
-  wv.setUint16(32, blockAlign, true);
-  wv.setUint16(34, bitsPerChannel, true);
-  wavOut.set([0x64, 0x61, 0x74, 0x61], 36);
-  wv.setUint32(40, wavPcm.byteLength, true);
-  wavOut.set(wavPcm, 44);
-
-  return wavOut;
+  const res = transcodeCafToWav(cafBytes);
+  return res ? res.wavBytes : null;
 }

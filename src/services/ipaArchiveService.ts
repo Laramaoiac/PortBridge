@@ -36,6 +36,30 @@ import {
   compileDynamicPortRuntimeHtml,
   inlineRuntimeAssetsForSimulator,
 } from './aiPortCompiler';
+import { inspectMachOBinary, type MachoInspectionResult } from '../core/inspector/machoParser.ts';
+import { fingerprintIpaBundle } from '../core/inspector/engineFingerprinter.ts';
+import { inspectClickteamCci } from '../core/inspector/clickteamCciParser.ts';
+import { resolveEngineAdapter } from '../adapters/adapterRegistry.ts';
+import { inspectAssetsCar } from '../core/transcoder/assetsCarReader.ts';
+import { detectLlvmBitcode, extractMachoCstrings } from '../core/toolchain/cctoolsEngine.ts';
+import {
+  inspectAdobeSwf,
+  inspectCoronaResourceCar,
+  inspectEmbeddedAndroidDex,
+  inspectGameMakerIff,
+  inspectHermesBytecode,
+  inspectMonoGameXnb,
+  inspectRenpyRpa,
+  inspectRiveBinary,
+} from '../core/inspector/recompilationEngines.ts';
+import {
+  buildWebRuntimeI18nShim,
+  extractAppleStringsFile,
+  extractXcstringsCatalog,
+  type ExtractedI18nEntry,
+  type TranslationPack,
+} from '../core/i18n/translationPipeline.ts';
+import { translateEntriesToPtBrOffline } from '../core/i18n/ptBrTranslatorEngine.ts';
 
 export interface ConstructedApkArtifact {
   fileName: string;
@@ -168,11 +192,11 @@ async function convertCciImageToPng(
         dst[d + 2] = (b << 4) | b;
         dst[d + 3] = (a << 4) | a;
       } else if (fmt === 2) {
-        // ARGB1555 (bit 15 = alpha, bits 10..14 = R, bits 5..9 = G, bits 0..4 = B)
-        const a = v & 0x8000 ? 255 : 0;
-        const r = (v >>> 10) & 0x1f;
-        const g = (v >>> 5) & 0x1f;
-        const b = v & 0x1f;
+        // RGBA5551 in Clickteam iOS CImage.m (bits 11..15 = R, bits 6..10 = G, bits 1..5 = B, bit 0 = alpha)
+        const r = (v >>> 11) & 0x1f;
+        const g = (v >>> 6) & 0x1f;
+        const b = (v >>> 1) & 0x1f;
+        const a = v & 1 ? 255 : 0;
         dst[d] = (r << 3) | (r >>> 2);
         dst[d + 1] = (g << 3) | (g >>> 2);
         dst[d + 2] = (b << 3) | (b >>> 2);
@@ -743,6 +767,9 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
   let machOHeaderHex = 'CF FA ED FE 0C 00 00 01 00 00 00 00 02 00 00 00';
   let machOArchLabel = 'arm64 (Mach-O 64-bit)';
   let machOSymbols: string[] = [];
+  let machOInspection: MachoInspectionResult | undefined;
+  const fingerprintSamples: Record<string, Uint8Array> = {};
+  const i18nEntries: ExtractedI18nEntry[] = [];
   let detectedUnity = false;
   let detectedMetal = false;
   let detectedSwift = false;
@@ -907,10 +934,35 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
       continue;
     }
 
+    const isI18nFile = lower.endsWith('.strings') || lower.endsWith('.xcstrings');
+    const isAssetsCar = lower.endsWith('assets.car');
+    const isGameMakerData = lower.endsWith('game.ios') || lower.endsWith('data.win');
+    const isHermesBundle = lower.endsWith('main.jsbundle') || lower.endsWith('.hbc');
+    const isAdobeSwf = lower.endsWith('.swf');
+    const isCoronaCar = lower.endsWith('resource.car');
+    const isRenpyRpa = lower.endsWith('.rpa');
+    const isMonoGameXnb = lower.endsWith('.xnb');
+    const isRiveFile = lower.endsWith('.riv');
+    const isEmbeddedDex = lower.endsWith('.dex');
+    const isEngineSignatureFile =
+      isGameMakerData ||
+      lower.endsWith('.pck') ||
+      lower.endsWith('global-metadata.dat') ||
+      isHermesBundle ||
+      isAdobeSwf ||
+      isCoronaCar ||
+      isRenpyRpa ||
+      isMonoGameXnb ||
+      isRiveFile ||
+      isEmbeddedDex;
+
     // Decide whether we need to decompress this entry into RAM (prevents OOM on huge IPAs)
     const shouldDecompress =
       isInWebBundle ||
       isClickteamCci ||
+      isI18nFile ||
+      (isAssetsCar && (estSize === 0 || estSize < 24 * 1024 * 1024)) ||
+      (isEngineSignatureFile && (estSize === 0 || estSize < 32 * 1024 * 1024)) ||
       isPriorityAtlasTexture ||
       (isConfigText && configFilesSummary.length < 12 && (estSize === 0 || estSize < 512 * 1024)) ||
       (isImage && artworkPaths.length < 90 && (estSize === 0 || estSize < 14 * 1024 * 1024)) ||
@@ -938,16 +990,129 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
     const headerHex = bytesToHex(uncompressedData, 8);
     let type: IpaEntryItem['type'] = 'other';
 
-    if (isClickteamCci) {
+    if (isClickteamCci || isEngineSignatureFile || isAssetsCar) {
+      fingerprintSamples[path] = uncompressedData.subarray(0, Math.min(uncompressedData.byteLength, 65536));
+    }
+
+    if (isI18nFile) {
+      if (lower.endsWith('.xcstrings')) {
+        const txt = new TextDecoder('utf-8', { fatal: false }).decode(uncompressedData);
+        i18nEntries.push(...extractXcstringsCatalog(txt, path));
+      } else {
+        i18nEntries.push(...extractAppleStringsFile(uncompressedData, path));
+      }
+    } else if (isGameMakerData) {
       type = 'asset_catalog';
+      const gm = inspectGameMakerIff(uncompressedData, path);
+      if (gm.valid) {
+        if (gm.i18nEntries.length > 0) {
+          i18nEntries.push(...gm.i18nEntries);
+        }
+        if (configFilesSummary.length < 14) {
+          configFilesSummary.push({
+            name: baseFile,
+            preview: `GameMaker IFF FORM (${gm.executionMode}, bc v${gm.bytecodeVersion ?? '?'}) · ${gm.codeEntryCount} scripts · ${gm.texturePageCount} TXTR · ${gm.audioCount} AUDO · ${gm.stringCount} STRG -> ${gm.recommendedAndroidRuntime}`,
+          });
+        }
+      }
+    } else if (isHermesBundle) {
+      const hbc = inspectHermesBytecode(uncompressedData);
+      if (hbc.valid && configFilesSummary.length < 14) {
+        configFilesSummary.push({
+          name: baseFile,
+          preview: `Hermes Bytecode v${hbc.bytecodeVersion} · ${hbc.functionCount} funções · ${hbc.stringCount} strings -> meta/hermes + P1sec/hermes-dec`,
+        });
+      }
+    } else if (isAdobeSwf) {
+      type = 'asset_catalog';
+      const swf = inspectAdobeSwf(uncompressedData);
+      if (swf.valid && configFilesSummary.length < 14) {
+        configFilesSummary.push({
+          name: baseFile,
+          preview: `Adobe SWF v${swf.swfVersion} (${swf.compression}, ${swf.uncompressedLength} B) -> ruffle-rs/ruffle-android`,
+        });
+      }
+    } else if (isCoronaCar) {
+      type = 'asset_catalog';
+      const car = inspectCoronaResourceCar(uncompressedData);
+      if (car.valid && configFilesSummary.length < 14) {
+        configFilesSummary.push({
+          name: baseFile,
+          preview: `Solar2D/Corona resource.car v${car.formatVersion} · ~${car.entryCountEstimate} entradas -> coronalabs/corona Android`,
+        });
+      }
+    } else if (isRenpyRpa) {
+      type = 'asset_catalog';
+      const rpa = inspectRenpyRpa(uncompressedData);
+      if (rpa.valid && configFilesSummary.length < 14) {
+        configFilesSummary.push({
+          name: baseFile,
+          preview: `Ren'Py ${rpa.formatVersion} (index @ 0x${rpa.indexOffset.toString(16)}) -> renpy/renpy RAPT Android`,
+        });
+      }
+    } else if (isMonoGameXnb) {
+      type = 'asset_catalog';
+      const xnb = inspectMonoGameXnb(uncompressedData);
+      if (xnb.valid && configFilesSummary.length < 14) {
+        configFilesSummary.push({
+          name: baseFile,
+          preview: `MonoGame/XNA XNB v${xnb.formatVersion} (${xnb.targetPlatformName}, ${xnb.compression}) -> MonoGame Android`,
+        });
+      }
+    } else if (isRiveFile) {
+      type = 'asset_catalog';
+      const riv = inspectRiveBinary(uncompressedData);
+      if (riv.valid && configFilesSummary.length < 14) {
+        configFilesSummary.push({
+          name: baseFile,
+          preview: `Rive .riv v${riv.majorVersion}.${riv.minorVersion} (fileId=${riv.fileId}) -> rive-android`,
+        });
+      }
+    } else if (isEmbeddedDex) {
+      const dex = inspectEmbeddedAndroidDex(uncompressedData);
+      if (dex.valid && configFilesSummary.length < 14) {
+        configFilesSummary.push({
+          name: baseFile,
+          preview: `Embedded Dalvik/ART DEX v${dex.dexVersion} (${dex.classDefsSize} classes, ${dex.methodIdsSize} métodos) -> Multi-OS Engine / Android ART direto!`,
+        });
+      }
+    } else if (isAssetsCar) {
+      type = 'asset_catalog';
+      const carInfo = inspectAssetsCar(uncompressedData);
+      if (carInfo.valid && configFilesSummary.length < 12) {
+        configFilesSummary.push({
+          name: baseFile,
+          preview: `BOMStore v${carInfo.bomVersion} · ${carInfo.numberOfBlocks} blocos · ~${carInfo.renditionsCountEstimate} renditions (${carInfo.variables.map((v) => v.name).join(', ')})`,
+        });
+      }
+    } else if (isClickteamCci) {
+      type = 'asset_catalog';
+      const cciDeep = await inspectClickteamCci(uncompressedData);
+      if (cciDeep.valid) {
+        detectedClickteamCci = true;
+        if (cciDeep.i18nEntries.length > 0) {
+          i18nEntries.push(...cciDeep.i18nEntries);
+        }
+        if (configFilesSummary.length < 12) {
+          configFilesSummary.push({
+            name: baseFile,
+            preview: `Clickteam ${cciDeep.magic} build ${cciDeep.productBuild}${cciDeep.isFusion25Plus ? ' (Fusion 2.5+)' : ''} · ${cciDeep.windowWidth}x${cciDeep.windowHeight}@${cciDeep.frameRate}fps · ${cciDeep.frames.length} frames · ${cciDeep.imageCount} sprites · ${cciDeep.soundCount} sons · exts: ${cciDeep.extensions.map((e) => e.name).join(', ') || 'nenhuma'}`,
+          });
+        }
+      }
       const cciResult = await unpackClickteamCciArchive(uncompressedData);
       if (cciResult.spriteEntries.length > 0 || cciResult.audioEntries.length > 0) {
         detectedClickteamCci = true;
-        cciFrameNames = cciResult.frameNames;
+        cciFrameNames =
+          cciDeep.valid && cciDeep.frames.length > 0
+            ? cciDeep.frames.map((f) => f.name)
+            : cciResult.frameNames;
         extractedAssetEntries.push(...cciResult.spriteEntries, ...cciResult.audioEntries);
         artworkPaths.push(...cciResult.artworkPaths);
         artworkMeta.push(...cciResult.artworkMeta);
         audioPaths.push(...cciResult.audioPaths);
+      } else if (cciDeep.valid && cciDeep.frames.length > 0) {
+        cciFrameNames = cciDeep.frames.map((f) => f.name);
       }
     } else if (isConfigText) {
       const txt = new TextDecoder('utf-8', { fatal: false }).decode(
@@ -1048,19 +1213,44 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
       type = 'provision';
     }
 
-    if (isMachOMagicHeader(headerHex)) {
+    if (isMachOMagicHeader(headerHex) || headerHex.startsWith('CA FE BA BF')) {
       type = 'macho_binary';
       machOHeaderHex = bytesToHex(uncompressedData, 16);
-      if (headerHex.startsWith('CE FA ED FE') || headerHex.startsWith('FE ED FA CE')) {
+      const parsedMachO = inspectMachOBinary(uncompressedData);
+      if (parsedMachO.isValidMachO) {
+        machOInspection = parsedMachO;
+        machOArchLabel = parsedMachO.formatLabel;
+        if (parsedMachO.hasSwiftMetadata) detectedSwift = true;
+      } else if (headerHex.startsWith('CE FA ED FE') || headerHex.startsWith('FE ED FA CE')) {
         machOArchLabel = 'armv7 (Mach-O 32-bit)';
-      } else if (headerHex.startsWith('CA FE BA BE')) {
+      } else if (headerHex.startsWith('CA FE BA BE') || headerHex.startsWith('CA FE BA BF')) {
         machOArchLabel = 'Universal (ARMv7 + ARM64 Fat Mach-O)';
       } else {
         machOArchLabel = 'arm64 (Mach-O 64-bit)';
       }
 
-      if (machOSymbols.length === 0) {
-        machOSymbols = extractMachOStrings(uncompressedData, 180);
+      if (!parsedMachO.fairPlayEncrypted) {
+        const bitcodeInfo = detectLlvmBitcode(uncompressedData);
+        if (bitcodeInfo.present && configFilesSummary.length < 14) {
+          configFilesSummary.push({
+            name: `${baseFile} (__LLVM,__bitcode)`,
+            preview: `LLVM Bitcode detectado (${bitcodeInfo.architecture || 'mach-o'}, ${bitcodeInfo.sizeBytes} bytes, header válido=${bitcodeInfo.isBitcodeWrapperOrIr}) — elegível para recompilação LLVM IR -> Android AArch64 ELF.`,
+          });
+        }
+
+        if (machOSymbols.length === 0) {
+          const rawSymbols = extractMachOStrings(uncompressedData, 180);
+          const cstrings = extractMachoCstrings(uncompressedData, { maxStrings: 60 });
+          const seen = new Set(rawSymbols);
+          for (const cs of cstrings) {
+            if (rawSymbols.length >= 180) break;
+            if (cs.length >= 4 && cs.length <= 72 && !seen.has(cs)) {
+              seen.add(cs);
+              rawSymbols.push(cs);
+            }
+          }
+          machOSymbols = rawSymbols;
+        }
       }
     }
 
@@ -1174,12 +1364,19 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
     cciFrameNames: cciFrameNames.length > 0 ? cciFrameNames : undefined,
   };
 
+  const autoPtBrPack =
+    i18nEntries.length > 0
+      ? translateEntriesToPtBrOffline(bundleId, i18nEntries).pack
+      : undefined;
+
   const persistedPayload: PersistedIpaAssets = {
     iconPngBytes: bestIconPng,
     webBundleEntries: webBundleEntries.length > 0 ? webBundleEntries : undefined,
     extractedAssetEntries: extractedAssetEntries.length > 0 ? extractedAssetEntries : undefined,
     extractedManifest,
     machOSymbols,
+    extractedI18nEntries: i18nEntries.length > 0 ? i18nEntries : undefined,
+    ptBrTranslationPack: autoPtBrPack,
     runtimeBuildMode: webBundleEntries.length > 0 ? 'web_bundle_native' : 'dynamic_assets_offline',
   };
 
@@ -1219,6 +1416,14 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
   else if (detected2D) chosenPreset = IPA_PRESETS[0];
   else if (detectedAudio) chosenPreset = IPA_PRESETS[3];
 
+  const fingerprintReport = fingerprintIpaBundle({
+    bundleRelativePaths: fileNames,
+    fileSamples: fingerprintSamples,
+    machOSymbols,
+    machO: machOInspection,
+  });
+  const resolvedAdapter = resolveEngineAdapter(fingerprintReport);
+
   const detectedCategory = chosenPreset.category;
 
   return {
@@ -1235,11 +1440,20 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
     machOHeaderHex,
     preferredOrientation,
     isCustomUpload: true,
+    engineTier: fingerprintReport.primaryEngine.tier,
+    fairPlayEncrypted: fingerprintReport.fairPlayBlocked,
+    honestReadinessVerdict: fingerprintReport.honestReadinessVerdict,
+    honestReadinessReason: fingerprintReport.honestReadinessReason,
+    detectedAdapterLabel: resolvedAdapter.label,
+    detectedAssetFormats: fingerprintReport.detectedAssetFormats.map((f) => f.name),
+    i18nExtractedCount: i18nEntries.length,
     engineDetected:
-      webBundleEntries.length > 0
+      fingerprintReport.primaryEngine.engineId !== 'apple_native_swift_objc'
+        ? `${fingerprintReport.primaryEngine.engineName} (Tier ${fingerprintReport.primaryEngine.tier})`
+        : webBundleEntries.length > 0
         ? `Bundle Web/HTML5 Nativo Extraído (${webBundleEntries.length} arquivos)`
         : detectedClickteamCci
-        ? `Clickteam Fusion iOS Runtime (Application.cci PAME — ${cciFrameNames.length} cenas, ${artworkPaths.length} sprites, ${audioPaths.length} sons)`
+        ? `Clickteam Fusion iOS Runtime (Application.cci — ${cciFrameNames.length} cenas, ${artworkPaths.length} sprites, ${audioPaths.length} sons)`
         : spriteAtlases.length > 0
         ? `Cocos2d / SpriteKit (${artworkPaths.length} PNGs + ${spriteAtlases.length} Atlas .plist)`
         : detected3D
@@ -1250,7 +1464,7 @@ export async function parseUploadedIpaFile(file: File): Promise<IpaPackageModel>
         ? `Motor 2D (${artworkPaths.length} Sprites + ${audioPaths.length} Áudios Extraídos)`
         : detectedSwift
         ? 'SwiftUI / UIKit + CoreData'
-        : chosenPreset.engineDetected,
+        : fingerprintReport.primaryEngine.engineName,
     iconMonogram: appName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || 'AP',
     entries: entries.length > 0 ? entries.slice(0, 60) : chosenPreset.entries,
     infoPlistXml,
@@ -1392,12 +1606,35 @@ export async function constructReadyApkArtifact(
   ipa: IpaPackageModel,
   config: ApkBuildConfig,
   saves: SaveKeyValuePair[],
-  options?: { forceAiRebuild?: boolean; preferredEngine?: 'local' | 'ai' }
+  options?: {
+    forceAiRebuild?: boolean;
+    preferredEngine?: 'local' | 'ai';
+    translationPack?: TranslationPack | null;
+    enablePtBrTranslation?: boolean;
+  }
 ): Promise<ConstructedApkArtifact> {
   const encoder = new TextEncoder();
   const safePkg = sanitizeAndroidPackageName(config.androidPackageName);
   const cleanAppSlug = ipa.appName.replace(/[^a-zA-Z0-9_-]/g, '') || 'ApplePort';
   const persisted = ipa.isCustomUpload ? await getPersistedIpaAssets(ipa.id) : undefined;
+  const activeTranslationPack =
+    options?.enablePtBrTranslation === false
+      ? null
+      : options?.translationPack !== undefined
+      ? options.translationPack
+      : persisted?.ptBrTranslationPack || null;
+  const hasActivePtBr = Boolean(
+    activeTranslationPack && Object.keys(activeTranslationPack.byOriginal).length > 0
+  );
+  const injectPtBrIntoHtml = (html: string): string => {
+    if (!hasActivePtBr || !activeTranslationPack) return html;
+    if (html.includes('__PORTBRIDGE_I18N__')) return html;
+    const shim = buildWebRuntimeI18nShim(activeTranslationPack);
+    if (/<head[^>]*>/i.test(html)) {
+      return html.replace(/<head[^>]*>/i, (m) => `${m}\n${shim}`);
+    }
+    return `${shim}\n${html}`;
+  };
 
   // 1. Binary AndroidManifest.xml (AXML format required by Android PackageInstaller)
   const binaryManifest = compileBinaryAndroidManifest(ipa, {
@@ -1444,14 +1681,26 @@ export async function constructReadyApkArtifact(
   let simulatorPreviewHtml = '';
 
   if (persisted?.webBundleEntries && persisted.webBundleEntries.length > 0) {
-    payloadEntries.push(...persisted.webBundleEntries);
+    for (const entry of persisted.webBundleEntries) {
+      if (hasActivePtBr && entry.name.toLowerCase().endsWith('/index.html')) {
+        const rawHtml = new TextDecoder('utf-8', { fatal: false }).decode(entry.data);
+        payloadEntries.push({
+          ...entry,
+          data: encoder.encode(injectPtBrIntoHtml(rawHtml)),
+        });
+      } else {
+        payloadEntries.push(entry);
+      }
+    }
     runtimeMode = 'web_bundle_native';
     const indexEntry = persisted.webBundleEntries.find((e) =>
       e.name.toLowerCase().endsWith('/index.html')
     );
-    simulatorPreviewHtml = indexEntry
-      ? new TextDecoder('utf-8', { fatal: false }).decode(indexEntry.data)
-      : buildEmbeddedApplePortHtml(ipa, config, saves, persisted.extractedManifest, persisted.machOSymbols);
+    simulatorPreviewHtml = injectPtBrIntoHtml(
+      indexEntry
+        ? new TextDecoder('utf-8', { fatal: false }).decode(indexEntry.data)
+        : buildEmbeddedApplePortHtml(ipa, config, saves, persisted.extractedManifest, persisted.machOSymbols)
+    );
   } else {
     if (persisted?.extractedAssetEntries) {
       payloadEntries.push(...persisted.extractedAssetEntries);
@@ -1471,10 +1720,20 @@ export async function constructReadyApkArtifact(
         runtimeBuildMode: 'gemini_reconstructed',
       });
     }
-    simulatorPreviewHtml = inlineRuntimeAssetsForSimulator(compiledRuntime.html, persisted);
+    const finalHtml = injectPtBrIntoHtml(compiledRuntime.html);
+    simulatorPreviewHtml = inlineRuntimeAssetsForSimulator(finalHtml, persisted);
     payloadEntries.push({
       name: 'assets/apple_port_runtime/index.html',
-      data: encoder.encode(compiledRuntime.html),
+      data: encoder.encode(finalHtml),
+      storeUncompressed: false,
+    });
+  }
+
+  // 5b. Embed non-destructive PT-BR translation dictionary for native C++17 / Android runtimes
+  if (hasActivePtBr && activeTranslationPack) {
+    payloadEntries.push({
+      name: 'assets/i18n/pt_BR.json',
+      data: encoder.encode(JSON.stringify(activeTranslationPack, null, 2)),
       storeUncompressed: false,
     });
   }

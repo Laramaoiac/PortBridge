@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- para abrir o instalador com o APK gerado -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.PortBridge">
+
+        <activity
+            android:name=".ConverterActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- "Abrir com PortBridge" para arquivos .ipa -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/x-itunes-ipa" />
+                <data android:mimeType="application/zip" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name=".ApkProvider"
+            android:authorities="${applicationId}.apks"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+</manifest>

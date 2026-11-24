@@ -201,9 +201,27 @@ export const QuickGuidedWizard: React.FC<QuickGuidedWizardProps> = ({
               <p className="font-mono text-[13px] text-[#49454F] dark:text-slate-400 truncate">
                 Pacote Android: {apkConfig.androidPackageName}
               </p>
-              <p className="pt-2 text-[14px] text-[#1B5E20] dark:text-emerald-400 font-medium">
-                Pode ser portado ({decisionResult.detectedCategoryLabel})
-              </p>
+              {currentIpa.fairPlayEncrypted ? (
+                <p className="pt-2 text-[14px] text-red-700 dark:text-red-400 font-semibold">
+                  Bloqueado por FairPlay DRM (cryptid != 0): {currentIpa.honestReadinessReason}
+                </p>
+              ) : currentIpa.honestReadinessVerdict === 'tier2_partial_hybrid' ||
+                currentIpa.honestReadinessVerdict === 'tier3_unsupported_arm64' ? (
+                <p className="pt-2 text-[14px] text-amber-700 dark:text-amber-400 font-medium">
+                  Tier {currentIpa.engineTier ?? 3} — {currentIpa.honestReadinessReason}
+                </p>
+              ) : (
+                <p className="pt-2 text-[14px] text-[#1B5E20] dark:text-emerald-400 font-medium">
+                  {currentIpa.honestReadinessReason ||
+                    `Pode ser portado (${decisionResult.detectedCategoryLabel})`}
+                </p>
+              )}
+              {typeof currentIpa.i18nExtractedCount === 'number' &&
+                currentIpa.i18nExtractedCount > 0 && (
+                  <p className="text-[12px] text-slate-500 dark:text-slate-400">
+                    i18n não-destrutivo: {currentIpa.i18nExtractedCount} strings elegíveis extraídas
+                  </p>
+                )}
             </div>
 
             {/* Hybrid Engine Selector (when custom IPA has extracted assets) */}

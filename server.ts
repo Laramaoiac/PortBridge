@@ -212,12 +212,77 @@ async function startServer() {
     }
   });
 
+  app.post('/api/translate-ptbr', async (req: Request, res: Response) => {
+    const ai = getGeminiClient();
+    if (!ai) {
+      res.status(503).json({
+        error: 'GEMINI_API_KEY não configurada. Use a tradução PT-BR offline instantânea.',
+      });
+      return;
+    }
+
+    try {
+      const body = req.body as {
+        appName?: string;
+        bundleId?: string;
+        entries?: { key: string; context: string; original: string; placeholders?: string[] }[];
+      };
+      const entries = Array.isArray(body.entries) ? body.entries.slice(0, 120) : [];
+      if (entries.length === 0) {
+        res.json({ translations: {} });
+        return;
+      }
+
+      const systemInstruction = [
+        'Você é um especialista em localização de aplicativos e jogos iOS para Português do Brasil (pt-BR).',
+        'Traduza o array JSON de strings mantendo naturalidade, concisão para caber em botões mobile e preservando 100% dos placeholders originais (%@, %d, %s, %1$.2f, {0}, \\n, tags HTML/cor).',
+        'NUNCA altere, remova ou invente placeholders. NUNCA traduza nomes próprios ou marcas quando não fizer sentido.',
+        'Retorne EXCLUSIVAMENTE um objeto JSON válido mapeando cada "key" para a string traduzida em pt-BR, sem markdown.',
+      ].join('\n');
+
+      const promptText = `App: ${body.appName || 'iOS App'} (${body.bundleId || ''})\nStrings para localizar em pt-BR:\n${JSON.stringify(entries)}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-4-hydrogen',
+        contents: promptText,
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        },
+      });
+
+      const raw = (response.text ?? '{}')
+        .trim()
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const cleanTranslations: Record<string, string> = {};
+      for (const item of entries) {
+        const val = parsed[item.key];
+        if (typeof val === 'string' && val.trim()) {
+          cleanTranslations[item.key] = val.trim();
+        }
+      }
+
+      res.json({ translations: cleanTranslations });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Falha na tradução PT-BR via Gemini API.';
+      res.status(500).json({ error: message });
+    }
+  });
+
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
         hmr: false,
+        watch: null,
       },
       appType: 'spa',
     });

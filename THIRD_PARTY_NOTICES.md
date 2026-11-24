@@ -1,0 +1,16 @@
+# Third-Party Notices
+
+PortBridge incorporates architectural patterns, native dependencies, and format specifications from the following open-source projects:
+
+- **REA (`morluto/rea`)** — MIT License. Informed PortBridge's fail-closed Mach-O / FairPlay DRM parser, Godot PCK format 1–4 boundaries, Unity IL2CPP/UnityFS metadata inspection, and independent APK Signature Scheme v1/v2/v3 verifier.
+- **SDL2** (`libsdl-org/SDL`) — zlib License. Platform abstraction, rendering, input, and Android `SDLActivity` for the native C++17 `player/` runtime.
+- **touchHLE** (`touchhle.org`) — MPL-2.0 License. High-level ARM32 iOS emulator integrated via `android/hle/` and `third_party/patches/touchHLE/portbridge.patch`.
+- **miniz** (`richgel999/miniz`) — MIT License. ZIP/zlib decompression for `pb_core`.
+- **dr_libs** (`mackron/dr_libs`) — MIT-0 / Public Domain. WAV & MP3 decoding in `player/src/runtime/audio.cpp`.
+- **stb_truetype** (`nothings/stb`) — MIT / Public Domain. UTF-8 TrueType glyph rasterizer in `player/src/runtime/text.cpp`.
+- **Liberation Fonts** — SIL Open Font License (OFL). Embedded UTF-8 fallback fonts for accented Latin scripts (including PT-BR).
+- **Android `apksig`** — Apache-2.0 License. Official APK v1/v2/v3 signing in `android/converter/`.
+- **Apple `cctools` / `ld64` Linux Port (`tpoechtrager/cctools-port`)** — Apple Public Source License 2.0 (APSL-2.0). Built externally on Linux/CI via `scripts/setup-cctools-port.sh` (`lipo`, `otool`, `segedit`, `nm`, `install_name_tool`, `ld64`). PortBridge's in-repo `src/core/toolchain/cctoolsEngine.ts` is an original clean-room TypeScript implementation of Mach-O slicing, section extraction, and `__LLVM,__bitcode` inspection with zero copied APSL source code.
+- **External Multi-Engine Recompilation & Runtime Ecosystem (55 Repositories)** — Referenced via `src/core/toolchain/toolchainRegistry.ts`, `ENGINE_SIGNATURES.json`, and `scripts/setup-recomp-toolchains.sh`, including Apple OSS (`distribution-Developer_Tools`, `distribution-iOS`), `swiftlang/swift`, `gnustep/libobjc2`, `darlinghq/darling`, `lief-project/LIEF`, `blacktop/ipsw`, `insidegui/AssetCatalogTinkerer`, `JohnnyonFlame/gmloader-next`, `UnderminersTeam/UndertaleModTool`, `enigma-dev/enigma-dev`, `Perfare/Il2CppDumper`, `AssetRipper/AssetRipper`, `godotengine/godot`, `cocos/cocos-engine`, `cocos2d/cocos2d-x`, `cocos2d/cocos2d-objc`, `defold/defold`, `coronalabs/corona`, `love2d/love`, `gideros/gideros`, `renpy/renpy`, `MonoGame/MonoGame`, `TorqueGameEngines/Torque2D`, `HaxeFoundation/hxcpp`, `openfl/lime`, `openfl/openfl`, `libgdx/libgdx`, `ruffle-rs/ruffle`, `ruffle-rs/ruffle-android`, `rive-app/rive-ios`, `untoldengine/UntoldEngine`, `facebook/react-native`, `facebook/hermes`, `P1sec/hermes-dec`, `flutter/flutter`, `worawit/blutter`, `ionic-team/capacitor`, `apache/cordova-android`, `NativeScript/runtimes`, `tidev/titanium-sdk`, `lynx-family/lynx`, `Snapchat/Valdi`, `JetBrains/compose-multiplatform`, `dotnet/maui`, `dotnet/macios`, `MobiVM/robovm`, `multi-os-engine/multi-os-engine`, `codenameone/CodenameOne`, `google/j2objc`, `kivy/kivy-ios`, and `tauri-apps/tauri`. All binary format inspectors inside `src/core/inspector/recompilationEngines.ts` are original clean-room TypeScript implementations; external GPL/AGPL/APSL tools remain strictly isolated as optional external CLI/CI dependencies.
+
+

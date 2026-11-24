@@ -1,0 +1,1181 @@
+{
+  "$schema": "https://portbridge.dev/schemas/engine-signatures.v1.json",
+  "schema_version": "1.0.0",
+  "coverage": {
+    "ios_min": "1.0",
+    "ios_max": "27.x",
+    "description": "Catálogo mestre de assinaturas binárias, arquivos, símbolos Mach-O e regras de detecção para identificação forense de motores e frameworks em arquivos .ipa."
+  },
+  "macho_constants": {
+    "magic": {
+      "MH_MAGIC": "cefaedfe",
+      "MH_CIGAM": "feedface",
+      "MH_MAGIC_64": "cffaedfe",
+      "MH_CIGAM_64": "feedfacf",
+      "FAT_MAGIC": "cafebabe",
+      "FAT_CIGAM": "bebafeca",
+      "FAT_MAGIC_64": "cafebabf",
+      "FAT_CIGAM_64": "bfbafeca"
+    },
+    "load_commands": {
+      "LC_LOAD_DYLIB": "0x0000000c",
+      "LC_LOAD_WEAK_DYLIB": "0x80000018",
+      "LC_RPATH": "0x8000001c",
+      "LC_ENCRYPTION_INFO": "0x00000021",
+      "LC_ENCRYPTION_INFO_64": "0x0000002c",
+      "LC_DYLD_INFO_ONLY": "0x80000022",
+      "LC_DYLD_CHAINED_FIXUPS": "0x80000034",
+      "LC_VERSION_MIN_IPHONEOS": "0x00000025",
+      "LC_BUILD_VERSION": "0x00000032"
+    },
+    "fairplay_gate": {
+      "abort_if_cryptid_nonzero": true,
+      "sc_info_paths": [
+        "SC_Info/*.sinf",
+        "SC_Info/*.supp"
+      ],
+      "note": "Se cryptid != 0 em LC_ENCRYPTION_INFO(_64), o segmento __TEXT está cifrado por FairPlay DRM. O pipeline deve interromper extração de código/símbolos e alertar o usuário."
+    }
+  },
+  "asset_format_signatures": [
+    {
+      "id": "png_cgbi",
+      "name": "Apple CgBI Proprietary PNG",
+      "magic_rules": [
+        { "offset": 0, "hex": "89504e470d0a1a0a" },
+        { "offset": 12, "hex": "43674249", "ascii": "CgBI" }
+      ],
+      "action": "transcode_cgbi_to_standard_rgba_png"
+    },
+    {
+      "id": "png_standard",
+      "name": "Standard PNG",
+      "magic_rules": [
+        { "offset": 0, "hex": "89504e470d0a1a0a" },
+        { "offset": 12, "hex": "49484452", "ascii": "IHDR" }
+      ],
+      "action": "passthrough"
+    },
+    {
+      "id": "assets_car",
+      "name": "Apple CoreUI Asset Catalog (BOMStore)",
+      "file_globs": ["**/Assets.car", "**/*.car"],
+      "magic_rules": [
+        { "offset": 0, "hex": "424f4d53746f7265", "ascii": "BOMStore" }
+      ],
+      "action": "unpack_coreui_car"
+    },
+    {
+      "id": "bplist00",
+      "name": "Apple Binary Property List",
+      "file_globs": ["**/*.plist", "**/*.strings", "**/*.sks"],
+      "magic_rules": [
+        { "offset": 0, "hex": "62706c6973743030", "ascii": "bplist00" }
+      ],
+      "action": "decode_bplist"
+    },
+    {
+      "id": "nib_archive",
+      "name": "Compiled Interface Builder NIBArchive",
+      "file_globs": ["**/*.nib", "**/*.storyboardc/**/*.nib"],
+      "magic_rules": [
+        { "offset": 0, "hex": "4e494241726368697665", "ascii": "NIBArchive" }
+      ],
+      "action": "inspect_nib_layout"
+    },
+    {
+      "id": "metal_lib",
+      "name": "Apple Compiled Metal Shader Library",
+      "file_globs": ["**/*.metallib"],
+      "magic_rules": [
+        { "offset": 0, "hex": "4d544c42", "ascii": "MTLB" }
+      ],
+      "action": "map_or_decompile_metal_air"
+    },
+    {
+      "id": "audio_caf",
+      "name": "Apple Core Audio Format (CAF)",
+      "file_globs": ["**/*.caf"],
+      "magic_rules": [
+        { "offset": 0, "hex": "63616666", "ascii": "caff" }
+      ],
+      "action": "transcode_caf_to_wav_or_ogg"
+    },
+    {
+      "id": "texture_pvrtc_v3",
+      "name": "PowerVR Texture v3 (PVRTC)",
+      "file_globs": ["**/*.pvr"],
+      "magic_rules": [
+        { "offset": 0, "hex": "50565203" }
+      ],
+      "action": "decode_pvrtc_to_rgba_or_astc"
+    },
+    {
+      "id": "texture_pvrtc_v2",
+      "name": "PowerVR Texture v2 (Legacy)",
+      "file_globs": ["**/*.pvr"],
+      "magic_rules": [
+        { "offset": 44, "hex": "50565221", "ascii": "PVR!" }
+      ],
+      "action": "decode_pvrtc_to_rgba_or_astc"
+    },
+    {
+      "id": "texture_ccz",
+      "name": "Cocos2d Compressed Texture (CCZ / CCZp)",
+      "file_globs": ["**/*.pvr.ccz", "**/*.ccz"],
+      "magic_rules_any": [
+        { "offset": 0, "hex": "43435a21", "ascii": "CCZ!" },
+        { "offset": 0, "hex": "43435a70", "ascii": "CCZp" }
+      ],
+      "action": "decompress_ccz_then_decode_pvr"
+    },
+    {
+      "id": "texture_astc",
+      "name": "ASTC Compressed Texture",
+      "file_globs": ["**/*.astc"],
+      "magic_rules": [
+        { "offset": 0, "hex": "13aba15c" }
+      ],
+      "action": "passthrough_or_fallback_etc2"
+    }
+  ],
+  "detection_rules": {
+    "scoring_model": {
+      "magic_match_weight": 60,
+      "required_file_weight": 25,
+      "framework_or_dylib_weight": 20,
+      "macho_symbol_weight": 15,
+      "minimum_confidence_threshold": 50
+    },
+    "evaluation_order": "Avaliar motores específicos de alta prioridade (priority menor primeiro) antes de fallbacks genéricos (ex.: Cordova/WebView antes de nativo puro; RPG Maker/Construct antes de Cordova genérico; Unity IL2CPP antes de Unity Mono)."
+  },
+  "engines": [
+    {
+      "id": "clickteam_fusion",
+      "name": "Clickteam Fusion 2.5 / Multimedia Fusion 2 (iOS Exporter)",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 10,
+      "ios_era": "4.0 - 27.x",
+      "execution_paradigm": "objc_runtime_plus_proprietary_bytecode",
+      "fidelity_ceiling": "98-100%",
+      "porting_strategy": "reimplement_or_retarget_runtime_reading_cci",
+      "bundle_files": {
+        "required_any": ["Application.cci", "*.cci"],
+        "optional": ["Default*.png", "*.wav", "*.mp3", "*.m4a"]
+      },
+      "magic_bytes": [
+        { "file_glob": "*.cci", "offset": 0, "hex": "50414d55", "ascii": "PAMU", "variant": "Unicode (MMF2U / Fusion 2.5)" },
+        { "file_glob": "*.cci", "offset": 0, "hex": "50414d45", "ascii": "PAME", "variant": "ANSI (MMF2 Legacy)" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "objc_classes": ["CRunApp", "CRunFrame", "CRunExtension", "CFile", "CRunView"],
+        "symbols": ["CMove", "kcini", "CObject"]
+      },
+      "i18n_sources": ["Application.cci (chunks de strings, parágrafos, alterable strings e textos de objetos)"]
+    },
+    {
+      "id": "gamemaker_vm",
+      "name": "GameMaker (VM Mode — GM:S 1.4 / GMS2 / GameMaker)",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 12,
+      "ios_era": "5.0 - 27.x",
+      "execution_paradigm": "cpp_runner_plus_gml_bytecode",
+      "fidelity_ceiling": "98-100%",
+      "porting_strategy": "retarget_or_reimplement_gml_vm_runner",
+      "bundle_files": {
+        "required_any": ["game.ios", "assets/game.ios"],
+        "optional": ["options.ini", "audiogroup*.dat"]
+      },
+      "magic_bytes": [
+        { "file_glob": "game.ios", "offset": 0, "hex": "464f524d", "ascii": "FORM", "variant": "IFF Container" },
+        { "file_glob": "game.ios", "offset": 8, "hex": "47454e38", "ascii": "GEN8", "variant": "GameMaker Header Chunk" }
+      ],
+      "disambiguation": {
+        "must_have_iff_chunk": "CODE (non-empty)",
+        "must_not_have_symbols": ["YYGML_"]
+      },
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["YYRunnerInterface", "RunnerMain", "GML"]
+      },
+      "i18n_sources": ["game.ios (chunk STRG)", "external JSON/INI/TXT localization files"]
+    },
+    {
+      "id": "gamemaker_yyc",
+      "name": "GameMaker (YYC — YoYo Compiler AOT)",
+      "category": "game_engine",
+      "tier": 3,
+      "priority": 13,
+      "ios_era": "7.0 - 27.x",
+      "execution_paradigm": "gml_transpiled_to_cpp_arm_native",
+      "fidelity_ceiling": "70-90%",
+      "porting_strategy": "asset_extraction_plus_abi_loader_or_lifting",
+      "bundle_files": {
+        "required_any": ["game.ios", "assets/game.ios"],
+        "optional": ["options.ini", "audiogroup*.dat"]
+      },
+      "magic_bytes": [
+        { "file_glob": "game.ios", "offset": 0, "hex": "464f524d", "ascii": "FORM" },
+        { "file_glob": "game.ios", "offset": 8, "hex": "47454e38", "ascii": "GEN8" }
+      ],
+      "disambiguation": {
+        "must_have_symbols": ["YYGML_", "gml_Script_", "gml_Object_"]
+      },
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["YYGML_", "gml_Script_", "gml_Object_"]
+      },
+      "i18n_sources": ["game.ios (chunk STRG)"]
+    },
+    {
+      "id": "unity_il2cpp",
+      "name": "Unity Engine (IL2CPP AOT)",
+      "category": "game_engine",
+      "tier": 2,
+      "priority": 15,
+      "ios_era": "8.0 - 27.x",
+      "execution_paradigm": "cil_to_cpp_to_arm64_native",
+      "fidelity_ceiling": "75-95%",
+      "porting_strategy": "extract_assets_and_metadata_plus_hybrid_lifting_or_abi_shim",
+      "bundle_files": {
+        "required_all": ["Data/Managed/Metadata/global-metadata.dat"],
+        "optional": [
+          "Data/boot.config",
+          "Data/globalgamemanagers",
+          "Data/sharedassets*.assets",
+          "Data/level*",
+          "Data/resources.assets",
+          "Frameworks/UnityFramework.framework/UnityFramework"
+        ]
+      },
+      "magic_bytes": [
+        { "file_glob": "Data/Managed/Metadata/global-metadata.dat", "offset": 0, "hex": "af1bb1fa", "variant": "IL2CPP Metadata Header (version uint32 at offset 4)" }
+      ],
+      "macho_indicators": {
+        "frameworks": ["UnityFramework.framework"],
+        "symbols": ["il2cpp_init", "il2cpp_codegen_", "UnityInitApplicationNoGraphics"]
+      },
+      "i18n_sources": [
+        "Data/Managed/Metadata/global-metadata.dat (string literal table)",
+        "AssetBundles / TextAsset / Localization tables (I2 Localization, Unity Localization)"
+      ]
+    },
+    {
+      "id": "unity_mono_aot",
+      "name": "Unity Engine (Legacy Mono Full AOT)",
+      "category": "game_engine",
+      "tier": 2,
+      "priority": 16,
+      "ios_era": "2.0 - 8.x",
+      "execution_paradigm": "cil_mono_full_aot_arm",
+      "fidelity_ceiling": "85-98%",
+      "porting_strategy": "extract_managed_dll_and_assets_retarget_unity_android",
+      "bundle_files": {
+        "required_all": ["Data/Managed/Assembly-CSharp.dll"],
+        "forbidden": ["Data/Managed/Metadata/global-metadata.dat"],
+        "optional": ["Data/mainData", "Data/sharedassets0.assets", "Data/unity default resources"]
+      },
+      "magic_bytes": [
+        { "file_glob": "Data/Managed/Assembly-CSharp.dll", "offset": 0, "hex": "4d5a", "ascii": "MZ" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["mono_aot_register_module", "UnityInitApplication"]
+      },
+      "i18n_sources": ["Data/Managed/*.dll (CIL #US User Strings heap)", "TextAsset resources"]
+    },
+    {
+      "id": "godot",
+      "name": "Godot Engine (3.x / 4.x)",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 18,
+      "ios_era": "10.0 - 27.x",
+      "execution_paradigm": "cpp_runtime_plus_gdscript_or_dotnet",
+      "fidelity_ceiling": "98-100%",
+      "porting_strategy": "repackage_pck_into_matching_godot_android_export_template",
+      "bundle_files": {
+        "required_any": ["*.pck", "project.binary"],
+        "optional": ["*.dylib", "data_*.pck"]
+      },
+      "magic_bytes": [
+        { "file_glob": "*.pck", "offset": 0, "hex": "47445043", "ascii": "GDPC", "variant": "Godot Pack (version + engine semver at offsets 4..16)" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["godot_main", "OS_IOS", "GDScriptLanguage"]
+      },
+      "i18n_sources": ["*.pck (*.translation, *.po, *.csv, *.tres, *.tscn text properties)"]
+    },
+    {
+      "id": "unreal_ue5",
+      "name": "Unreal Engine 5 (IoStore)",
+      "category": "game_engine",
+      "tier": 3,
+      "priority": 20,
+      "ios_era": "15.0 - 27.x",
+      "execution_paradigm": "native_cpp_arm64_plus_blueprint_vm",
+      "fidelity_ceiling": "60-85%",
+      "porting_strategy": "asset_extraction_plus_native_abi_or_ue5_reconstruct",
+      "bundle_files": {
+        "required_any": ["**/*.utoc", "**/*.ucas"],
+        "optional": ["cookeddata/**", "UECommandLine.txt"]
+      },
+      "magic_bytes": [
+        { "file_glob": "**/*.utoc", "offset": 0, "hex": "2d3d3d2d2d3d3d2d2d3d3d2d2d3d3d2d", "ascii": "-==--==--==--==-" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["FEngineLoop", "FIoStoreReader", "UObject"]
+      },
+      "i18n_sources": ["**/*.locres", "**/*.uasset (FText entries)"]
+    },
+    {
+      "id": "unreal_ue4",
+      "name": "Unreal Engine 4 (Pak)",
+      "category": "game_engine",
+      "tier": 3,
+      "priority": 21,
+      "ios_era": "8.0 - 27.x",
+      "execution_paradigm": "native_cpp_arm64_plus_blueprint_vm",
+      "fidelity_ceiling": "60-85%",
+      "porting_strategy": "asset_extraction_plus_native_abi_or_ue4_reconstruct",
+      "bundle_files": {
+        "required_any": ["**/*.pak", "UE4CommandLine.txt"],
+        "forbidden": ["**/*.utoc"],
+        "optional": ["cookeddata/**"]
+      },
+      "magic_bytes": [
+        { "file_glob": "**/*.pak", "offset_from_eof": -44, "hex": "e1126f5a", "variant": "UE4 Pak Footer Magic (offset varies by pak version)" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["FEngineLoop", "FPakFile", "UBlueprintGeneratedClass"]
+      },
+      "i18n_sources": ["**/*.locres", "**/*.uasset"]
+    },
+    {
+      "id": "unreal_ue3",
+      "name": "Unreal Engine 3 / UDK",
+      "category": "game_engine",
+      "tier": 3,
+      "priority": 22,
+      "ios_era": "4.0 - 10.x",
+      "execution_paradigm": "native_cpp_arm_plus_unrealscript",
+      "fidelity_ceiling": "55-80%",
+      "porting_strategy": "hle_or_static_recompilation_plus_upk_transcoding",
+      "bundle_files": {
+        "required_any": ["CookedIPhone/*.xxx", "**/*.upk"],
+        "optional": ["CookedIPhone/GuidCache.xxx", "Engine/Config/*.ini"]
+      },
+      "magic_bytes": [
+        { "file_glob": "**/*.xxx", "offset": 0, "hex": "c1832a9e", "variant": "Unreal Package Tag" },
+        { "file_glob": "**/*.upk", "offset": 0, "hex": "c1832a9e", "variant": "Unreal Package Tag" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["UObject::ProcessEvent", "FEngineLoop"]
+      },
+      "i18n_sources": ["**/*.int", "**/*.loc", "Localization/*.ini"]
+    },
+    {
+      "id": "solar2d_corona",
+      "name": "Corona SDK / Solar2D",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 24,
+      "ios_era": "3.0 - 27.x",
+      "execution_paradigm": "native_runtime_plus_lua_bytecode",
+      "fidelity_ceiling": "98-100%",
+      "porting_strategy": "extract_resource_car_and_package_with_solar2d_android_runtime",
+      "bundle_files": {
+        "required_all": ["resource.car"],
+        "optional": ["Frameworks/CoronaCards.framework"]
+      },
+      "magic_bytes": [
+        { "file_glob": "resource.car", "offset": 0, "hex": "72616301", "ascii": "rac\u0001" }
+      ],
+      "macho_indicators": {
+        "frameworks": ["CoronaCards.framework"],
+        "symbols": ["Rtt::Runtime", "Rtt::LuaContext"]
+      },
+      "i18n_sources": ["resource.car (Lua bytecode string constants)", "JSON/Lua locale files"]
+    },
+    {
+      "id": "defold",
+      "name": "Defold Engine",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 25,
+      "ios_era": "8.0 - 27.x",
+      "execution_paradigm": "cpp_runtime_plus_lua_interpreter",
+      "fidelity_ceiling": "97-100%",
+      "porting_strategy": "retarget_dmanifest_arcd_to_defold_android_engine",
+      "bundle_files": {
+        "required_any": ["game.dmanifest", "game.arcd", "game.arci"],
+        "optional": ["game.projectc"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["dmEngine::", "dmGameObject::", "dmScript::"]
+      },
+      "i18n_sources": ["game.arcd (Lua scripts & JSON/GUI text nodes)"]
+    },
+    {
+      "id": "renpy",
+      "name": "Ren'Py Visual Novel Engine",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 26,
+      "ios_era": "7.0 - 27.x",
+      "execution_paradigm": "embedded_python_plus_rpyc_bytecode",
+      "fidelity_ceiling": "99-100%",
+      "porting_strategy": "extract_game_dir_and_rpa_package_with_renpy_android_runtime",
+      "bundle_files": {
+        "required_any": ["base/game/**/*.rpyc", "game/**/*.rpyc", "**/*.rpa", "renpy/**"],
+        "optional": ["base/renpy/**"]
+      },
+      "magic_bytes": [
+        { "file_glob": "**/*.rpyc", "offset": 0, "hex": "52454e50592052504332", "ascii": "RENPY RPC2" },
+        { "file_glob": "**/*.rpa", "offset": 0, "hex": "5250412d", "ascii": "RPA-" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["Py_Initialize", "renpy"]
+      },
+      "i18n_sources": ["Native Ren'Py tl/<lang>/*.rpy translation injection (zero binary patching)"]
+    },
+    {
+      "id": "love2d",
+      "name": "LÖVE (Love2D)",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 27,
+      "ios_era": "8.0 - 27.x",
+      "execution_paradigm": "cpp_runtime_plus_lua_zip_bundle",
+      "fidelity_ceiling": "99-100%",
+      "porting_strategy": "embed_game_love_into_love2d_android_apk",
+      "bundle_files": {
+        "required_any": ["game.love", "supergame.love"],
+        "optional": []
+      },
+      "magic_bytes": [
+        { "file_glob": "*.love", "offset": 0, "hex": "504b0304", "ascii": "PK\u0003\u0004" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["love::graphics::", "luaopen_love"]
+      },
+      "i18n_sources": ["game.love (*.lua, *.json)"]
+    },
+    {
+      "id": "cocos_creator",
+      "name": "Cocos Creator",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 28,
+      "ios_era": "10.0 - 27.x",
+      "execution_paradigm": "cpp_runtime_plus_js_jsc_or_v8_jitless",
+      "fidelity_ceiling": "95-100%",
+      "porting_strategy": "repackage_js_and_assets_with_matching_cocos_creator_android_runtime",
+      "bundle_files": {
+        "required_any": ["src/settings.js", "src/settings.json", "src/settings.jsc"],
+        "optional": ["main.js", "main.jsc", "assets/**", "res/**"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["se::ScriptEngine", "cc::Application", "cocos2d::Application"]
+      },
+      "i18n_sources": ["assets/**/*.json", "src/**/*.js"]
+    },
+    {
+      "id": "cocos2d_x",
+      "name": "Cocos2d-x (C++ / Lua / JS)",
+      "category": "game_engine",
+      "tier": 3,
+      "priority": 29,
+      "ios_era": "5.0 - 27.x",
+      "execution_paradigm": "native_cpp_optional_lua_or_js",
+      "fidelity_ceiling": "65-95% (95% se toda lógica estiver em Lua/JS)",
+      "porting_strategy": "extract_lua_js_assets_or_native_abi_layer",
+      "bundle_files": {
+        "required_any": ["**/*.luac", "**/*.jsc", "**/*.pvr.ccz", "**/*.csb"],
+        "optional": ["res/**", "src/**"]
+      },
+      "magic_bytes": [
+        { "file_glob": "**/*.luac", "offset": 0, "hex": "1b4c7561", "ascii": "\u001bLua" },
+        { "file_glob": "**/*.pvr.ccz", "offset": 0, "hex": "43435a21", "ascii": "CCZ!" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["cocos2d::Director", "cocos2d::Node", "cocos2d::Sprite"]
+      },
+      "i18n_sources": ["res/**/*.plist", "res/**/*.json", "src/**/*.lua"]
+    },
+    {
+      "id": "cocos2d_iphone",
+      "name": "Cocos2d-iPhone / Kobold2D / SpriteBuilder",
+      "category": "game_engine",
+      "tier": 3,
+      "priority": 30,
+      "ios_era": "2.0 - 9.x",
+      "execution_paradigm": "native_objc_opengles",
+      "fidelity_ceiling": "60-85%",
+      "porting_strategy": "hle_objc_runtime_or_static_lifting",
+      "bundle_files": {
+        "required_any": ["**/*.ccbi", "**/*.pvr.ccz"],
+        "optional": ["**/*.fnt", "**/*.plist"]
+      },
+      "magic_bytes": [
+        { "file_glob": "**/*.ccbi", "offset": 0, "hex": "63636269", "ascii": "ccbi" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "objc_classes": ["CCDirector", "CCSprite", "CCLayer", "CCScene", "CCBReader"],
+        "symbols": []
+      },
+      "i18n_sources": ["*.lproj/Localizable.strings", "*.plist", "*.ccbi"]
+    },
+    {
+      "id": "marmalade_sdk",
+      "name": "Marmalade SDK (Airplay SDK)",
+      "category": "game_engine",
+      "tier": 3,
+      "priority": 32,
+      "ios_era": "3.0 - 10.x",
+      "execution_paradigm": "cross_compiled_cpp_arm_s3e",
+      "fidelity_ceiling": "65-85%",
+      "porting_strategy": "s3e_hle_shim_layer_plus_derbh_unpack",
+      "bundle_files": {
+        "required_any": ["app.icf", "**/*.dz", "**/*.group.bin"],
+        "optional": ["config.icf"]
+      },
+      "magic_bytes": [
+        { "file_glob": "**/*.dz", "offset": 0, "hex": "4454525a", "ascii": "DTRZ", "variant": "Derbh Compressed Archive" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["s3eDevice", "s3eSurface", "IwGxInit"]
+      },
+      "i18n_sources": ["app.icf", "unpacked Derbh (.dz) text/localization tables"]
+    },
+    {
+      "id": "adobe_air",
+      "name": "Adobe AIR / Flash Packager (ADT AOT)",
+      "category": "game_engine",
+      "tier": 2,
+      "priority": 34,
+      "ios_era": "4.0 - 27.x",
+      "execution_paradigm": "as3_abc_aot_llvm_arm",
+      "fidelity_ceiling": "70-90%",
+      "porting_strategy": "extract_swf_assets_and_retarget_or_abi_shim",
+      "bundle_files": {
+        "required_any": ["META-INF/AIR/application.xml", "**/*.swf"],
+        "optional": ["META-INF/AIR/extensions/**"]
+      },
+      "magic_bytes": [
+        { "file_glob": "**/*.swf", "offset": 0, "hex": "465753", "ascii": "FWS", "variant": "Uncompressed SWF" },
+        { "file_glob": "**/*.swf", "offset": 0, "hex": "435753", "ascii": "CWS", "variant": "Zlib SWF" },
+        { "file_glob": "**/*.swf", "offset": 0, "hex": "5a5753", "ascii": "ZWS", "variant": "LZMA SWF" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["avmplus::", "CTContentPlayer"]
+      },
+      "i18n_sources": ["META-INF/AIR/application.xml", "Embedded XML/JSON/SWF DefineEditText"]
+    },
+    {
+      "id": "haxe_openfl",
+      "name": "Haxe / OpenFL / Lime / Stencyl",
+      "category": "game_engine",
+      "tier": 3,
+      "priority": 36,
+      "ios_era": "5.0 - 27.x",
+      "execution_paradigm": "haxe_to_hxcpp_to_arm_native",
+      "fidelity_ceiling": "65-85%",
+      "porting_strategy": "asset_extraction_plus_native_abi_loader",
+      "bundle_files": {
+        "required_any": ["manifest/default.json"],
+        "optional": ["assets/**"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["hx::", "lime_", "openfl_", "nme_"]
+      },
+      "i18n_sources": ["assets/**/*.xml", "assets/**/*.json", "assets/**/*.txt"]
+    },
+    {
+      "id": "libgdx_robovm_moe",
+      "name": "LibGDX (RoboVM / MobiVM / Intel MOE)",
+      "category": "game_engine",
+      "tier": 2,
+      "priority": 38,
+      "ios_era": "6.0 - 27.x",
+      "execution_paradigm": "java_bytecode_to_llvm_or_art_aot",
+      "fidelity_ceiling": "80-98% (MOE preserva application.jar/DEX; RoboVM exige lifting ou ABI)",
+      "porting_strategy": "moe_repackage_jar_to_android_libgdx_or_robovm_abi_shim",
+      "bundle_files": {
+        "required_any": ["application.jar", "preregister.txt", "Frameworks/MOE.framework"],
+        "optional": ["assets/**"]
+      },
+      "magic_bytes": [
+        { "file_glob": "application.jar", "offset": 0, "hex": "504b0304", "ascii": "PK\u0003\u0004" }
+      ],
+      "macho_indicators": {
+        "frameworks": ["MOE.framework"],
+        "symbols": ["robovm_", "org_robovm_", "com_badlogic_gdx_"]
+      },
+      "i18n_sources": ["assets/**/*.properties", "assets/**/*.json"]
+    },
+    {
+      "id": "rpgmaker_mv_mz",
+      "name": "RPG Maker MV / MZ (HTML5 Wrapper)",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 40,
+      "ios_era": "9.0 - 27.x",
+      "execution_paradigm": "html5_js_pixi_in_webview",
+      "fidelity_ceiling": "100%",
+      "porting_strategy": "package_www_into_android_webview_or_capacitor_shell",
+      "bundle_files": {
+        "required_any": ["www/js/rpg_core.js", "www/js/rmmz_core.js", "public/js/rmmz_core.js"],
+        "optional": ["www/data/System.json", "www/data/MapInfos.json"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": ["Capacitor.framework"],
+        "symbols": ["CDVViewController", "WKWebView"]
+      },
+      "i18n_sources": ["www/data/*.json (System, Actors, Items, Map*.json, CommonEvents.json)"]
+    },
+    {
+      "id": "construct_2_3",
+      "name": "Construct 2 / Construct 3 (HTML5 Wrapper)",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 41,
+      "ios_era": "6.0 - 27.x",
+      "execution_paradigm": "html5_canvas_js_in_webview_or_cocoon",
+      "fidelity_ceiling": "100%",
+      "porting_strategy": "package_www_into_android_webview_or_capacitor_shell",
+      "bundle_files": {
+        "required_any": ["www/c2runtime.js", "www/scripts/c3runtime.js", "www/data.json"],
+        "optional": ["www/offline.json", "www/appmanifest.json"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": ["Capacitor.framework"],
+        "symbols": ["CDVViewController", "WKWebView", "EJCanvasView"]
+      },
+      "i18n_sources": ["www/data.json", "www/files/*.json", "www/files/*.xml"]
+    },
+    {
+      "id": "cocoonjs_ejecta",
+      "name": "CocoonJS (Canvas+) / Ejecta (ImpactJS)",
+      "category": "game_engine",
+      "tier": 1,
+      "priority": 42,
+      "ios_era": "5.0 - 12.x",
+      "execution_paradigm": "native_opengles_canvas_plus_js",
+      "fidelity_ceiling": "95-100%",
+      "porting_strategy": "retarget_js_canvas_bundle_to_android_webview_with_ejecta_shim",
+      "bundle_files": {
+        "required_any": ["App/index.js", "cocoon.js", "www/cocoon.js"],
+        "optional": ["App/ejecta.js"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "objc_classes": ["EJCanvasView", "EJBindingBase", "EJJavaScriptView"],
+        "symbols": ["IDTK", "Ludei"]
+      },
+      "i18n_sources": ["App/**/*.js", "App/**/*.json"]
+    },
+    {
+      "id": "react_native_hermes",
+      "name": "React Native (New Arch / Hermes Bytecode)",
+      "category": "cross_platform_app",
+      "tier": 1,
+      "priority": 45,
+      "ios_era": "12.0 - 27.x",
+      "execution_paradigm": "hermes_aot_bytecode_jsi_fabric",
+      "fidelity_ceiling": "90-98% (alta fidelidade se módulos nativos forem mapeáveis para Android)",
+      "porting_strategy": "repackage_hbc_and_assets_with_matching_rn_hermes_android_shell",
+      "bundle_files": {
+        "required_any": ["main.jsbundle", "Frameworks/hermes.framework/hermes", "Frameworks/hermesvm.framework/hermesvm"],
+        "optional": ["assets/**", "EXUpdates.plist"]
+      },
+      "magic_bytes": [
+        { "file_glob": "main.jsbundle", "offset": 0, "hex": "c61fbc03c103191f", "variant": "Hermes Bytecode (HBC; version uint32 at offset 8)" }
+      ],
+      "macho_indicators": {
+        "frameworks": ["hermes.framework", "hermesvm.framework"],
+        "objc_classes": ["RCTBridge", "RCTRootView", "RCTSurfaceHostingView"],
+        "symbols": ["facebook::react::", "facebook::hermes::"]
+      },
+      "i18n_sources": ["main.jsbundle (Hermes string table via hbc-parser)", "Expo/i18n JSON bundles"]
+    },
+    {
+      "id": "react_native_jsc",
+      "name": "React Native (Classic Arch / JS Bundle)",
+      "category": "cross_platform_app",
+      "tier": 1,
+      "priority": 46,
+      "ios_era": "8.0 - 27.x",
+      "execution_paradigm": "js_bundle_over_jsc_bridge",
+      "fidelity_ceiling": "90-98%",
+      "porting_strategy": "repackage_jsbundle_and_assets_into_rn_android_shell",
+      "bundle_files": {
+        "required_all": ["main.jsbundle"],
+        "forbidden": ["Frameworks/hermes.framework/hermes"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "objc_classes": ["RCTBridge", "RCTRootView", "RCTUIManager"],
+        "symbols": ["RCTJavaScriptLoader"]
+      },
+      "i18n_sources": ["main.jsbundle (AST string literal extraction)", "*.lproj/Localizable.strings"]
+    },
+    {
+      "id": "flutter",
+      "name": "Flutter (Skia / Impeller — Dart AOT)",
+      "category": "cross_platform_app",
+      "tier": 2,
+      "priority": 48,
+      "ios_era": "11.0 - 27.x",
+      "execution_paradigm": "dart_aot_arm64_plus_gpu_canvas",
+      "fidelity_ceiling": "75-92%",
+      "porting_strategy": "extract_flutter_assets_plus_dart_aot_retarget_or_abi_shim",
+      "bundle_files": {
+        "required_any": [
+          "Frameworks/Flutter.framework/Flutter",
+          "Frameworks/App.framework/App",
+          "Frameworks/App.framework/flutter_assets/AssetManifest.bin",
+          "Frameworks/App.framework/flutter_assets/AssetManifest.json"
+        ],
+        "optional": [
+          "Frameworks/App.framework/flutter_assets/FontManifest.json",
+          "Frameworks/App.framework/flutter_assets/NOTICES.Z"
+        ]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": ["Flutter.framework", "App.framework"],
+        "symbols": ["_kDartVmSnapshotData", "_kDartIsolateSnapshotInstructions", "impeller::"]
+      },
+      "i18n_sources": ["flutter_assets/**/*.json", "flutter_assets/**/*.arb", "Dart Object Pool strings"]
+    },
+    {
+      "id": "capacitor_ionic",
+      "name": "Ionic / Capacitor",
+      "category": "cross_platform_app",
+      "tier": 1,
+      "priority": 50,
+      "ios_era": "11.0 - 27.x",
+      "execution_paradigm": "wkwebview_plus_swift_plugin_bridge",
+      "fidelity_ceiling": "98-100%",
+      "porting_strategy": "package_public_web_bundle_into_android_capacitor_project",
+      "bundle_files": {
+        "required_any": ["capacitor.config.json", "Frameworks/Capacitor.framework"],
+        "optional": ["public/index.html"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": ["Capacitor.framework", "Cordova.framework"],
+        "objc_classes": ["CAPBridgeViewController", "CAPPlugin"],
+        "symbols": []
+      },
+      "i18n_sources": ["public/**/*.json", "public/**/*.js", "public/**/*.html"]
+    },
+    {
+      "id": "cordova_phonegap",
+      "name": "Apache Cordova / PhoneGap",
+      "category": "cross_platform_app",
+      "tier": 1,
+      "priority": 52,
+      "ios_era": "3.0 - 27.x",
+      "execution_paradigm": "webview_plus_objc_plugins",
+      "fidelity_ceiling": "98-100%",
+      "porting_strategy": "package_www_and_plugins_into_android_cordova_project",
+      "bundle_files": {
+        "required_any": ["www/cordova.js", "www/cordova_plugins.js", "config.xml"],
+        "optional": ["www/index.html"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": ["Cordova.framework"],
+        "objc_classes": ["CDVViewController", "CDVPlugin", "CDVCommandDelegateImpl"],
+        "symbols": []
+      },
+      "i18n_sources": ["www/**/*.json", "www/**/*.js", "www/**/*.html"]
+    },
+    {
+      "id": "xamarin_dotnet_maui",
+      "name": "Xamarin.iOS / MonoTouch / .NET for iOS / .NET MAUI",
+      "category": "cross_platform_app",
+      "tier": 2,
+      "priority": 54,
+      "ios_era": "3.0 - 27.x",
+      "execution_paradigm": "csharp_mono_aot_or_nativeaot",
+      "fidelity_ceiling": "80-95% (Mono AOT com DLLs preservadas); 65-85% (NativeAOT)",
+      "porting_strategy": "retarget_il_assemblies_to_dotnet_android_or_abi_shim",
+      "bundle_files": {
+        "required_any": ["*.aotdata", "Frameworks/libmonosgen-2.0.dylib", "*.dll"],
+        "optional": ["monotouch.dll", "Xamarin.iOS.dll", "Microsoft.iOS.dll"]
+      },
+      "magic_bytes": [
+        { "file_glob": "*.dll", "offset": 0, "hex": "4d5a", "ascii": "MZ" }
+      ],
+      "macho_indicators": {
+        "frameworks": ["libmonosgen-2.0.dylib"],
+        "symbols": ["xamarin_main", "mono_aot_init", "RhpNewFast", "Microsoft_iOS"]
+      },
+      "i18n_sources": ["*.resources.dll", "Embedded .resx / JSON resources"]
+    },
+    {
+      "id": "kmp_compose",
+      "name": "Kotlin Multiplatform (KMP) / Compose Multiplatform",
+      "category": "cross_platform_app",
+      "tier": 3,
+      "priority": 56,
+      "ios_era": "13.0 - 27.x",
+      "execution_paradigm": "kotlin_native_llvm_arm64_optional_skiko",
+      "fidelity_ceiling": "65-85%",
+      "porting_strategy": "native_abi_loader_plus_skiko_or_hle",
+      "bundle_files": {
+        "required_any": ["Frameworks/*.framework"],
+        "optional": ["compose-resources/**"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["kfun:", "KotlinBase", "org_jetbrains_skia_"]
+      },
+      "i18n_sources": ["compose-resources/values*/*.xml", "*.lproj/Localizable.strings"]
+    },
+    {
+      "id": "lynx_valdi",
+      "name": "ByteDance Lynx / Snapchat Valdi",
+      "category": "cross_platform_app",
+      "tier": 2,
+      "priority": 58,
+      "ios_era": "17.0 - 27.x",
+      "execution_paradigm": "multithread_js_or_compiled_tsx_to_native_views",
+      "fidelity_ceiling": "75-92%",
+      "porting_strategy": "repackage_lepus_or_valdi_modules_into_android_runtime",
+      "bundle_files": {
+        "required_any": ["Frameworks/Lynx.framework", "**/*.lepus", "**/template.js"],
+        "optional": ["Frameworks/PrimJS.framework"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": ["Lynx.framework", "PrimJS.framework"],
+        "objc_classes": ["LynxView", "SCValdiView"],
+        "symbols": ["lynx::", "valdi::"]
+      },
+      "i18n_sources": ["template.js", "JSON locale packs", "*.lproj/Localizable.strings"]
+    },
+    {
+      "id": "tauri_mobile",
+      "name": "Tauri Mobile (2.0+)",
+      "category": "cross_platform_app",
+      "tier": 2,
+      "priority": 60,
+      "ios_era": "16.0 - 27.x",
+      "execution_paradigm": "rust_arm64_native_plus_wkwebview_ipc",
+      "fidelity_ceiling": "75-90%",
+      "porting_strategy": "extract_embedded_web_assets_plus_rust_abi_bridge",
+      "bundle_files": {
+        "required_any": ["assets/index.html"],
+        "optional": []
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["tauri::", "wry::", "tao::"]
+      },
+      "i18n_sources": ["Embedded web assets (JSON/JS/HTML)"]
+    },
+    {
+      "id": "delphi_fmx",
+      "name": "Embarcadero Delphi / C++Builder (FireMonkey — FMX)",
+      "category": "cross_platform_app",
+      "tier": 3,
+      "priority": 62,
+      "ios_era": "6.0 - 27.x",
+      "execution_paradigm": "object_pascal_llvm_arm64_fmx",
+      "fidelity_ceiling": "55-80%",
+      "porting_strategy": "native_abi_loader_or_static_lifting",
+      "bundle_files": {
+        "required_any": ["StartUp/**", "**/*.fmx"],
+        "optional": []
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["Fmx::", "System::Sysutils::"]
+      },
+      "i18n_sources": ["**/*.fmx", "Embedded Delphi resource strings"]
+    },
+    {
+      "id": "monogame_xna",
+      "name": "MonoGame / XNA / FNA (.xnb Content Pipeline)",
+      "category": "game_engine_aot",
+      "tier": 2,
+      "priority": 63,
+      "ios_era": "5.0 - 27.x",
+      "execution_paradigm": "csharp_mono_aot_plus_xnb",
+      "fidelity_ceiling": "85-95% via MonoGame.Framework.Android + Content/*.xnb",
+      "porting_strategy": "dotnet_android_monogame_repack",
+      "bundle_files": {
+        "required_any": ["Content/**/*.xnb", "**/MonoGame.Framework.dll"],
+        "optional": ["**/*.xnb", "**/*.dll"]
+      },
+      "magic_bytes": [
+        { "file_glob": "**/*.xnb", "offset": 0, "hex": "584e42", "ascii": "XNB", "variant": "xnb_content" }
+      ],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["MonoGame", "Microsoft.Xna.Framework"]
+      },
+      "i18n_sources": ["Content/**/*.xnb", "**/*.resx", "*.lproj/Localizable.strings"]
+    },
+    {
+      "id": "gideros",
+      "name": "Gideros Mobile (Lua 2D/3D Engine)",
+      "category": "game_engine_scripted",
+      "tier": 1,
+      "priority": 64,
+      "ios_era": "4.0 - 27.x",
+      "execution_paradigm": "lua_runtime_vm",
+      "fidelity_ceiling": "95-100% via Gideros Android Player",
+      "porting_strategy": "gideros_android_asset_swap",
+      "bundle_files": {
+        "required_any": ["assets/luafiles.txt", "assets/allfiles.txt", "assets/properties.bin"],
+        "optional": ["assets/**/*.lua"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["gideros", "GApplication"]
+      },
+      "i18n_sources": ["assets/**/*.lua", "assets/**/*.json"]
+    },
+    {
+      "id": "torque2d",
+      "name": "Torque2D (C++ & TorqueScript)",
+      "category": "game_engine_native",
+      "tier": 2,
+      "priority": 65,
+      "ios_era": "3.0 - 27.x",
+      "execution_paradigm": "cpp_plus_torquescript_dso",
+      "fidelity_ceiling": "80-90% via Torque2D Android NDK",
+      "porting_strategy": "torque2d_android_ndk_repack",
+      "bundle_files": {
+        "required_any": ["**/*.cs.dso", "**/*.taml", "main.cs"],
+        "optional": ["modules/**"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["Torque2D", "SimObject", "SceneObject"]
+      },
+      "i18n_sources": ["**/*.cs", "**/*.taml"]
+    },
+    {
+      "id": "rive_runtime",
+      "name": "Rive Vector Animation Runtime (.riv)",
+      "category": "game_engine_native",
+      "tier": 1,
+      "priority": 66,
+      "ios_era": "13.0 - 27.x",
+      "execution_paradigm": "rive_state_machine_binary",
+      "fidelity_ceiling": "100% dos assets .riv via rive-android",
+      "porting_strategy": "rive_android_asset_transfer",
+      "bundle_files": {
+        "required_any": ["**/*.riv", "Frameworks/RiveRuntime.framework/**"],
+        "optional": []
+      },
+      "magic_bytes": [
+        { "file_glob": "**/*.riv", "offset": 0, "hex": "52495645", "ascii": "RIVE", "variant": "rive_binary" }
+      ],
+      "macho_indicators": {
+        "frameworks": ["RiveRuntime.framework"],
+        "symbols": ["RiveViewModel", "rive::File"]
+      },
+      "i18n_sources": ["**/*.riv", "*.lproj/Localizable.strings"]
+    },
+    {
+      "id": "untold_engine",
+      "name": "UntoldEngine (3D Swift / Metal Engine)",
+      "category": "game_engine_native",
+      "tier": 3,
+      "priority": 67,
+      "ios_era": "12.0 - 27.x",
+      "execution_paradigm": "swift_metal_3d_native",
+      "fidelity_ceiling": "Extração de assets 3D/shaders + recompilação Swift/Vulkan",
+      "porting_strategy": "asset_extract_and_swift_vulkan_rebuild",
+      "bundle_files": {
+        "required_any": ["**/UntoldEngine*", "**/*.usdz"],
+        "optional": ["**/*.metallib"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": ["UntoldEngine.framework"],
+        "symbols": ["UntoldEngine", "U4DEngine"]
+      },
+      "i18n_sources": ["*.lproj/Localizable.strings", "*.xcstrings"]
+    },
+    {
+      "id": "kivy_ios",
+      "name": "Kivy-iOS (Python / .kv Cross-Platform UI)",
+      "category": "cross_platform_mobile",
+      "tier": 1,
+      "priority": 68,
+      "ios_era": "7.0 - 27.x",
+      "execution_paradigm": "python_bytecode_and_kv",
+      "fidelity_ceiling": "95% via python-for-android (p4a / Buildozer)",
+      "porting_strategy": "python_for_android_repack",
+      "bundle_files": {
+        "required_any": ["**/*.kv", "lib/python3.*/**", "YourApp/main.py", "YourApp/main.pyc"],
+        "optional": ["**/*.py", "**/*.pyc"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["Py_Initialize", "kivy"]
+      },
+      "i18n_sources": ["**/*.kv", "**/*.py", "**/*.po"]
+    },
+    {
+      "id": "nativescript",
+      "name": "NativeScript (JS/TS -> Native V8 Android Runtime)",
+      "category": "cross_platform_mobile",
+      "tier": 1,
+      "priority": 69,
+      "ios_era": "9.0 - 27.x",
+      "execution_paradigm": "js_v8_native_bridge",
+      "fidelity_ceiling": "90% via NativeScript Android V8 Runtime",
+      "porting_strategy": "nativescript_android_runtime_swap",
+      "bundle_files": {
+        "required_any": ["Frameworks/NativeScript.framework/**", "app/bundle.js"],
+        "optional": ["app/vendor.js", "app/package.json"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": ["NativeScript.framework", "TNSWidgets.framework"],
+        "symbols": ["TNSRuntime"]
+      },
+      "i18n_sources": ["app/**/*.json", "app/bundle.js"]
+    },
+    {
+      "id": "titanium_sdk",
+      "name": "Titanium SDK (Appcelerator JS-to-Native)",
+      "category": "cross_platform_mobile",
+      "tier": 2,
+      "priority": 70,
+      "ios_era": "4.0 - 27.x",
+      "execution_paradigm": "js_native_proxy",
+      "fidelity_ceiling": "85% via Titanium SDK Android V8",
+      "porting_strategy": "titanium_android_rebuild",
+      "bundle_files": {
+        "required_any": ["tiapp.xml", "Frameworks/TitaniumKit.framework/**"],
+        "optional": ["app.js", "_app_info_.json"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": ["TitaniumKit.framework"],
+        "symbols": ["TiApp", "TiProxy"]
+      },
+      "i18n_sources": ["i18n/**/strings.xml", "*.lproj/Localizable.strings"]
+    },
+    {
+      "id": "codename_one",
+      "name": "Codename One (Java / ParparVM)",
+      "category": "cross_platform_mobile",
+      "tier": 2,
+      "priority": 71,
+      "ios_era": "6.0 - 27.x",
+      "execution_paradigm": "java_parparvm_c_transpiled",
+      "fidelity_ceiling": "80% via Codename One Android Port",
+      "porting_strategy": "codenameone_android_rebuild",
+      "bundle_files": {
+        "required_any": ["theme.res", "**/CN1Resource*"],
+        "optional": []
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["com_codename1_", "CodenameOne_GLViewController"]
+      },
+      "i18n_sources": ["theme.res", "**/*.properties"]
+    },
+    {
+      "id": "google_j2objc",
+      "name": "Google J2ObjC (Java-to-Objective-C Transpiled Logic)",
+      "category": "cross_platform_mobile",
+      "tier": 3,
+      "priority": 72,
+      "ios_era": "7.0 - 27.x",
+      "execution_paradigm": "java_transpiled_to_objc",
+      "fidelity_ceiling": "Recompilação via libobjc2 ou retorno à base Java Android",
+      "porting_strategy": "libobjc2_or_java_source_rebuild",
+      "bundle_files": {
+        "required_any": [],
+        "optional": ["Info.plist"]
+      },
+      "disambiguation": {
+        "must_have_symbols": ["JavaLangObject", "IOSClass", "J2ObjC_"]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": [],
+        "symbols": ["JavaLangObject", "IOSClass", "J2ObjC_"]
+      },
+      "i18n_sources": ["*.lproj/Localizable.strings", "**/*.properties"]
+    },
+    {
+      "id": "apple_native_swift_objc",
+      "name": "Apple Native (Objective-C / Swift / UIKit / SwiftUI / SpriteKit / SceneKit / RealityKit)",
+      "category": "native_ios",
+      "tier": 3,
+      "priority": 99,
+      "ios_era": "1.0 - 27.x",
+      "execution_paradigm": "clang_swiftc_macho_arm_native",
+      "fidelity_ceiling": "Variável (exige camada HLE Darwin/UIKit ou recompilação estática LLVM)",
+      "porting_strategy": "macho_aarch64_loader_plus_darwin_hle_shims",
+      "bundle_files": {
+        "required_any": ["Info.plist"],
+        "optional": [
+          "Assets.car",
+          "*.storyboardc/**",
+          "*.nib",
+          "*.sks",
+          "*.scn",
+          "*.usdz",
+          "Frameworks/libswiftCore.dylib"
+        ]
+      },
+      "magic_bytes": [],
+      "macho_indicators": {
+        "frameworks": ["UIKit.framework", "SwiftUI.framework", "SpriteKit.framework", "SceneKit.framework", "RealityKit.framework"],
+        "sections": ["__TEXT,__swift5_types", "__DATA,__objc_classlist"],
+        "symbols": ["objc_msgSend", "swift_allocObject", "UIApplicationMain"]
+      },
+      "i18n_sources": [
+        "*.lproj/Localizable.strings",
+        "*.lproj/InfoPlist.strings",
+        "*.lproj/*.stringsdict",
+        "*.xcstrings",
+        "*.nib / *.storyboardc strings"
+      ]
+    }
+  ]
+}

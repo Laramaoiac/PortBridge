@@ -91,6 +91,13 @@ export interface IpaPackageModel {
   releaseNotes: string;
   preferredOrientation?: 'portrait' | 'landscape' | 'unspecified';
   isCustomUpload?: boolean;
+  engineTier?: 1 | 2 | 3;
+  fairPlayEncrypted?: boolean;
+  honestReadinessVerdict?: string;
+  honestReadinessReason?: string;
+  detectedAdapterLabel?: string;
+  detectedAssetFormats?: string[];
+  i18nExtractedCount?: number;
 }
 
 export interface ApkBuildConfig {

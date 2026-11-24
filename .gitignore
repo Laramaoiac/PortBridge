@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# PortBridge local test samples (decrypted IPAs) and native build outputs
+tests/samples/
+build/
+player/build/
+player/third_party/
