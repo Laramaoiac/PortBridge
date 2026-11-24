@@ -13,6 +13,7 @@ tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 
 dependencies {
     api 'com.android.tools.build:apksig:8.7.3'
+    testImplementation 'junit:junit:4.13.2'
 }
 
 // Desktop: java -jar portbridge-converter.jar Jogo.ipa

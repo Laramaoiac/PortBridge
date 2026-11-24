@@ -38,6 +38,8 @@ public final class Ipa {
     public List<String> warnings = new ArrayList<>();
     /** Gráficos importados: "gles1", "gles2" ou "gles1+gles2" (vazio se nenhum). */
     public String graphics = "";
+    /** Compatibilidade com o runtime de emulação (só na rota HLE; null se não deu para verificar). */
+    public HleCheck.Report hle;
     public byte[] icon;  // JPEG ou PNG que o Android consegue abrir
 
     private Ipa(File f) { this.file = f; }
@@ -102,6 +104,13 @@ public final class Ipa {
             // OpenGL ES 1.1 e 2.0 são suportados pelo runtime (o 2.0 pelo patch do
             // PortBridge no touchHLE); a API vai para o portbridge.json e o relatório.
             graphics = MachO.graphicsApi(exe);
+            try {
+                hle = HleCheck.check(exe);
+                if (hle.verdict != HleCheck.Verdict.GOOD) warnings.add(hle.summary());
+            } catch (IOException | RuntimeException e) {
+                // a verificação é informativa: sem ela o APK é gerado igual
+                hle = null;
+            }
         } else {
             reason = "só há código ARM de 64 bits (" + String.join(", ", archs) + "): ainda não suportado";
         }

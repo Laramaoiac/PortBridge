@@ -17,6 +17,8 @@ import javax.imageio.ImageIO;
  *
  *   java -jar portbridge-converter.jar Jogo.ipa [-o pasta] [--template-clickteam t.apk]
  *        [--template-hle t.apk] [--key-dir ~/.portbridge]
+ *   java -jar portbridge-converter.jar --check Jogo.ipa
+ *        (só verifica a compatibilidade com o runtime de emulação, sem gerar o APK)
  */
 public final class Cli {
     public static void main(String[] args) throws Exception {
@@ -24,7 +26,7 @@ public final class Cli {
         File ipa = null, out = new File(".");
         File keyDir = new File(System.getProperty("user.home"), ".portbridge");
         Map<Ipa.Runtime, File> templates = new EnumMap<>(Ipa.Runtime.class);
-        boolean inspectOnly = false;
+        boolean inspectOnly = false, checkOnly = false;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "-o": out = new File(args[++i]); break;
@@ -32,12 +34,29 @@ public final class Cli {
                 case "--template-clickteam": templates.put(Ipa.Runtime.CLICKTEAM, new File(args[++i])); break;
                 case "--template-hle": templates.put(Ipa.Runtime.HLE, new File(args[++i])); break;
                 case "--inspect": inspectOnly = true; break;
+                case "--check": checkOnly = true; break;
                 default: ipa = new File(args[i]);
             }
         }
         if (ipa == null) {
             System.err.println("uso: java -jar portbridge-converter.jar Jogo.ipa [-o pasta]");
             System.exit(2);
+        }
+        if (checkOnly) {
+            Ipa info = Ipa.inspect(ipa);
+            System.out.println(info.name + " " + info.version + " (" + info.bundleId + ") · engine: " + info.engine
+                    + " · " + String.join(", ", info.archs));
+            if (info.runtime == Ipa.Runtime.UNSUPPORTED) {
+                System.out.println("Não pode ser portado: " + info.reason);
+                System.exit(1);
+            } else if (info.runtime == Ipa.Runtime.CLICKTEAM) {
+                System.out.println("Rota: runtime Clickteam do PortBridge (não usa emulação)");
+            } else if (info.hle == null) {
+                System.out.println("Rota: emulação (touchHLE); não foi possível verificar o executável");
+            } else {
+                System.out.print(info.hle.text());
+            }
+            return;
         }
         if (inspectOnly) {
             Ipa info = Ipa.inspect(ipa);

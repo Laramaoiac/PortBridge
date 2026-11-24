@@ -96,7 +96,11 @@ jobs:
 
       - name: Compile libmain.so (with iOSStore + RuntimeI18n) + touchHLE + PortBridge APK
         working-directory: android
-        run: gradle :app:assembleRelease :converter:desktopJar --no-daemon
+        run: gradle :app:assembleRelease :converter:desktopJar :converter:test --no-daemon
+
+      - name: Lista de APIs do touchHLE em dia com o patch (verificador de compatibilidade)
+        # o build acima aplicou o patch em third_party/touchHLE
+        run: python3 tools/gen_touchhle_api.py --check
 
       - name: Upload Compiled PortBridge APK
         uses: actions/upload-artifact@v4

@@ -145,7 +145,16 @@ public final class Converter {
                 + json(ipa.version) + ",\"runtime\":" + json(ipa.runtime.name().toLowerCase()) + ",\"engine\":"
                 + json(ipa.engine) + ",\"package\":" + json(pkg) + ",\"portrait\":" + ipa.portrait
                 + (ipa.graphics.isEmpty() ? "" : ",\"graphics\":" + json(ipa.graphics))
+                + (ipa.hle == null ? "" : ",\"hle_check\":{\"verdict\":" + json(ipa.hle.verdict.name().toLowerCase())
+                        + ",\"coverage\":" + ipa.hle.coveragePercent()
+                        + ",\"missing_critical\":" + jsonArray(names(ipa.hle.critical())) + "}")
                 + ",\"warnings\":" + jsonArray(ipa.warnings) + "}";
+    }
+
+    private static java.util.List<String> names(java.util.List<HleCheck.Missing> v) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (HleCheck.Missing m : v) out.add(m.toString());
+        return out;
     }
 
     private static String jsonArray(java.util.List<String> v) {

@@ -200,6 +200,9 @@ public class ConverterActivity extends Activity {
                 break;
             default: support = "❌ Ainda não pode ser portado: " + info.reason;
         }
+        if (info.hle != null && info.hle.verdict == com.portbridge.converter.HleCheck.Verdict.GOOD) {
+            support += "\n✅ " + info.hle.summary();
+        }
         for (String w : info.warnings) support += "\n⚠️ " + w;
         details.setText("Versão " + info.version + " · " + info.bundleId + "\n"
                 + "Engine: " + info.engine + " · " + String.join(", ", info.archs)
