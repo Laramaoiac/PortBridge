@@ -200,6 +200,7 @@ public class ConverterActivity extends Activity {
                 break;
             default: support = "❌ Ainda não pode ser portado: " + info.reason;
         }
+        for (String w : info.warnings) support += "\n⚠️ " + w;
         details.setText("Versão " + info.version + " · " + info.bundleId + "\n"
                 + "Engine: " + info.engine + " · " + String.join(", ", info.archs)
                 + (info.minimumOs.isEmpty() ? "" : " · iOS " + info.minimumOs + "+") + "\n"

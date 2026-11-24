@@ -8,6 +8,9 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+// os fontes têm acentos; não depender da codificação padrão da máquina
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
 dependencies {
     api 'com.android.tools.build:apksig:8.7.3'
 }

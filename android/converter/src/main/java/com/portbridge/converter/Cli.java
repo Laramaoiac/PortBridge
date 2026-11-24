@@ -20,6 +20,7 @@ import javax.imageio.ImageIO;
  */
 public final class Cli {
     public static void main(String[] args) throws Exception {
+        useUtf8IfAscii();
         File ipa = null, out = new File(".");
         File keyDir = new File(System.getProperty("user.home"), ".portbridge");
         Map<Ipa.Runtime, File> templates = new EnumMap<>(Ipa.Runtime.class);
@@ -43,6 +44,7 @@ public final class Cli {
             System.out.println(Converter.metadata(info, info.suggestedPackage()));
             System.out.println("archs=" + info.archs + " minOS=" + info.minimumOs + " icon="
                     + (info.icon == null ? 0 : info.icon.length) + (info.reason.isEmpty() ? "" : " motivo=" + info.reason));
+            for (String w : info.warnings) System.out.println("aviso: " + w);
             return;
         }
         for (Ipa.Runtime rt : new Ipa.Runtime[] {Ipa.Runtime.CLICKTEAM, Ipa.Runtime.HLE}) {
@@ -58,6 +60,21 @@ public final class Cli {
         Converter.Result r = Converter.convert(ipa, templates, out, key, Cli::scaledPng, System.out::println);
         System.out.println("pacote: " + r.packageName);
         System.out.println("apk: " + r.apk.getAbsolutePath());
+    }
+
+    /**
+     * Sem locale (LANG vazio, comum em servidores e contêineres) o Java imprime
+     * em ASCII e os acentos viram "?". Nesse caso usa UTF-8; consoles com outra
+     * codificação (ex.: cp850 no Windows) ficam como estão.
+     */
+    private static void useUtf8IfAscii() {
+        String enc = System.getProperty("stdout.encoding", "");
+        if (enc.equalsIgnoreCase("US-ASCII") || enc.equalsIgnoreCase("ANSI_X3.4-1968")) {
+            System.setOut(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.out),
+                    true, java.nio.charset.StandardCharsets.UTF_8));
+            System.setErr(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.err),
+                    true, java.nio.charset.StandardCharsets.UTF_8));
+        }
     }
 
     static byte[] scaledPng(byte[] src, int size) throws IOException {

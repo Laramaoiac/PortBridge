@@ -65,6 +65,7 @@ public final class Converter {
         if (template == null || !template.exists())
             throw new IOException("Runtime para \"" + ipa.engine + "\" ainda não está disponível nesta versão");
 
+        for (String w : ipa.warnings) p.step("Aviso: " + w);
         Result r = new Result();
         r.ipa = ipa;
         r.packageName = ipa.suggestedPackage();
@@ -142,7 +143,15 @@ public final class Converter {
     static String metadata(Ipa ipa, String pkg) {
         return "{\"name\":" + json(ipa.name) + ",\"bundle\":" + json(ipa.bundleId) + ",\"version\":"
                 + json(ipa.version) + ",\"runtime\":" + json(ipa.runtime.name().toLowerCase()) + ",\"engine\":"
-                + json(ipa.engine) + ",\"package\":" + json(pkg) + ",\"portrait\":" + ipa.portrait + "}";
+                + json(ipa.engine) + ",\"package\":" + json(pkg) + ",\"portrait\":" + ipa.portrait
+                + (ipa.graphics.isEmpty() ? "" : ",\"graphics\":" + json(ipa.graphics))
+                + ",\"warnings\":" + jsonArray(ipa.warnings) + "}";
+    }
+
+    private static String jsonArray(java.util.List<String> v) {
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < v.size(); i++) b.append(i == 0 ? "" : ",").append(json(v.get(i)));
+        return b.append(']').toString();
     }
 
     private static String json(String s) {

@@ -34,6 +34,10 @@ public final class Ipa {
     public String engine = "desconhecida";
     public String reason = "";
     public List<String> archs = new ArrayList<>();
+    /** Avisos de compatibilidade (o APK é gerado, mas o jogo pode não funcionar). */
+    public List<String> warnings = new ArrayList<>();
+    /** Gráficos: "gles1", "gles2" (só ES 2.0, sem caminho ES 1.1) ou "gles1+gles2". */
+    public String graphics = "";
     public byte[] icon;  // JPEG ou PNG que o Android consegue abrir
 
     private Ipa(File f) { this.file = f; }
@@ -95,6 +99,14 @@ public final class Ipa {
         } else if (archs.stream().anyMatch(a -> a.startsWith("armv"))) {
             runtime = Runtime.HLE;
             engine = "nativo (ARM 32 bits)";
+            graphics = MachO.graphicsApi(exe);
+            if (graphics.equals("gles2")) {
+                warnings.add("usa só OpenGL ES 2.0 (shaders); o runtime de emulação (touchHLE) "
+                        + "implementa apenas OpenGL ES 1.1, então o jogo deve abrir com a tela preta");
+            } else if (graphics.equals("gles1+gles2")) {
+                warnings.add("tem código OpenGL ES 2.0 e 1.1; funciona só se o jogo voltar para o "
+                        + "ES 1.1 quando o 2.0 não está disponível");
+            }
         } else {
             reason = "só há código ARM de 64 bits (" + String.join(", ", archs) + "): ainda não suportado";
         }
@@ -208,6 +220,32 @@ public final class Ipa {
                     if (size < 8) break;
                     p += (int) size;
                 }
+            }
+            return false;
+        }
+
+        /**
+         * Qual OpenGL ES o executável importa. Funções só do ES 2.0 (shaders) e
+         * só do ES 1.1 (pipeline fixo) aparecem como nomes de símbolos importados.
+         */
+        static String graphicsApi(byte[] d) {
+            boolean es2 = contains(d, "_glCreateShader") || contains(d, "_glUseProgram");
+            boolean es1 = contains(d, "_glMatrixMode") || contains(d, "_glVertexPointer")
+                    || contains(d, "_glTexEnvf") || contains(d, "_glTexEnvi") || contains(d, "_glLoadIdentity");
+            if (es2 && es1) return "gles1+gles2";
+            if (es2) return "gles2";
+            if (es1) return "gles1";
+            return "";
+        }
+
+        static boolean contains(byte[] d, String s) {
+            byte[] n = s.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+            // o símbolo precisa terminar com NUL (evita casar _glUseProgramObject etc.)
+            outer:
+            for (int i = 0; i + n.length < d.length; i++) {
+                if (d[i] != n[0]) continue;
+                for (int j = 1; j < n.length; j++) if (d[i + j] != n[j]) continue outer;
+                if (d[i + n.length] == 0) return true;
             }
             return false;
         }
