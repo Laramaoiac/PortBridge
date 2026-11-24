@@ -139,10 +139,29 @@ index 71b8d000..f02c7b1d 100644
      }
  
 diff --git a/src/environment.rs b/src/environment.rs
-index 131c45d6..2cf8ccbe 100644
+index 131c45d6..63988857 100644
 --- a/src/environment.rs
 +++ b/src/environment.rs
-@@ -497,6 +497,26 @@ impl Environment {
+@@ -314,9 +314,15 @@ impl Environment {
+         // should be handled before creating the window because handling of
+         // window rotation after-the-fact is somewhat glitchy.
+         // This also ensures the splash screen is correctly oriented.
+-        if options.initial_orientation == window::DeviceOrientation::Portrait {
+-            if let Some(&non_portrait_orientation) = bundle
+-                .supported_interface_orientations()
++        // PortBridge: only when the app doesn't support portrait at all. Apps
++        // listing [Portrait, PortraitUpsideDown] (SunFlowers) were started
++        // upside down: the launch image showed inverted and the app turned
++        // its views around to compensate.
++        let supported = bundle.supported_interface_orientations();
++        if options.initial_orientation == window::DeviceOrientation::Portrait
++            && !supported.contains(&"UIInterfaceOrientationPortrait")
++        {
++            if let Some(&non_portrait_orientation) = supported
+                 .iter()
+                 .find(|&&o| o != "UIInterfaceOrientationPortrait")
+             {
+@@ -497,6 +503,26 @@ impl Environment {
              }
          }
  
@@ -169,7 +188,7 @@ index 131c45d6..2cf8ccbe 100644
          let entry_point_addr = executable
              .entry_point_pc
              .ok_or_else(|| {
-@@ -1608,7 +1628,38 @@ impl Environment {
+@@ -1608,7 +1634,38 @@ impl Environment {
                              svc_pc,
                              svc,
                          ) {
