@@ -43,3 +43,15 @@ android {
 dependencies {
     implementation project(':webruntime')
 }
+
+// O PortBridge Studio (navegador / Google AI Studio) converte apps web com uma cópia
+// deste template em public/templates/web.apk. O build é reproduzível; o CI confere
+// se a cópia está igual. Depois de mudar este módulo ou a ponte:
+//   gradle :web:syncStudioTemplate
+tasks.register('syncStudioTemplate', Copy) {
+    dependsOn 'assembleRelease'
+    from(layout.buildDirectory.file('outputs/apk/release/web-release-unsigned.apk')) {
+        rename { 'web.apk' }
+    }
+    into new File(rootDir.parentFile, 'public/templates')
+}

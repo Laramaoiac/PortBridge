@@ -98,6 +98,11 @@ jobs:
         working-directory: android
         run: gradle :app:assembleRelease :converter:desktopJar :converter:test :webruntime:test --no-daemon
 
+      - name: Template web do PortBridge Studio em dia (public/templates/web.apk)
+        run: |
+          cmp android/web/build/outputs/apk/release/web-release-unsigned.apk public/templates/web.apk \
+            || { echo "public/templates/web.apk desatualizado: rode 'gradle :web:syncStudioTemplate' em android/"; exit 1; }
+
       - name: Lista de APIs do touchHLE em dia com o patch (verificador de compatibilidade)
         # o build acima aplicou o patch em third_party/touchHLE
         run: python3 tools/gen_touchhle_api.py --check

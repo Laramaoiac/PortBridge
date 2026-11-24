@@ -47,6 +47,24 @@ em `assets/portbridge.json`.
 
 Para ver o log: `adb logcat -s PortBridge`.
 
+## No navegador (PortBridge Studio / Google AI Studio)
+
+A aba **Rota web** do PortBridge Studio faz a mesma conversão sem Java nem Android SDK,
+inteira no navegador (o IPA não sai do aparelho), por isso funciona no Google AI Studio:
+
+- `src/core/packager/webRouteConverter.ts`: detecção (mesmas regras de `WebApp.java`),
+  troca de strings do manifesto binário (`axmlStringPool.ts`, porte de `Axml.java`),
+  conteúdo em `assets/web` (CgBI → PNG) e assinatura v1 + v2 com
+  `src/services/apkZipAlignSigner.ts` (WebCrypto);
+- usa `public/templates/web.apk`, cópia deste template. O build é reproduzível e o CI
+  confere a cópia; depois de mudar este módulo, rode `gradle :web:syncStudioTemplate`;
+- a ponte é importada de `android/webruntime/.../bridge.js` no build do Studio, então o
+  APK gerado no navegador é igual ao do app conversor;
+- a chave de assinatura fica no `localStorage` do navegador: converta as atualizações de
+  um app no mesmo navegador para o Android aceitar instalar por cima.
+
+Testes: `node --test tests/unit/web_route_converter.test.ts`.
+
 ## Testar no computador
 
 O `DevServer` serve a pasta `assets/web` de um APK gerado com o mesmo roteador e a
