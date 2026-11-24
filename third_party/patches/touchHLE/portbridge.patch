@@ -561,6 +561,22 @@ index f973abf6..f224f967 100644
 +    export_c_func!(ExtAudioFileTell(_, _)),
      export_c_func!(ExtAudioFileDispose(_)),
  ];
+diff --git a/src/frameworks/core_animation/ca_eagl_layer.rs b/src/frameworks/core_animation/ca_eagl_layer.rs
+index 36b8132c..d5911c55 100644
+--- a/src/frameworks/core_animation/ca_eagl_layer.rs
++++ b/src/frameworks/core_animation/ca_eagl_layer.rs
+@@ -75,6 +75,11 @@ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
+         assert!(layer != nil);
+ 
+         let layer_host_obj: &CALayerHostObject = env.objc.borrow(layer);
++        crate::objc::trace_once(0x7000_0000_0000_0000 | layer.to_bits() as u64, || format!(
++            "DEBUG fullscreen walk: layer {:?} bounds {:?} pos {:?} anchor {:?} hidden {} opacity {} identity {} opaque {} sublayers {}",
++            layer, layer_host_obj.bounds, layer_host_obj.position, layer_host_obj.anchor_point,
++            layer_host_obj.hidden, layer_host_obj.opacity, layer_host_obj.affine_transform.is_identity(),
++            layer_host_obj.opaque, layer_host_obj.sublayers.len()));
+ 
+         // This is stricter than it should be. In theory we should accumulate
+         // the transforms and handle different anchor points etc, but real apps
 diff --git a/src/frameworks/core_graphics/cg_image.rs b/src/frameworks/core_graphics/cg_image.rs
 index a6b936a3..02aa0031 100644
 --- a/src/frameworks/core_graphics/cg_image.rs
