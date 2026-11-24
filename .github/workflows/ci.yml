@@ -96,7 +96,7 @@ jobs:
 
       - name: Compile libmain.so (with iOSStore + RuntimeI18n) + touchHLE + PortBridge APK
         working-directory: android
-        run: gradle :app:assembleRelease :converter:desktopJar :converter:test --no-daemon
+        run: gradle :app:assembleRelease :converter:desktopJar :converter:test :webruntime:test --no-daemon
 
       - name: Lista de APIs do touchHLE em dia com o patch (verificador de compatibilidade)
         # o build acima aplicou o patch em third_party/touchHLE
@@ -110,4 +110,5 @@ jobs:
             android/app/build/outputs/apk/**/*.apk
             android/runtime/build/outputs/apk/**/*.apk
             android/hle/build/outputs/apk/**/*.apk
+            android/web/build/outputs/apk/**/*.apk
             android/converter/build/dist/portbridge-converter.jar

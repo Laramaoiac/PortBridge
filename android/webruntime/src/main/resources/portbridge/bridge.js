@@ -388,6 +388,24 @@
         }
     }
 
+    // Vibration API do HTML5 pelo nativo: o Chromium bloqueia navigator.vibrate antes
+    // do primeiro toque, e no iOS (Haptics/Taptic) não há essa restrição.
+    if (N && N.vibrate) {
+        try {
+            navigator.vibrate = function (p) {
+                if (Array.isArray(p)) {
+                    if (p.length === 0 || (p.length === 1 && !p[0])) N.cancelVibration();
+                    else N.vibratePattern(JSON.stringify(p), -1);
+                } else if (!p) {
+                    N.cancelVibration();
+                } else {
+                    N.vibrate(Number(p));
+                }
+                return true;
+            };
+        } catch (e) {}
+    }
+
     // O cordova.js de iOS escolhe o modo WKWebView quando encontra este objeto
     // (cordova-ios 3.x e 6.x+).
     window.webkit = window.webkit || {};
