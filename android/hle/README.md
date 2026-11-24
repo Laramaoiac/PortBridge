@@ -2,7 +2,7 @@
 
 Este módulo gera `hle-release-unsigned.apk`, o template que o conversor usa para
 apps iOS **sem engine conhecida**, cujo código é ARM de 32 bits (armv6/armv7):
-Objective-C/C++ com OpenGL ES 1.1, típicos de iPhone OS 2 a iOS 5.
+Objective-C/C++ com OpenGL ES 1.1 ou 2.0, típicos de iPhone OS 2 a iOS 6.
 
 Dentro do APK vai o [touchHLE](https://touchhle.org/) (emulador de alto nível do
 iOS, MPL-2.0): um JIT (dynarmic) traduz o código ARM32 para ARM64 e as APIs do iOS
@@ -51,6 +51,15 @@ que apps feitos com o SDK do iOS 5/6 importam (ARC, runtime de *blocks*, proteç
 pilha, `__divmodsi4`, introspecção `class_*`/`ivar_*`, subscripting e literais,
 `NSOrderedSet`, `presentViewController:…`). Detalhes em
 [docs/ROADMAP.md](../../docs/ROADMAP.md#fase-3-apps-nativos-com-touchhle--primeira-versão).
+
+O patch também acrescenta **OpenGL ES 2.0** (`EAGLContext initWithAPI:2`), que o
+touchHLE oficial não tem: shaders, programas, uniforms, atributos de vértice, VAO
+(`OES_vertex_array_object`) e os nomes core das funções de framebuffer. No Android as
+chamadas vão para o OpenGL ES 2.0 nativo do aparelho; no computador, para o OpenGL
+desktop (perfil de compatibilidade, com `#version 100` nos shaders), compartilhando
+objetos com o contexto que apresenta os quadros. Ainda no patch: `-[UIWindow
+setRootViewController:]` (sem ele a view do jogo nunca entrava na janela) e a
+apresentação direta de camadas GL giradas 180° (sem cópia para a RAM).
 
 O projeto touchHLE não aceita contribuições geradas com IA; por isso essas mudanças
 ficam só no PortBridge e não devem ser enviadas a ele.
