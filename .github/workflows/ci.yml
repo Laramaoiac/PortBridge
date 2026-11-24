@@ -19,7 +19,10 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Run zero-dependency Node 22 binary & i18n test suite
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Run Node 22 binary, i18n & web route test suite
         run: node --test tests/unit/*.test.ts
 
       - name: Compile and run C++17 native runtime tests (iOSStore + RuntimeI18n)
@@ -31,9 +34,8 @@ jobs:
             -o /tmp/pb_native_test
           /tmp/pb_native_test
 
-      - name: Install npm dependencies, typecheck and build Web Studio
+      - name: Typecheck and build Web Studio
         run: |
-          npm install
           npm run lint
           npm run build
 
