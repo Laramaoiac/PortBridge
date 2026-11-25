@@ -1,0 +1,335 @@
+diff --git a/app/src/main/java/com/abdurazaaqmohammed/utils/DeviceSpecsUtil.java b/app/src/main/java/com/abdurazaaqmohammed/utils/DeviceSpecsUtil.java
+index 954cb93..9d2fb0d 100644
+--- a/app/src/main/java/com/abdurazaaqmohammed/utils/DeviceSpecsUtil.java
++++ b/app/src/main/java/com/abdurazaaqmohammed/utils/DeviceSpecsUtil.java
+@@ -7,8 +7,6 @@ import android.text.TextUtils;
+ import android.util.DisplayMetrics;
+ 
+ import com.reandroid.apk.APKLogger;
+-import com.reandroid.archive.ArchiveFile;
+-import com.reandroid.archive.InputSource;
+ 
+ import java.io.File;
+ import java.io.IOException;
+@@ -181,14 +179,7 @@ public class DeviceSpecsUtil {
+     }
+ 
+     private List<String> readSplitNames(Uri archiveUri, File archiveFile) throws IOException {
+-        List<String> splits = new ArrayList<>();
+-        try (ArchiveFile archive = new ArchiveFile(archiveFile)) {
+-            for (InputSource source : archive.getInputSources()) {
+-                String name = source.getName();
+-                if (name.endsWith(".apk"))
+-                    splits.add(name);
+-            }
+-        }
++        List<String> splits = SplitArchiveReader.listApkNames(archiveFile);
+         cachedArchive = archiveFile;
+         cachedArchiveUri = archiveUri;
+         return splits;
+@@ -248,7 +239,7 @@ public class DeviceSpecsUtil {
+     }
+ 
+     public static boolean isBaseApk(String splitName) {
+-        String name = splitName.toLowerCase(Locale.ROOT);
++        String name = fileName(splitName).toLowerCase(Locale.ROOT);
+         String stem = name.endsWith(".apk") ? name.substring(0, name.length() - 4) : name;
+ 
+         if (!stem.startsWith("base"))
+@@ -339,9 +330,15 @@ public class DeviceSpecsUtil {
+         return value.matches("[a-z]{2,3}([_-][a-z]{2,4}|[_-]\\d{3})?");
+     }
+ 
++    /** Archive entries may live in folders (e.g. splits/base-en.apk); only the name matters. */
++    private static String fileName(String entryName) {
++        int cut = Math.max(entryName.lastIndexOf('/'), entryName.lastIndexOf('\\'));
++        return cut < 0 ? entryName : entryName.substring(cut + 1);
++    }
++
+     private static List<String> tokens(String splitName) {
+         List<String> tokens = new ArrayList<>();
+-        for (String token : splitName.toLowerCase(Locale.ROOT).split("[._\\-+]")) {
++        for (String token : fileName(splitName).toLowerCase(Locale.ROOT).split("[._\\-+]")) {
+             if (!token.isEmpty())
+                 tokens.add(token);
+         }
+diff --git a/app/src/main/java/com/abdurazaaqmohammed/utils/SplitArchiveReader.java b/app/src/main/java/com/abdurazaaqmohammed/utils/SplitArchiveReader.java
+new file mode 100644
+index 0000000..c489206
+--- /dev/null
++++ b/app/src/main/java/com/abdurazaaqmohammed/utils/SplitArchiveReader.java
+@@ -0,0 +1,169 @@
++package com.abdurazaaqmohammed.utils;
++
++import com.reandroid.archive.ArchiveFile;
++import com.reandroid.archive.InputSource;
++
++import java.io.BufferedInputStream;
++import java.io.File;
++import java.io.FileInputStream;
++import java.io.IOException;
++import java.io.InputStream;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Locale;
++import java.util.zip.ZipEntry;
++import java.util.zip.ZipInputStream;
++
++/**
++ * Reads the entries of a split APK archive (APKS/XAPK/APKM/ZIP).
++ *
++ * ARSCLib's {@link ArchiveFile} locates the zip end record by scanning the last
++ * 64 KiB of the file. That fails ("Failed to find end record") for archives that
++ * are otherwise readable, most commonly when extra bytes were appended after the
++ * zip by the app that downloaded or shared it. In that case the archive is read
++ * again sequentially with {@link ZipInputStream}, which only needs the local file
++ * headers. Files that are not zips at all get an explicit error instead.
++ */
++public final class SplitArchiveReader {
++
++    public interface EntryHandler {
++        /** Called for every file entry; return normally to continue. */
++        void onEntry(String name, InputStream input) throws IOException;
++    }
++
++    /** Thrown when the selected file is empty or is not a zip archive. */
++    public static final class NotZipException extends IOException {
++        public NotZipException(String message) {
++            super(message);
++        }
++    }
++
++    private SplitArchiveReader() {
++    }
++
++    public static List<String> listApkNames(File archive) throws IOException {
++        final List<String> names = new ArrayList<>();
++        forEachEntry(archive, false, (name, input) -> {
++            if (name.endsWith(".apk"))
++                names.add(name);
++        });
++        return names;
++    }
++
++    /**
++     * Visits every file entry of the archive.
++     *
++     * @param openStreams when false, the handler receives {@code null} streams
++     *                    (used when only the names are needed).
++     */
++    public static void forEachEntry(File archive, boolean openStreams, EntryHandler handler)
++            throws IOException {
++        ArchiveFile archiveFile;
++        try {
++            archiveFile = new ArchiveFile(archive);
++        } catch (IOException e) {
++            if (!archive.isFile())
++                throw e;
++            // Explain empty / non-zip files instead of reporting the end record error.
++            try {
++                checkLooksLikeZip(archive);
++            } catch (NotZipException notZip) {
++                notZip.addSuppressed(e);
++                throw notZip;
++            }
++            // A real zip whose end record could not be found: read it front to back.
++            readSequentially(archive, openStreams, handler, e);
++            return;
++        }
++        try {
++            InputSource[] sources = archiveFile.getInputSources();
++            if (sources.length == 0) {
++                // A cut-off download can still expose a (bogus) end record with no
++                // usable central directory; the local headers may still be intact.
++                archiveFile.close();
++                readSequentially(archive, openStreams, handler,
++                        new IOException("The archive contains no entries; it may be incomplete"));
++                return;
++            }
++            for (InputSource entry : sources) {
++                if (!openStreams) {
++                    handler.onEntry(entry.getName(), null);
++                    continue;
++                }
++                try (InputStream input = entry.openStream()) {
++                    handler.onEntry(entry.getName(), input);
++                }
++            }
++        } finally {
++            archiveFile.close();
++        }
++    }
++
++    private static void readSequentially(File archive, boolean openStreams,
++            EntryHandler handler, IOException original) throws IOException {
++        int entries = 0;
++        try (ZipInputStream zip = new ZipInputStream(
++                new BufferedInputStream(new FileInputStream(archive), 64 * 1024))) {
++            ZipEntry entry;
++            while ((entry = zip.getNextEntry()) != null) {
++                if (entry.isDirectory())
++                    continue;
++                entries++;
++                handler.onEntry(entry.getName(), openStreams ? new NonClosingStream(zip) : null);
++                zip.closeEntry();
++            }
++        } catch (IOException e) {
++            if (entries == 0) {
++                original.addSuppressed(e);
++                throw original;
++            }
++            throw new IOException("The archive is incomplete (it ends inside entry "
++                    + entries + "). Download or copy the file again.", e);
++        }
++        if (entries == 0)
++            throw original;
++    }
++
++    /**
++     * Rejects files that cannot possibly be zips, with a message that says what
++     * was actually received instead of the low level "end record" error.
++     */
++    public static void checkLooksLikeZip(File file) throws IOException {
++        long length = file.length();
++        if (length == 0)
++            throw new NotZipException("The selected file is empty (0 bytes). "
++                    + "It may not have finished downloading, or the app it was opened from "
++                    + "did not share its contents.");
++        byte[] header = new byte[4];
++        int read;
++        try (InputStream input = new FileInputStream(file)) {
++            read = input.read(header);
++        }
++        // Local file header "PK\3\4", or an empty archive "PK\5\6".
++        if (read == 4 && header[0] == 'P' && header[1] == 'K'
++                && ((header[2] == 3 && header[3] == 4) || (header[2] == 5 && header[3] == 6)))
++            return;
++        throw new NotZipException(String.format(Locale.ROOT,
++                "The selected file is not a ZIP archive (size %d bytes, starts with %s). "
++                        + "Encrypted APKM files from APKMirror and other non-zip formats "
++                        + "cannot be merged.", length, hex(header, Math.max(read, 0))));
++    }
++
++    private static String hex(byte[] bytes, int count) {
++        StringBuilder builder = new StringBuilder();
++        for (int i = 0; i < count; i++)
++            builder.append(String.format(Locale.ROOT, "%02X", bytes[i] & 0xff));
++        return builder.length() == 0 ? "nothing" : builder.toString();
++    }
++
++    /** Lets a handler close its stream without closing the whole ZipInputStream. */
++    private static final class NonClosingStream extends java.io.FilterInputStream {
++        NonClosingStream(InputStream in) {
++            super(in);
++        }
++
++        @Override
++        public void close() {
++        }
++    }
++}
+diff --git a/app/src/main/java/com/reandroid/Merger.java b/app/src/main/java/com/reandroid/Merger.java
+index e4a084a..fa366cd 100644
+--- a/app/src/main/java/com/reandroid/Merger.java
++++ b/app/src/main/java/com/reandroid/Merger.java
+@@ -27,13 +27,13 @@ import com.abdurazaaqmohammed.AntiSplit.main.MyAPKLogger;
+ import com.abdurazaaqmohammed.utils.DeviceSpecsUtil;
+ import com.abdurazaaqmohammed.utils.FileUtils;
+ import com.abdurazaaqmohammed.utils.SignUtil;
++import com.abdurazaaqmohammed.utils.SplitArchiveReader;
+ import com.abdurazaaqmohammed.utils.UriNames;
+ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+ import com.reandroid.apk.ApkBundle;
+ import com.reandroid.apk.ApkModule;
+ import com.reandroid.apkeditor.common.AndroidManifestHelper;
+ import com.reandroid.app.AndroidManifest;
+-import com.reandroid.archive.ArchiveFile;
+ import com.reandroid.archive.InputSource;
+ import com.reandroid.archive.ZipEntryMap;
+ import com.reandroid.arsc.chunk.TableBlock;
+@@ -121,7 +121,8 @@ public class Merger {
+ 
+         try {
+             extractApks(archiveFile, splitsToNotInclude);
+-            bundle.loadApkDirectory(workingDirectory);
++            // Splits may sit in sub folders of the archive (e.g. splits/base-master.apk).
++            bundle.loadApkDirectory(workingDirectory, true);
+         } catch (FileNotFoundException e) {
+             throw new IOException(e.getMessage() + " file " + splitApkUri + ' '
+                     + UriNames.displayName(activity, splitApkUri), e);
+@@ -142,32 +143,30 @@ public class Merger {
+     }
+ 
+     private void extractApks(File archiveFile, List<String> excludedSplits) throws IOException {
+-        try (ArchiveFile archive = new ArchiveFile(archiveFile)) {
+-            InputSource[] entries = archive.getInputSources();
+-            List<String> effectiveExcluded = keepArchitectureSplit(entries, excludedSplits);
+-            boolean checkSplits = effectiveExcluded != null && !effectiveExcluded.isEmpty();
+-            for (InputSource entry : entries) {
+-                String name = entry.getName();
+-                if (!name.endsWith(".apk")) {
+-                    logger.logMessage(resources.getString(R.string.skipping) + name
+-                            + resources.getString(R.string.not_apk));
+-                    continue;
+-                }
+-                if (checkSplits && effectiveExcluded.contains(name)) {
+-                    logger.logMessage(resources.getString(R.string.skipping) + name
+-                            + resources.getString(R.string.unselected));
+-                    continue;
+-                }
+-                File target = resolveTarget(name);
+-                if (target == null) {
+-                    logger.logMessage("Skipped invalid path: " + name);
+-                    continue;
+-                }
+-                try (InputStream input = entry.openStream()) {
+-                    FileUtils.copyFile(input, target);
+-                }
++        List<String> apkNames = SplitArchiveReader.listApkNames(archiveFile);
++        final List<String> effectiveExcluded = keepArchitectureSplit(apkNames, excludedSplits);
++        final boolean checkSplits = effectiveExcluded != null && !effectiveExcluded.isEmpty();
++        final int[] extracted = {0};
++        SplitArchiveReader.forEachEntry(archiveFile, true, (name, input) -> {
++            if (!name.endsWith(".apk")) {
++                logger.logMessage(resources.getString(R.string.skipping) + name
++                        + resources.getString(R.string.not_apk));
++                return;
+             }
+-        }
++            if (checkSplits && effectiveExcluded.contains(name)) {
++                logger.logMessage(resources.getString(R.string.skipping) + name
++                        + resources.getString(R.string.unselected));
++                return;
++            }
++            File target = resolveTarget(name);
++            if (target == null) {
++                logger.logMessage("Skipped invalid path: " + name);
++                return;
++            }
++            FileUtils.copyFile(input, target);
++            extracted[0]++;
++        });
++        logger.logMessage("Extracted APK files: " + extracted[0]);
+     }
+ 
+     /**
+@@ -176,13 +175,12 @@ public class Merger {
+      * app would crash at runtime with "couldn't find DSO to load". Re-include the
+      * best matching ABI split so native code is never silently lost.
+      */
+-    private List<String> keepArchitectureSplit(InputSource[] entries, List<String> excludedSplits) {
++    private List<String> keepArchitectureSplit(List<String> apkNames, List<String> excludedSplits) {
+         if (excludedSplits == null)
+             return null;
+         List<String> archSplits = new ArrayList<>();
+-        for (InputSource entry : entries) {
+-            String name = entry.getName();
+-            if (name.endsWith(".apk") && DeviceSpecsUtil.isArchitecture(name))
++        for (String name : apkNames) {
++            if (DeviceSpecsUtil.isArchitecture(name))
+                 archSplits.add(name);
+         }
+         if (archSplits.isEmpty())
+diff --git a/gradlew b/gradlew
+old mode 100644
+new mode 100755
