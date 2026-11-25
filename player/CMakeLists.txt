@@ -16,6 +16,15 @@ add_library(pb_miniz STATIC
     third_party/miniz/miniz.c third_party/miniz/miniz_tdef.c
     third_party/miniz/miniz_tinfl.c third_party/miniz/miniz_zip.c)
 target_include_directories(pb_miniz PUBLIC third_party/miniz)
+# Os fontes do miniz vindos direto do repositório (não o zip de release) incluem
+# miniz_export.h, que normalmente é gerado pelo CMake do próprio miniz. Como aqui
+# ele é compilado como biblioteca estática, basta um MINIZ_EXPORT vazio.
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniz/miniz_export.h")
+    set(PB_MINIZ_GEN "${CMAKE_BINARY_DIR}/pb_miniz_gen")
+    file(WRITE "${PB_MINIZ_GEN}/miniz_export.h"
+        "#pragma once\n#ifndef MINIZ_EXPORT\n#define MINIZ_EXPORT\n#endif\n")
+    target_include_directories(pb_miniz PUBLIC "${PB_MINIZ_GEN}")
+endif()
 set_target_properties(pb_miniz PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # ---- núcleo: leitura de IPA e do jogo Clickteam (sem SDL)

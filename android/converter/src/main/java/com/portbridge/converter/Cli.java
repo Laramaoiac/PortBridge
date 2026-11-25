@@ -16,21 +16,26 @@ import javax.imageio.ImageIO;
  * Conversor de linha de comando (Linux, Windows, macOS; precisa de Java 17+):
  *
  *   java -jar portbridge-converter.jar Jogo.ipa [-o pasta] [--template-clickteam t.apk]
- *        [--template-hle t.apk] [--key-dir ~/.portbridge]
+ *        [--template-hle t.apk] [--template-web t.apk] [--key-dir ~/.portbridge]
+ *   java -jar portbridge-converter.jar --check Jogo.ipa
+ *        (só verifica a compatibilidade com o runtime de emulação, sem gerar o APK)
  */
 public final class Cli {
     public static void main(String[] args) throws Exception {
+        useUtf8IfAscii();
         File ipa = null, out = new File(".");
         File keyDir = new File(System.getProperty("user.home"), ".portbridge");
         Map<Ipa.Runtime, File> templates = new EnumMap<>(Ipa.Runtime.class);
-        boolean inspectOnly = false;
+        boolean inspectOnly = false, checkOnly = false;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "-o": out = new File(args[++i]); break;
                 case "--key-dir": keyDir = new File(args[++i]); break;
                 case "--template-clickteam": templates.put(Ipa.Runtime.CLICKTEAM, new File(args[++i])); break;
                 case "--template-hle": templates.put(Ipa.Runtime.HLE, new File(args[++i])); break;
+                case "--template-web": templates.put(Ipa.Runtime.WEB, new File(args[++i])); break;
                 case "--inspect": inspectOnly = true; break;
+                case "--check": checkOnly = true; break;
                 default: ipa = new File(args[i]);
             }
         }
@@ -38,14 +43,36 @@ public final class Cli {
             System.err.println("uso: java -jar portbridge-converter.jar Jogo.ipa [-o pasta]");
             System.exit(2);
         }
+        if (checkOnly) {
+            Ipa info = Ipa.inspect(ipa);
+            System.out.println(info.name + " " + info.version + " (" + info.bundleId + ") · engine: " + info.engine
+                    + " · " + String.join(", ", info.archs));
+            if (info.runtime == Ipa.Runtime.UNSUPPORTED) {
+                System.out.println("Não pode ser portado: " + info.reason);
+                System.exit(1);
+            } else if (info.runtime == Ipa.Runtime.CLICKTEAM) {
+                System.out.println("Rota: runtime Clickteam do PortBridge (não usa emulação)");
+            } else if (info.runtime == Ipa.Runtime.WEB) {
+                System.out.println("Rota: app web (" + info.engine + ") num WebView com a ponte do PortBridge; "
+                        + "conteúdo em " + (info.webRoot.isEmpty() ? "(raiz do .app)" : info.webRoot + "/")
+                        + ", página inicial " + info.webStart);
+                for (String w : info.warnings) System.out.println("aviso: " + w);
+            } else if (info.hle == null) {
+                System.out.println("Rota: emulação (touchHLE); não foi possível verificar o executável");
+            } else {
+                System.out.print(info.hle.text());
+            }
+            return;
+        }
         if (inspectOnly) {
             Ipa info = Ipa.inspect(ipa);
             System.out.println(Converter.metadata(info, info.suggestedPackage()));
             System.out.println("archs=" + info.archs + " minOS=" + info.minimumOs + " icon="
                     + (info.icon == null ? 0 : info.icon.length) + (info.reason.isEmpty() ? "" : " motivo=" + info.reason));
+            for (String w : info.warnings) System.out.println("aviso: " + w);
             return;
         }
-        for (Ipa.Runtime rt : new Ipa.Runtime[] {Ipa.Runtime.CLICKTEAM, Ipa.Runtime.HLE}) {
+        for (Ipa.Runtime rt : new Ipa.Runtime[] {Ipa.Runtime.CLICKTEAM, Ipa.Runtime.HLE, Ipa.Runtime.WEB}) {
             if (templates.containsKey(rt)) continue;
             InputStream res = Cli.class.getResourceAsStream("/templates/" + rt.name().toLowerCase() + ".apk");
             if (res != null) {
@@ -58,6 +85,21 @@ public final class Cli {
         Converter.Result r = Converter.convert(ipa, templates, out, key, Cli::scaledPng, System.out::println);
         System.out.println("pacote: " + r.packageName);
         System.out.println("apk: " + r.apk.getAbsolutePath());
+    }
+
+    /**
+     * Sem locale (LANG vazio, comum em servidores e contêineres) o Java imprime
+     * em ASCII e os acentos viram "?". Nesse caso usa UTF-8; consoles com outra
+     * codificação (ex.: cp850 no Windows) ficam como estão.
+     */
+    private static void useUtf8IfAscii() {
+        String enc = System.getProperty("stdout.encoding", "");
+        if (enc.equalsIgnoreCase("US-ASCII") || enc.equalsIgnoreCase("ANSI_X3.4-1968")) {
+            System.setOut(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.out),
+                    true, java.nio.charset.StandardCharsets.UTF_8));
+            System.setErr(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.err),
+                    true, java.nio.charset.StandardCharsets.UTF_8));
+        }
     }
 
     static byte[] scaledPng(byte[] src, int size) throws IOException {

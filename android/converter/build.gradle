@@ -8,14 +8,18 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+// os fontes têm acentos; não depender da codificação padrão da máquina
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
 dependencies {
     api 'com.android.tools.build:apksig:8.7.3'
+    testImplementation 'junit:junit:4.13.2'
 }
 
 // Desktop: java -jar portbridge-converter.jar Jogo.ipa
 // (inclui o apksig e os templates de runtime: :runtime -> clickteam.apk, :hle -> hle.apk)
 tasks.register('desktopJar', Jar) {
-    dependsOn ':runtime:assembleRelease', 'classes'
+    dependsOn ':runtime:assembleRelease', ':web:assembleRelease', 'classes'
     archiveFileName = 'portbridge-converter.jar'
     destinationDirectory = layout.buildDirectory.dir('dist')
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -25,6 +29,10 @@ tasks.register('desktopJar', Jar) {
     from(project(':runtime').layout.buildDirectory.file('outputs/apk/release/runtime-release-unsigned.apk')) {
         into 'templates'
         rename { 'clickteam.apk' }
+    }
+    from(project(':web').layout.buildDirectory.file('outputs/apk/release/web-release-unsigned.apk')) {
+        into 'templates'
+        rename { 'web.apk' }
     }
     if (!project.hasProperty('pb.noHle')) {
         dependsOn ':hle:assembleRelease'

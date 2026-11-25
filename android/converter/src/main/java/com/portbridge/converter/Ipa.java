@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -21,6 +23,12 @@ public final class Ipa {
         CLICKTEAM,
         /** Executável ARM de 32 bits sem engine conhecida: emulação de alto nível (touchHLE). */
         HLE,
+        /**
+         * App web (Cordova/PhoneGap/Ionic, Capacitor, RPG Maker MV/MZ, Construct, HTML5):
+         * o conteúdo web roda num WebView com a ponte do PortBridge. Não usa o
+         * executável, então serve para 64 bits e para IPAs com FairPlay.
+         */
+        WEB,
         /** Não suportado ainda (64 bits, engine sem runtime etc.). */
         UNSUPPORTED
     }
@@ -30,10 +38,20 @@ public final class Ipa {
     public String name = "", bundleId = "", version = "1.0", executable = "";
     public String minimumOs = "";
     public boolean portrait = true;
+    /** "portrait", "landscape" ou "any" (UISupportedInterfaceOrientations). */
+    public String orientation = "any";
+    /** Rota web: pasta do conteúdo dentro do .app ("www", "public" ou "") e página inicial. */
+    public String webRoot = "", webStart = "index.html";
     public Runtime runtime = Runtime.UNSUPPORTED;
     public String engine = "desconhecida";
     public String reason = "";
     public List<String> archs = new ArrayList<>();
+    /** Avisos de compatibilidade (o APK é gerado, mas o jogo pode não funcionar). */
+    public List<String> warnings = new ArrayList<>();
+    /** Gráficos importados: "gles1", "gles2" ou "gles1+gles2" (vazio se nenhum). */
+    public String graphics = "";
+    /** Compatibilidade com o runtime de emulação (só na rota HLE; null se não deu para verificar). */
+    public HleCheck.Report hle;
     public byte[] icon;  // JPEG ou PNG que o Android consegue abrir
 
     private Ipa(File f) { this.file = f; }
@@ -75,6 +93,9 @@ public final class Ipa {
             if (o != null) orient.add(o);
         }
         portrait = orient.isEmpty() || orient.stream().anyMatch(o -> o.contains("Portrait"));
+        boolean anyPortrait = orient.stream().anyMatch(o -> o.contains("Portrait"));
+        boolean anyLandscape = orient.stream().anyMatch(o -> o.contains("Landscape"));
+        orientation = anyPortrait && !anyLandscape ? "portrait" : anyLandscape && !anyPortrait ? "landscape" : "any";
 
         // engine
         boolean clickteam = false;
@@ -85,9 +106,21 @@ public final class Ipa {
         }
         byte[] exe = zip.getEntry(appDir + executable) != null ? readAll(zip, appDir + executable) : new byte[0];
         archs = MachO.archs(exe);
+        Set<String> rels = new HashSet<>();
+        for (String n : names) if (n.startsWith(appDir)) rels.add(n.substring(appDir.length()));
+        String[] web = clickteam ? null : WebApp.detect(rels, exe, path -> readAll(zip, appDir + path));
         if (clickteam) {
             runtime = Runtime.CLICKTEAM;
             engine = "Clickteam Fusion";
+        } else if (web != null) {
+            runtime = Runtime.WEB;
+            engine = web[0];
+            webRoot = web[1];
+            webStart = web[2];
+            if (MachO.encrypted(exe)) {
+                warnings.add("o executável está com FairPlay, mas o conteúdo web não é criptografado: "
+                        + "a conversão funciona; só plugins nativos específicos do app ficam sem efeito");
+            }
         } else if (archs.isEmpty()) {
             reason = "executável não encontrado ou não é Mach-O";
         } else if (MachO.encrypted(exe)) {
@@ -95,6 +128,16 @@ public final class Ipa {
         } else if (archs.stream().anyMatch(a -> a.startsWith("armv"))) {
             runtime = Runtime.HLE;
             engine = "nativo (ARM 32 bits)";
+            // OpenGL ES 1.1 e 2.0 são suportados pelo runtime (o 2.0 pelo patch do
+            // PortBridge no touchHLE); a API vai para o portbridge.json e o relatório.
+            graphics = MachO.graphicsApi(exe);
+            try {
+                hle = HleCheck.check(exe);
+                if (hle.verdict != HleCheck.Verdict.GOOD) warnings.add(hle.summary());
+            } catch (IOException | RuntimeException e) {
+                // a verificação é informativa: sem ela o APK é gerado igual
+                hle = null;
+            }
         } else {
             reason = "só há código ARM de 64 bits (" + String.join(", ", archs) + "): ainda não suportado";
         }
@@ -208,6 +251,32 @@ public final class Ipa {
                     if (size < 8) break;
                     p += (int) size;
                 }
+            }
+            return false;
+        }
+
+        /**
+         * Qual OpenGL ES o executável importa. Funções só do ES 2.0 (shaders) e
+         * só do ES 1.1 (pipeline fixo) aparecem como nomes de símbolos importados.
+         */
+        static String graphicsApi(byte[] d) {
+            boolean es2 = contains(d, "_glCreateShader") || contains(d, "_glUseProgram");
+            boolean es1 = contains(d, "_glMatrixMode") || contains(d, "_glVertexPointer")
+                    || contains(d, "_glTexEnvf") || contains(d, "_glTexEnvi") || contains(d, "_glLoadIdentity");
+            if (es2 && es1) return "gles1+gles2";
+            if (es2) return "gles2";
+            if (es1) return "gles1";
+            return "";
+        }
+
+        static boolean contains(byte[] d, String s) {
+            byte[] n = s.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+            // o símbolo precisa terminar com NUL (evita casar _glUseProgramObject etc.)
+            outer:
+            for (int i = 0; i + n.length < d.length; i++) {
+                if (d[i] != n[0]) continue;
+                for (int j = 1; j < n.length; j++) if (d[i + j] != n[j]) continue outer;
+                if (d[i + n.length] == 0) return true;
             }
             return false;
         }

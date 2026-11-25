@@ -65,6 +65,7 @@ public final class Converter {
         if (template == null || !template.exists())
             throw new IOException("Runtime para \"" + ipa.engine + "\" ainda não está disponível nesta versão");
 
+        for (String w : ipa.warnings) p.step("Aviso: " + w);
         Result r = new Result();
         r.ipa = ipa;
         r.packageName = ipa.suggestedPackage();
@@ -98,8 +99,14 @@ public final class Converter {
                 put(zo, name, data, src.getMethod() == ZipEntry.STORED);
             }
             put(zo, "assets/portbridge.json", metadata(ipa, r.packageName).getBytes(StandardCharsets.UTF_8), false);
-            p.step("Embutindo o jogo (" + (ipaFile.length() / (1024 * 1024)) + " MB)");
-            putFile(zo, "assets/game.ipa", ipaFile);
+            if (ipa.runtime == Ipa.Runtime.WEB) {
+                p.step("Copiando o conteúdo web (" + ipa.engine + ")");
+                int n = putWebContent(zo, ipa);
+                p.step(n + " arquivos em assets/web");
+            } else {
+                p.step("Embutindo o jogo (" + (ipaFile.length() / (1024 * 1024)) + " MB)");
+                putFile(zo, "assets/game.ipa", ipaFile);
+            }
         }
 
         p.step("Assinando");
@@ -139,10 +146,69 @@ public final class Converter {
         }
     }
 
+    /** Extensões já comprimidas: vão sem compressão (o WebView lê por intervalo). */
+    private static final java.util.Set<String> STORED_EXT = new java.util.HashSet<>(java.util.Arrays.asList(
+            "png", "jpg", "jpeg", "gif", "webp", "mp3", "ogg", "oga", "opus", "m4a", "aac", "mp4", "m4v",
+            "webm", "ogv", "woff", "woff2", "zip", "gz", "br"));
+
+    /** Copia a pasta web do .app para assets/web (PNG CgBI da Apple vira PNG comum). */
+    private static int putWebContent(ZipOutputStream zo, Ipa ipa) throws IOException {
+        String prefix = ipa.appDir + (ipa.webRoot.isEmpty() ? "" : ipa.webRoot + "/");
+        int count = 0;
+        try (ZipFile zip = new ZipFile(ipa.file)) {
+            for (Enumeration<? extends ZipEntry> e = zip.entries(); e.hasMoreElements(); ) {
+                ZipEntry z = e.nextElement();
+                String name = z.getName();
+                if (z.isDirectory() || !name.startsWith(prefix)) continue;
+                String rel = name.substring(prefix.length());
+                if (rel.isEmpty() || rel.contains("..") || rel.startsWith("_CodeSignature/") || rel.endsWith(".DS_Store")) continue;
+                // com raiz "" (HTML5 genérico) o executável e metadados do bundle ficam de fora
+                if (ipa.webRoot.isEmpty() && (rel.equals(ipa.executable) || rel.equals("Info.plist")
+                        || rel.equals("embedded.mobileprovision") || rel.startsWith("Frameworks/")
+                        || rel.startsWith("PlugIns/") || rel.equals("PkgInfo"))) continue;
+                byte[] data;
+                try (InputStream in = zip.getInputStream(z)) {
+                    data = Ipa.readAll(in);
+                }
+                String ext = rel.contains(".") ? rel.substring(rel.lastIndexOf('.') + 1).toLowerCase(java.util.Locale.ROOT) : "";
+                if (ext.equals("png") && Ipa.CgBI.isCgBI(data)) {
+                    try {
+                        data = Ipa.CgBI.toPng(data);
+                    } catch (IOException bad) {
+                        // mantém o original
+                    }
+                }
+                put(zo, "assets/web/" + rel, data, STORED_EXT.contains(ext));
+                count++;
+            }
+        }
+        return count;
+    }
+
     static String metadata(Ipa ipa, String pkg) {
         return "{\"name\":" + json(ipa.name) + ",\"bundle\":" + json(ipa.bundleId) + ",\"version\":"
                 + json(ipa.version) + ",\"runtime\":" + json(ipa.runtime.name().toLowerCase()) + ",\"engine\":"
-                + json(ipa.engine) + ",\"package\":" + json(pkg) + ",\"portrait\":" + ipa.portrait + "}";
+                + json(ipa.engine) + ",\"package\":" + json(pkg) + ",\"portrait\":" + ipa.portrait
+                + (ipa.graphics.isEmpty() ? "" : ",\"graphics\":" + json(ipa.graphics))
+                + ",\"orientation\":" + json(ipa.orientation)
+                + (ipa.runtime != Ipa.Runtime.WEB ? "" : ",\"web\":{\"root\":" + json(ipa.webRoot)
+                        + ",\"start\":" + json(ipa.webStart) + ",\"orientation\":" + json(ipa.orientation) + "}")
+                + (ipa.hle == null ? "" : ",\"hle_check\":{\"verdict\":" + json(ipa.hle.verdict.name().toLowerCase())
+                        + ",\"coverage\":" + ipa.hle.coveragePercent()
+                        + ",\"missing_critical\":" + jsonArray(names(ipa.hle.critical())) + "}")
+                + ",\"warnings\":" + jsonArray(ipa.warnings) + "}";
+    }
+
+    private static java.util.List<String> names(java.util.List<HleCheck.Missing> v) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (HleCheck.Missing m : v) out.add(m.toString());
+        return out;
+    }
+
+    private static String jsonArray(java.util.List<String> v) {
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < v.size(); i++) b.append(i == 0 ? "" : ",").append(json(v.get(i)));
+        return b.append(']').toString();
     }
 
     private static String json(String s) {

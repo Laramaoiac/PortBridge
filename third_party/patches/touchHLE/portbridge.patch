@@ -1,5 +1,5 @@
 diff --git a/OPTIONS_HELP.txt b/OPTIONS_HELP.txt
-index 9297a5f..072b7e6 100644
+index 9297a5fa..072b7e64 100644
 --- a/OPTIONS_HELP.txt
 +++ b/OPTIONS_HELP.txt
 @@ -280,6 +280,12 @@ Other options:
@@ -16,7 +16,7 @@ index 9297a5f..072b7e6 100644
          Ignore host OpenGL errors as queried by glGetError function.
          This only affects return value of glGetError as seen by the guest
 diff --git a/src/audio.rs b/src/audio.rs
-index fd8b35c..b15fc37 100644
+index fd8b35cf..b15fc378 100644
 --- a/src/audio.rs
 +++ b/src/audio.rs
 @@ -48,6 +48,34 @@ pub struct AudioDescription {
@@ -69,7 +69,7 @@ index fd8b35c..b15fc37 100644
              Ok(AudioFile(AudioFileInner::Symphonia(pcm)))
          } else {
 diff --git a/src/dyld.rs b/src/dyld.rs
-index 71b8d00..f02c7b1 100644
+index 71b8d000..f02c7b1d 100644
 --- a/src/dyld.rs
 +++ b/src/dyld.rs
 @@ -228,6 +228,8 @@ pub struct Dyld {
@@ -139,10 +139,29 @@ index 71b8d00..f02c7b1 100644
      }
  
 diff --git a/src/environment.rs b/src/environment.rs
-index 131c45d..2cf8ccb 100644
+index 131c45d6..63988857 100644
 --- a/src/environment.rs
 +++ b/src/environment.rs
-@@ -497,6 +497,26 @@ impl Environment {
+@@ -314,9 +314,15 @@ impl Environment {
+         // should be handled before creating the window because handling of
+         // window rotation after-the-fact is somewhat glitchy.
+         // This also ensures the splash screen is correctly oriented.
+-        if options.initial_orientation == window::DeviceOrientation::Portrait {
+-            if let Some(&non_portrait_orientation) = bundle
+-                .supported_interface_orientations()
++        // PortBridge: only when the app doesn't support portrait at all. Apps
++        // listing [Portrait, PortraitUpsideDown] (SunFlowers) were started
++        // upside down: the launch image showed inverted and the app turned
++        // its views around to compensate.
++        let supported = bundle.supported_interface_orientations();
++        if options.initial_orientation == window::DeviceOrientation::Portrait
++            && !supported.contains(&"UIInterfaceOrientationPortrait")
++        {
++            if let Some(&non_portrait_orientation) = supported
+                 .iter()
+                 .find(|&&o| o != "UIInterfaceOrientationPortrait")
+             {
+@@ -497,6 +503,26 @@ impl Environment {
              }
          }
  
@@ -169,7 +188,7 @@ index 131c45d..2cf8ccb 100644
          let entry_point_addr = executable
              .entry_point_pc
              .ok_or_else(|| {
-@@ -1608,7 +1628,38 @@ impl Environment {
+@@ -1608,7 +1634,38 @@ impl Environment {
                              svc_pc,
                              svc,
                          ) {
@@ -210,7 +229,7 @@ index 131c45d..2cf8ccb 100644
                                  log_once!("Applying zeroing of stack after guest to host call.");
                                  let start = self.cpu.regs()[cpu::Cpu::SP] - len;
 diff --git a/src/frameworks.rs b/src/frameworks.rs
-index 30c70c0..a295725 100644
+index 30c70c09..a2957250 100644
 --- a/src/frameworks.rs
 +++ b/src/frameworks.rs
 @@ -53,6 +53,8 @@ pub struct State {
@@ -223,7 +242,7 @@ index 30c70c0..a295725 100644
  
  /// Container for thread local state of various child modules
 diff --git a/src/frameworks/audio_toolbox/audio_services.rs b/src/frameworks/audio_toolbox/audio_services.rs
-index b8469b5..1d22e1c 100644
+index b8469b54..1d22e1c8 100644
 --- a/src/frameworks/audio_toolbox/audio_services.rs
 +++ b/src/frameworks/audio_toolbox/audio_services.rs
 @@ -141,7 +141,8 @@ fn AudioServicesGetProperty(
@@ -237,7 +256,7 @@ index b8469b5..1d22e1c 100644
          let (state, context) =
              State::get_with_context(&mut env.framework_state, &mut env.openal_manager);
 diff --git a/src/frameworks/audio_toolbox/extended_audio_file.rs b/src/frameworks/audio_toolbox/extended_audio_file.rs
-index f973abf..f224f96 100644
+index f973abf6..f224f967 100644
 --- a/src/frameworks/audio_toolbox/extended_audio_file.rs
 +++ b/src/frameworks/audio_toolbox/extended_audio_file.rs
 @@ -55,6 +55,63 @@ type ExtAudioFileRef = MutPtr<OpaqueExtAudioFile>;
@@ -561,8 +580,110 @@ index f973abf..f224f96 100644
 +    export_c_func!(ExtAudioFileTell(_, _)),
      export_c_func!(ExtAudioFileDispose(_)),
  ];
+diff --git a/src/frameworks/core_animation/ca_eagl_layer.rs b/src/frameworks/core_animation/ca_eagl_layer.rs
+index 36b8132c..c344401d 100644
+--- a/src/frameworks/core_animation/ca_eagl_layer.rs
++++ b/src/frameworks/core_animation/ca_eagl_layer.rs
+@@ -46,8 +46,17 @@ pub const CLASSES: ClassExports = objc_classes! {
+ /// and present it directly from the app's context. This function is used to
+ /// determine when that will happen.
+ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
++    find_fullscreen_eagl_layer_and_half_turn(env).0
++}
++
++/// PortBridge: like [find_fullscreen_eagl_layer], also accepting layers
++/// rotated by 180° (SunFlowers draws upside down and turns its OpenGL ES view
++/// around with `CGAffineTransformMakeRotation(M_PI)`). The `bool` says whether
++/// the frame has to be presented rotated by 180° to look as it would after
++/// composition.
++pub fn find_fullscreen_eagl_layer_and_half_turn(env: &mut Environment) -> (id, bool) {
+     if env.options.force_composition {
+-        return nil;
++        return (nil, false);
+     }
+ 
+     let windows = env.framework_state.uikit.ui_view.ui_window.windows.clone();
+@@ -58,7 +67,7 @@ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
+         .rev()
+         .find(|&window| !msg![env; window isHidden])
+     else {
+-        return nil;
++        return (nil, false);
+     };
+ 
+     let screen_bounds: CGRect = {
+@@ -67,6 +76,7 @@ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
+     };
+ 
+     let mut layer: id = msg![env; top_window layer];
++    let mut half_turn = false;
+ 
+     // Descend through the hierarchy, looking only at the last layer in each
+     // list of children, since that should be the one on top.
+@@ -79,21 +89,33 @@ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
+         // This is stricter than it should be. In theory we should accumulate
+         // the transforms and handle different anchor points etc, but real apps
+         // probably only use this common case.
+-        if layer_host_obj.bounds.size != screen_bounds.size
+-            || layer_host_obj.bounds.origin != (CGPoint { x: 0.0, y: 0.0 })
++        // PortBridge: compared with a tolerance. Apps that rotate their
++        // OpenGL ES view to follow the device (CGAffineTransformMakeRotation
++        // with 0 or 2π) get sin() ≈ 1e-7 instead of 0 in single precision,
++        // and bounds like 320.00006x480.00003; SunFlowers does this. Such a
++        // layer still covers the screen exactly and can use the fast path.
++        let near = |a: f32, b: f32| (a - b).abs() < 0.01;
++        let t = layer_host_obj.affine_transform;
++        let axis_aligned = t.b.abs() < 1e-4 && t.c.abs() < 1e-4 && near(t.tx, 0.0) && near(t.ty, 0.0);
++        let near_identity = axis_aligned && (t.a - 1.0).abs() < 1e-4 && (t.d - 1.0).abs() < 1e-4;
++        let near_half_turn = axis_aligned && (t.a + 1.0).abs() < 1e-4 && (t.d + 1.0).abs() < 1e-4;
++        if !near(layer_host_obj.bounds.size.width, screen_bounds.size.width)
++            || !near(layer_host_obj.bounds.size.height, screen_bounds.size.height)
++            || !near(layer_host_obj.bounds.origin.x, 0.0)
++            || !near(layer_host_obj.bounds.origin.y, 0.0)
+             || layer_host_obj.anchor_point != (CGPoint { x: 0.5, y: 0.5 })
+-            || layer_host_obj.position
+-                != (CGPoint {
+-                    x: screen_bounds.size.width / 2.0,
+-                    y: screen_bounds.size.height / 2.0,
+-                })
++            || !near(layer_host_obj.position.x, screen_bounds.size.width / 2.0)
++            || !near(layer_host_obj.position.y, screen_bounds.size.height / 2.0)
+             || layer_host_obj.hidden
+             || layer_host_obj.opacity != 1.0
+             // TODO: support affine transforms that result in a full-screen
+             //       layer (typical example is 90° rotation).
+-            || !layer_host_obj.affine_transform.is_identity()
++            || !(near_identity || near_half_turn)
+         {
+-            return nil;
++            return (nil, false);
++        }
++        if near_half_turn {
++            half_turn = !half_turn;
+         }
+ 
+         if let Some(&next) = layer_host_obj.sublayers.last() {
+@@ -104,15 +126,15 @@ pub fn find_fullscreen_eagl_layer(env: &mut Environment) -> id {
+     }
+ 
+     if !env.objc.borrow::<CALayerHostObject>(layer).opaque {
+-        return nil;
++        return (nil, false);
+     }
+ 
+     let ca_eagl_layer_class: Class = msg_class![env; CAEAGLLayer class];
+     if !msg![env; layer isKindOfClass:ca_eagl_layer_class] {
+-        return nil;
++        return (nil, false);
+     }
+ 
+-    layer
++    (layer, half_turn)
+ }
+ 
+ /// For use by `EAGLContext` when presenting to a `CAEAGLLayer`:
 diff --git a/src/frameworks/core_graphics/cg_image.rs b/src/frameworks/core_graphics/cg_image.rs
-index a6b936a..02aa003 100644
+index a6b936a3..02aa0031 100644
 --- a/src/frameworks/core_graphics/cg_image.rs
 +++ b/src/frameworks/core_graphics/cg_image.rs
 @@ -205,11 +205,19 @@ fn CGImageCreateWithJPEGDataProvider(
@@ -588,7 +709,7 @@ index a6b936a..02aa003 100644
  
  fn CGImageGetColorSpace(env: &mut Environment, _image: CGImageRef) -> CGColorSpaceRef {
 diff --git a/src/frameworks/foundation.rs b/src/frameworks/foundation.rs
-index 441c507..d112ca7 100644
+index 441c5074..d112ca7e 100644
 --- a/src/frameworks/foundation.rs
 +++ b/src/frameworks/foundation.rs
 @@ -44,6 +44,7 @@ pub mod ns_notification_center;
@@ -608,7 +729,7 @@ index 441c507..d112ca7 100644
          ns_null::CLASSES,
          ns_method_signature::CLASSES,
 diff --git a/src/frameworks/foundation/ns_array.rs b/src/frameworks/foundation/ns_array.rs
-index a23f284..a192554 100644
+index a23f2847..a1925547 100644
 --- a/src/frameworks/foundation/ns_array.rs
 +++ b/src/frameworks/foundation/ns_array.rs
 @@ -248,6 +248,12 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -643,7 +764,7 @@ index a23f284..a192554 100644
  
  // Our private subclass that is the single implementation of NSArray for the
 diff --git a/src/frameworks/foundation/ns_dictionary.rs b/src/frameworks/foundation/ns_dictionary.rs
-index 7e49445..6d70520 100644
+index 7e494450..6d705209 100644
 --- a/src/frameworks/foundation/ns_dictionary.rs
 +++ b/src/frameworks/foundation/ns_dictionary.rs
 @@ -381,6 +381,20 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -697,7 +818,7 @@ index 7e49445..6d70520 100644
  // Our private subclass that is the single implementation of NSDictionary for
 diff --git a/src/frameworks/foundation/ns_ordered_set.rs b/src/frameworks/foundation/ns_ordered_set.rs
 new file mode 100644
-index 0000000..740ec00
+index 00000000..740ec007
 --- /dev/null
 +++ b/src/frameworks/foundation/ns_ordered_set.rs
 @@ -0,0 +1,214 @@
@@ -916,7 +1037,7 @@ index 0000000..740ec00
 +
 +};
 diff --git a/src/frameworks/foundation/ns_run_loop.rs b/src/frameworks/foundation/ns_run_loop.rs
-index f473e09..e8a3ecd 100644
+index f473e095..e8a3ecd1 100644
 --- a/src/frameworks/foundation/ns_run_loop.rs
 +++ b/src/frameworks/foundation/ns_run_loop.rs
 @@ -86,6 +86,11 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -932,7 +1053,7 @@ index f473e09..e8a3ecd 100644
  
  - (id) retain { this }
 diff --git a/src/frameworks/foundation/ns_string.rs b/src/frameworks/foundation/ns_string.rs
-index 99906b0..bcbb17f 100644
+index 99906b07..bcbb17f1 100644
 --- a/src/frameworks/foundation/ns_string.rs
 +++ b/src/frameworks/foundation/ns_string.rs
 @@ -62,6 +62,8 @@ const C_STRING_FRIENDLY_ENCODINGS: &[NSStringEncoding] = &[
@@ -981,7 +1102,7 @@ index 99906b0..bcbb17f 100644
                  StringHostObject::Utf8(Cow::Owned(cow.to_string()))
              }
 diff --git a/src/frameworks/foundation/ns_timer.rs b/src/frameworks/foundation/ns_timer.rs
-index 68fc992..e978cdf 100644
+index 68fc992d..e978cdf0 100644
 --- a/src/frameworks/foundation/ns_timer.rs
 +++ b/src/frameworks/foundation/ns_timer.rs
 @@ -66,6 +66,18 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -1003,11 +1124,65 @@ index 68fc992..e978cdf 100644
      log_dbg!(
          "New {} timer {:?}, interval {}s, target [{:?} {}], user info {:?}",
          if repeats { "repeating" } else { "single-use" },
+diff --git a/src/frameworks/opengles.rs b/src/frameworks/opengles.rs
+index b00645cc..da60c4ea 100644
+--- a/src/frameworks/opengles.rs
++++ b/src/frameworks/opengles.rs
+@@ -10,6 +10,7 @@
+ //! topic.
+ 
+ mod eagl;
++mod gles2_guest;
+ mod gles_guest;
+ 
+ use touchHLE_gl_bindings::gles11::types::GLenum;
+@@ -21,7 +22,7 @@ pub const DYLIB: crate::dyld::HostDylib = crate::dyld::HostDylib {
+     aliases: &[],
+     class_exports: &[eagl::CLASSES],
+     constant_exports: &[eagl::CONSTANTS],
+-    function_exports: &[gles_guest::FUNCTIONS],
++    function_exports: &[gles_guest::FUNCTIONS, gles2_guest::FUNCTIONS],
+ };
+ 
+ #[derive(Default)]
 diff --git a/src/frameworks/opengles/eagl.rs b/src/frameworks/opengles/eagl.rs
-index 32a0b5c..fc85a8e 100644
+index 32a0b5ce..38fd9806 100644
 --- a/src/frameworks/opengles/eagl.rs
 +++ b/src/frameworks/opengles/eagl.rs
-@@ -67,6 +67,20 @@ pub(super) struct EAGLContextHostObject {
+@@ -7,7 +7,7 @@
+ 
+ use crate::dyld::{ConstantExports, HostConstant};
+ use crate::frameworks::core_animation::ca_eagl_layer::{
+-    find_fullscreen_eagl_layer, get_pixels_vec_for_presenting, present_pixels,
++    find_fullscreen_eagl_layer_and_half_turn, get_pixels_vec_for_presenting, present_pixels,
+ };
+ use crate::frameworks::core_graphics::{CGRect, CGSize};
+ use crate::frameworks::foundation::ns_string::get_static_str;
+@@ -15,7 +15,7 @@ use crate::frameworks::foundation::NSUInteger;
+ use crate::gles::gles11_raw as gles11; // constants only
+ use crate::gles::gles11_raw::types::*;
+ use crate::gles::present::{present_frame, FpsCounter};
+-use crate::gles::{create_gles1_ctx, gles1_on_gl2, GLESContext, GLES};
++use crate::gles::{create_gles1_ctx, create_gles2_ctx, gles1_on_gl2, GLESContext, GLES};
+ use crate::mem::MutPtr;
+ use crate::objc::{id, msg, nil, objc_classes, release, retain, ClassExports, HostObject};
+ use crate::options::Options;
+@@ -54,19 +54,34 @@ pub const CONSTANTS: ConstantExports = &[
+ 
+ type EAGLRenderingAPI = u32;
+ const kEAGLRenderingAPIOpenGLES1: EAGLRenderingAPI = 1;
+-#[allow(dead_code)]
+ const kEAGLRenderingAPIOpenGLES2: EAGLRenderingAPI = 2;
+ #[allow(dead_code)]
+ const kEAGLRenderingAPIOpenGLES3: EAGLRenderingAPI = 3;
+ 
+ pub(super) struct EAGLContextHostObject {
+     pub(super) gles_ctx: Option<Box<dyn GLESContext>>,
++    /// PortBridge: kEAGLRenderingAPIOpenGLES1 or kEAGLRenderingAPIOpenGLES2.
++    pub(super) api: EAGLRenderingAPI,
+     /// Mapping of OpenGL ES renderbuffer names to `EAGLDrawable` instances
+     /// (always `CAEAGLLayer*`). Retains the instance so it won't dangle.
+     renderbuffer_drawable_bindings: Rc<RefCell<HashMap<GLuint, id>>>,
      fps_counter: Option<FpsCounter>,
      next_frame_due: Option<Instant>,
      pub mapped_buffers: HashMap<GLuint, (MutPtr<GLvoid>, *mut GLvoid)>,
@@ -1028,7 +1203,12 @@ index 32a0b5c..fc85a8e 100644
  }
  impl HostObject for EAGLContextHostObject {}
  
-@@ -83,6 +97,14 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -79,10 +94,19 @@ pub const CLASSES: ClassExports = objc_classes! {
+ + (id)alloc {
+     let host_object = Box::new(EAGLContextHostObject {
+         gles_ctx: None,
++        api: kEAGLRenderingAPIOpenGLES1,
+         renderbuffer_drawable_bindings: Rc::new(RefCell::new(HashMap::new())),
          fps_counter: None,
          next_frame_due: None,
          mapped_buffers: HashMap::new(),
@@ -1043,7 +1223,86 @@ index 32a0b5c..fc85a8e 100644
      });
      env.objc.alloc_object(this, host_object, &mut env.mem)
  }
-@@ -268,6 +290,26 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -110,7 +134,7 @@ pub const CLASSES: ClassExports = objc_classes! {
+ }
+ 
+ - (id)initWithAPI:(EAGLRenderingAPI)api sharegroup:(id)group {
+-    if api != kEAGLRenderingAPIOpenGLES1 {
++    if api != kEAGLRenderingAPIOpenGLES1 && api != kEAGLRenderingAPIOpenGLES2 {
+         log!(
+             "TODO: App requested EAGL initWithAPI:{} sharegroup:{:?}, returning nil as we only support API 1 for now",
+             api,
+@@ -135,7 +159,17 @@ pub const CLASSES: ClassExports = objc_classes! {
+     }
+     env.window.as_mut().unwrap().set_share_with_current_context(true);
+ 
+-    let mut gles1_ins = create_gles1_ctx(env);
++    let gles1_ins = if api == kEAGLRenderingAPIOpenGLES2 {
++        create_gles2_ctx(env)
++    } else {
++        Some(create_gles1_ctx(env))
++    };
++    let Some(mut gles1_ins) = gles1_ins else {
++        env.window.as_mut().unwrap().set_share_with_current_context(false);
++        log!("PortBridge: could not create an OpenGL ES {} context, returning nil", api);
++        release(env, this);
++        return nil;
++    };
+ 
+     let window = env.window.as_mut().expect("OpenGL ES is not supported in headless mode");
+     {
+@@ -144,6 +178,7 @@ pub const CLASSES: ClassExports = objc_classes! {
+     }
+ 
+     env.objc.borrow_mut::<EAGLContextHostObject>(this).gles_ctx = Some(gles1_ins);
++    env.objc.borrow_mut::<EAGLContextHostObject>(this).api = api;
+ 
+     env.window.as_mut().unwrap().set_share_with_current_context(false);
+ 
+@@ -152,7 +187,7 @@ pub const CLASSES: ClassExports = objc_classes! {
+ }
+ 
+ - (id)initWithAPI:(EAGLRenderingAPI)api {
+-    if api != kEAGLRenderingAPIOpenGLES1 {
++    if api != kEAGLRenderingAPIOpenGLES1 && api != kEAGLRenderingAPIOpenGLES2 {
+         log!(
+             "TODO: App requested EAGL initWithAPI:{}, returning nil as we only support API 1 for now",
+             api
+@@ -160,7 +195,16 @@ pub const CLASSES: ClassExports = objc_classes! {
+         return nil;
+     }
+ 
+-    let mut gles1_ins = create_gles1_ctx(env);
++    let gles1_ins = if api == kEAGLRenderingAPIOpenGLES2 {
++        create_gles2_ctx(env)
++    } else {
++        Some(create_gles1_ctx(env))
++    };
++    let Some(mut gles1_ins) = gles1_ins else {
++        log!("PortBridge: could not create an OpenGL ES {} context, returning nil", api);
++        release(env, this);
++        return nil;
++    };
+ 
+     let window = env.window.as_mut().expect("OpenGL ES is not supported in headless mode");
+     {
+@@ -169,13 +213,13 @@ pub const CLASSES: ClassExports = objc_classes! {
+     }
+ 
+     env.objc.borrow_mut::<EAGLContextHostObject>(this).gles_ctx = Some(gles1_ins);
++    env.objc.borrow_mut::<EAGLContextHostObject>(this).api = api;
+ 
+     this
+ }
+ 
+ - (EAGLRenderingAPI)API {
+-    // TODO: support later API versions
+-    kEAGLRenderingAPIOpenGLES1
++    env.objc.borrow::<EAGLContextHostObject>(this).api
+ }
+ 
+ - (id)sharegroup {
+@@ -268,6 +312,26 @@ pub const CLASSES: ClassExports = objc_classes! {
      // delayed, so this needs to be checked before returning.
      let sleep_for = limit_framerate(&mut env.objc.borrow_mut::<EAGLContextHostObject>(this).next_frame_due, &env.options);
  
@@ -1070,7 +1329,25 @@ index 32a0b5c..fc85a8e 100644
      if env.options.print_fps {
          env
              .objc
-@@ -542,11 +584,181 @@ unsafe fn read_renderbuffer(gles: &mut dyn GLES, mut pixel_buffer: Vec<u8>) -> (
+@@ -277,7 +341,7 @@ pub const CLASSES: ClassExports = objc_classes! {
+             .count_frame(format_args!("EAGLContext {this:?}"));
+     }
+ 
+-    let fullscreen_layer = find_fullscreen_eagl_layer(env);
++    let (fullscreen_layer, half_turn) = find_fullscreen_eagl_layer_and_half_turn(env);
+ 
+     // Unclear from documentation if this method requires the context to be
+     // current, but it would be weird if it didn't?
+@@ -312,7 +376,7 @@ pub const CLASSES: ClassExports = objc_classes! {
+         );
+         // re-borrow
+         unsafe {
+-            present_renderbuffer(env);
++            present_renderbuffer(env, half_turn);
+         }
+     } else {
+         if fullscreen_layer != nil {
+@@ -542,14 +606,184 @@ unsafe fn read_renderbuffer(gles: &mut dyn GLES, mut pixel_buffer: Vec<u8>) -> (
      (pixel_buffer, width_u32, height_u32)
  }
  
@@ -1083,7 +1360,7 @@ index 32a0b5c..fc85a8e 100644
 +/// Android drivers report that state wrongly: Ninja Striker enables GL_BLEND
 +/// once at startup, and on a Samsung phone blending was gone after the first
 +/// frame, so the green color key showed behind every sprite.
-+unsafe fn present_renderbuffer(env: &mut Environment) {
++unsafe fn present_renderbuffer(env: &mut Environment, half_turn: bool) {
 +    let ctx_id = env
 +        .framework_state
 +        .opengles
@@ -1095,7 +1372,7 @@ index 32a0b5c..fc85a8e 100644
 +        (host.presenter.is_some(), host.presenter_failed)
 +    };
 +    if failed {
-+        return present_renderbuffer_in_place(env);
++        return present_renderbuffer_in_place(env, half_turn);
 +    }
 +    if !has_presenter {
 +        // The app's context must be current so the new one shares with it.
@@ -1122,14 +1399,14 @@ index 32a0b5c..fc85a8e 100644
 +            None => {
 +                log!("PortBridge: could not create a shared context for presenting; using the in-place path.");
 +                host.presenter_failed = true;
-+                return present_renderbuffer_in_place(env);
++                return present_renderbuffer_in_place(env, half_turn);
 +            }
 +        }
 +    }
 +
 +    let started = Instant::now();
 +    let viewport = env.window.as_mut().unwrap().viewport();
-+    let rotation_matrix = env.window.as_mut().unwrap().rotation_matrix();
++    let rotation_matrix = with_half_turn(env.window.as_mut().unwrap().rotation_matrix(), half_turn);
 +    let virtual_cursor_visible_at = env.window.as_mut().unwrap().virtual_cursor_visible_at();
 +
 +    // Read which renderbuffer to show (app context; nothing is changed there).
@@ -1249,12 +1526,749 @@ index 32a0b5c..fc85a8e 100644
  /// [present_frame], trying to avoid noticeably modifying OpenGL ES state while
  /// doing so. The front and back buffers are then swapped.
 -unsafe fn present_renderbuffer(env: &mut Environment) {
-+unsafe fn present_renderbuffer_in_place(env: &mut Environment) {
++unsafe fn present_renderbuffer_in_place(env: &mut Environment, half_turn: bool) {
      // Save these for when we need to draw the frame
      let viewport = env.window.as_mut().unwrap().viewport();
-     let rotation_matrix = env.window.as_mut().unwrap().rotation_matrix();
+-    let rotation_matrix = env.window.as_mut().unwrap().rotation_matrix();
++    let rotation_matrix = with_half_turn(env.window.as_mut().unwrap().rotation_matrix(), half_turn);
+     let virtual_cursor_visible_at = env.window.as_mut().unwrap().virtual_cursor_visible_at();
+ 
+     let gles_ctx = super::get_thread_context(
+@@ -760,3 +994,13 @@ unsafe fn present_renderbuffer(env: &mut Environment) {
+ 
+     // { let err = gles.GetError(); if err != 0 { panic!("{:#x}", err); } }
+ }
++
++/// PortBridge: adds the 180° turn of the app's layer (see
++/// [find_fullscreen_eagl_layer_and_half_turn]) to the device rotation.
++fn with_half_turn(rotation: crate::matrix::Matrix<2>, half_turn: bool) -> crate::matrix::Matrix<2> {
++    if half_turn {
++        rotation.multiply(&crate::matrix::Matrix::<2>::z_rotation(std::f32::consts::PI))
++    } else {
++        rotation
++    }
++}
+diff --git a/src/frameworks/opengles/gles2_guest.rs b/src/frameworks/opengles/gles2_guest.rs
+new file mode 100644
+index 00000000..065e4df9
+--- /dev/null
++++ b/src/frameworks/opengles/gles2_guest.rs
+@@ -0,0 +1,713 @@
++/*
++ * This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
++ */
++//! PortBridge: the OpenGL ES 2.0 functions that OpenGL ES 1.1 doesn't have
++//! (shaders, programs, uniforms, vertex attributes, vertex array objects and
++//! the core names of the framebuffer functions).
++//!
++//! The functions both versions share live in [super::gles_guest] and reach the
++//! driver through [crate::gles::GLES], which [crate::gles::gles2] implements.
++
++use super::eagl::EAGLContextHostObject;
++use crate::dyld::{export_c_func, FunctionExports};
++use crate::gles::gles11_raw::types::{
++    GLboolean, GLchar, GLclampf, GLenum, GLfloat, GLint, GLsizei, GLuint, GLvoid,
++};
++use crate::gles::gles2::{raw as gl, shader_source_prefix};
++use crate::mem::{ConstPtr, ConstVoidPtr, GuestUSize, Mem, MutPtr, MutVoidPtr, Ptr};
++use crate::Environment;
++
++/// Makes the thread's EAGLContext current and runs `f` with the ES 2.0
++/// functions available. Without an ES 2.0 context the call is ignored (with a
++/// log line) and `f` is not run.
++fn with_ctx2<U: Default>(env: &mut Environment, name: &str, f: impl FnOnce(&mut Mem) -> U) -> U {
++    let Some(ctx) = *env
++        .framework_state
++        .opengles
++        .current_ctx_for_thread(env.current_thread)
++    else {
++        log!(
++            "Warning: {} called with no EAGLContext on thread {}; ignored",
++            name,
++            env.current_thread
++        );
++        return U::default();
++    };
++    if env.objc.borrow::<EAGLContextHostObject>(ctx).api != 2 {
++        log!("Warning: {} (OpenGL ES 2.0) called on an OpenGL ES 1.1 context; ignored", name);
++        return U::default();
++    }
++    let _gles = super::sync_context(
++        &mut env.framework_state.opengles,
++        &mut env.objc,
++        env.window
++            .as_mut()
++            .expect("OpenGL ES is not supported in headless mode"),
++        env.current_thread,
++    );
++    f(&mut env.mem)
++}
++
++fn count(n: GLsizei) -> GuestUSize {
++    n.max(0) as GuestUSize
++}
++
++/// Copies a host buffer into a guest `GLchar*` (`bufsize` bytes at most,
++/// NUL-terminated) and writes the length without the NUL to `length`.
++fn write_guest_string(mem: &mut Mem, s: &[u8], bufsize: GLsizei, length: MutPtr<GLsizei>, out: MutPtr<GLchar>) {
++    let n = if bufsize <= 0 || out.is_null() {
++        0
++    } else {
++        s.len().min(bufsize as usize - 1)
++    };
++    if !out.is_null() && bufsize > 0 {
++        let dst = mem.bytes_at_mut(out.cast(), n as GuestUSize + 1);
++        dst[..n].copy_from_slice(&s[..n]);
++        dst[n] = 0;
++    }
++    if !length.is_null() {
++        mem.write(length, n as GLsizei);
++    }
++}
++
++fn info_log(len: GLint, get: impl FnOnce(GLsizei, *mut GLsizei, *mut GLchar)) -> Vec<u8> {
++    let cap = len.max(1) as usize;
++    let mut buf = vec![0u8; cap];
++    let mut written: GLsizei = 0;
++    get(cap as GLsizei, &mut written, buf.as_mut_ptr() as *mut GLchar);
++    buf.truncate(written.max(0) as usize);
++    buf
++}
++
++// ---------------------------------------------------------------- shaders
++
++fn glCreateShader(env: &mut Environment, type_: GLenum) -> GLuint {
++    with_ctx2(env, "glCreateShader", |_| unsafe { gl::CreateShader(type_) })
++}
++fn glShaderSource(
++    env: &mut Environment,
++    shader: GLuint,
++    count_: GLsizei,
++    strings: ConstPtr<ConstPtr<GLchar>>,
++    lengths: ConstPtr<GLint>,
++) {
++    with_ctx2(env, "glShaderSource", |mem| {
++        let mut source = Vec::new();
++        for i in 0..count(count_) {
++            let s: ConstPtr<u8> = mem.read(strings + i).cast();
++            if s.is_null() {
++                continue;
++            }
++            let len = if lengths.is_null() { -1 } else { mem.read(lengths + i) };
++            if len < 0 {
++                source.extend_from_slice(mem.cstr_at(s));
++            } else {
++                source.extend_from_slice(mem.bytes_at(s, len as GuestUSize));
++            }
++        }
++        if let Some(prefix) = shader_source_prefix() {
++            if !source.windows(8).any(|w| w == b"#version") {
++                source.splice(0..0, prefix.bytes());
++            }
++        }
++        let ptr = source.as_ptr() as *const GLchar;
++        let len = source.len() as GLint;
++        unsafe { gl::ShaderSource(shader, 1, &ptr, &len) }
++    })
++}
++fn glCompileShader(env: &mut Environment, shader: GLuint) {
++    with_ctx2(env, "glCompileShader", |_| unsafe {
++        gl::CompileShader(shader);
++        let mut ok: GLint = 0;
++        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut ok);
++        if ok == 0 {
++            let mut len: GLint = 0;
++            gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
++            let msg = info_log(len, |a, b, c| gl::GetShaderInfoLog(shader, a, b, c));
++            log!(
++                "PortBridge: shader {} failed to compile: {}",
++                shader,
++                String::from_utf8_lossy(&msg)
++            );
++        }
++    })
++}
++fn glGetShaderiv(env: &mut Environment, shader: GLuint, pname: GLenum, params: MutPtr<GLint>) {
++    with_ctx2(env, "glGetShaderiv", |mem| {
++        let mut v: GLint = 0;
++        unsafe { gl::GetShaderiv(shader, pname, &mut v) };
++        mem.write(params, v);
++    })
++}
++fn glGetShaderInfoLog(
++    env: &mut Environment,
++    shader: GLuint,
++    bufsize: GLsizei,
++    length: MutPtr<GLsizei>,
++    infolog: MutPtr<GLchar>,
++) {
++    with_ctx2(env, "glGetShaderInfoLog", |mem| {
++        let mut len: GLint = 0;
++        unsafe { gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len) };
++        let msg = info_log(len, |a, b, c| unsafe { gl::GetShaderInfoLog(shader, a, b, c) });
++        write_guest_string(mem, &msg, bufsize, length, infolog);
++    })
++}
++fn glGetShaderSource(
++    env: &mut Environment,
++    shader: GLuint,
++    bufsize: GLsizei,
++    length: MutPtr<GLsizei>,
++    source: MutPtr<GLchar>,
++) {
++    with_ctx2(env, "glGetShaderSource", |mem| {
++        let mut len: GLint = 0;
++        unsafe { gl::GetShaderiv(shader, gl::SHADER_SOURCE_LENGTH, &mut len) };
++        let mut src = info_log(len, |a, b, c| unsafe { gl::GetShaderSource(shader, a, b, c) });
++        if let Some(prefix) = shader_source_prefix() {
++            if src.starts_with(prefix.as_bytes()) {
++                src.drain(..prefix.len());
++            }
++        }
++        write_guest_string(mem, &src, bufsize, length, source);
++    })
++}
++fn glDeleteShader(env: &mut Environment, shader: GLuint) {
++    with_ctx2(env, "glDeleteShader", |_| unsafe { gl::DeleteShader(shader) })
++}
++fn glIsShader(env: &mut Environment, shader: GLuint) -> GLboolean {
++    with_ctx2(env, "glIsShader", |_| unsafe { gl::IsShader(shader) })
++}
++fn glReleaseShaderCompiler(_env: &mut Environment) {}
++fn glGetShaderPrecisionFormat(
++    env: &mut Environment,
++    _shadertype: GLenum,
++    precisiontype: GLenum,
++    range: MutPtr<GLint>,
++    precision: MutPtr<GLint>,
++) {
++    // What the iPhone's PowerVR SGX reports (desktop OpenGL may not have
++    // this function at all).
++    let (r, p) = match precisiontype {
++        gl::LOW_FLOAT | gl::MEDIUM_FLOAT | gl::HIGH_FLOAT => ((127, 127), 23),
++        _ => ((31, 30), 0),
++    };
++    with_ctx2(env, "glGetShaderPrecisionFormat", |mem| {
++        mem.write(range, r.0);
++        mem.write(range + 1, r.1);
++        mem.write(precision, p);
++    })
++}
++
++// ---------------------------------------------------------------- programs
++
++fn glCreateProgram(env: &mut Environment) -> GLuint {
++    with_ctx2(env, "glCreateProgram", |_| unsafe { gl::CreateProgram() })
++}
++fn glAttachShader(env: &mut Environment, program: GLuint, shader: GLuint) {
++    with_ctx2(env, "glAttachShader", |_| unsafe { gl::AttachShader(program, shader) })
++}
++fn glDetachShader(env: &mut Environment, program: GLuint, shader: GLuint) {
++    with_ctx2(env, "glDetachShader", |_| unsafe { gl::DetachShader(program, shader) })
++}
++fn glLinkProgram(env: &mut Environment, program: GLuint) {
++    with_ctx2(env, "glLinkProgram", |_| unsafe {
++        gl::LinkProgram(program);
++        let mut ok: GLint = 0;
++        gl::GetProgramiv(program, gl::LINK_STATUS, &mut ok);
++        if ok == 0 {
++            let mut len: GLint = 0;
++            gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
++            let msg = info_log(len, |a, b, c| gl::GetProgramInfoLog(program, a, b, c));
++            log!(
++                "PortBridge: program {} failed to link: {}",
++                program,
++                String::from_utf8_lossy(&msg)
++            );
++        }
++    })
++}
++fn glGetProgramiv(env: &mut Environment, program: GLuint, pname: GLenum, params: MutPtr<GLint>) {
++    with_ctx2(env, "glGetProgramiv", |mem| {
++        let mut v: GLint = 0;
++        unsafe { gl::GetProgramiv(program, pname, &mut v) };
++        mem.write(params, v);
++    })
++}
++fn glGetProgramInfoLog(
++    env: &mut Environment,
++    program: GLuint,
++    bufsize: GLsizei,
++    length: MutPtr<GLsizei>,
++    infolog: MutPtr<GLchar>,
++) {
++    with_ctx2(env, "glGetProgramInfoLog", |mem| {
++        let mut len: GLint = 0;
++        unsafe { gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len) };
++        let msg = info_log(len, |a, b, c| unsafe { gl::GetProgramInfoLog(program, a, b, c) });
++        write_guest_string(mem, &msg, bufsize, length, infolog);
++    })
++}
++fn glUseProgram(env: &mut Environment, program: GLuint) {
++    with_ctx2(env, "glUseProgram", |_| unsafe { gl::UseProgram(program) })
++}
++fn glDeleteProgram(env: &mut Environment, program: GLuint) {
++    with_ctx2(env, "glDeleteProgram", |_| unsafe { gl::DeleteProgram(program) })
++}
++fn glIsProgram(env: &mut Environment, program: GLuint) -> GLboolean {
++    with_ctx2(env, "glIsProgram", |_| unsafe { gl::IsProgram(program) })
++}
++fn glValidateProgram(env: &mut Environment, program: GLuint) {
++    with_ctx2(env, "glValidateProgram", |_| unsafe { gl::ValidateProgram(program) })
++}
++fn glBindAttribLocation(env: &mut Environment, program: GLuint, index: GLuint, name: ConstPtr<GLchar>) {
++    with_ctx2(env, "glBindAttribLocation", |mem| {
++        let name = std::ffi::CString::new(mem.cstr_at(name.cast::<u8>())).unwrap();
++        unsafe { gl::BindAttribLocation(program, index, name.as_ptr()) }
++    })
++}
++fn glGetAttribLocation(env: &mut Environment, program: GLuint, name: ConstPtr<GLchar>) -> GLint {
++    with_ctx2(env, "glGetAttribLocation", |mem| {
++        let name = std::ffi::CString::new(mem.cstr_at(name.cast::<u8>())).unwrap();
++        unsafe { gl::GetAttribLocation(program, name.as_ptr()) }
++    })
++}
++fn glGetUniformLocation(env: &mut Environment, program: GLuint, name: ConstPtr<GLchar>) -> GLint {
++    with_ctx2(env, "glGetUniformLocation", |mem| {
++        let name = std::ffi::CString::new(mem.cstr_at(name.cast::<u8>())).unwrap();
++        unsafe { gl::GetUniformLocation(program, name.as_ptr()) }
++    })
++}
++#[allow(clippy::too_many_arguments)]
++fn get_active(
++    env: &mut Environment,
++    which: &str,
++    program: GLuint,
++    index: GLuint,
++    bufsize: GLsizei,
++    length: MutPtr<GLsizei>,
++    size: MutPtr<GLint>,
++    type_: MutPtr<GLenum>,
++    name: MutPtr<GLchar>,
++    uniform: bool,
++) {
++    with_ctx2(env, which, |mem| {
++        let mut buf = vec![0u8; 256];
++        let (mut written, mut sz, mut ty): (GLsizei, GLint, GLenum) = (0, 0, 0);
++        unsafe {
++            let f = if uniform { gl::GetActiveUniform } else { gl::GetActiveAttrib };
++            f(
++                program,
++                index,
++                buf.len() as GLsizei,
++                &mut written,
++                &mut sz,
++                &mut ty,
++                buf.as_mut_ptr() as *mut GLchar,
++            );
++        }
++        buf.truncate(written.max(0) as usize);
++        if !size.is_null() {
++            mem.write(size, sz);
++        }
++        if !type_.is_null() {
++            mem.write(type_, ty);
++        }
++        write_guest_string(mem, &buf, bufsize, length, name);
++    })
++}
++#[allow(clippy::too_many_arguments)]
++fn glGetActiveAttrib(
++    env: &mut Environment,
++    program: GLuint,
++    index: GLuint,
++    bufsize: GLsizei,
++    length: MutPtr<GLsizei>,
++    size: MutPtr<GLint>,
++    type_: MutPtr<GLenum>,
++    name: MutPtr<GLchar>,
++) {
++    get_active(env, "glGetActiveAttrib", program, index, bufsize, length, size, type_, name, false)
++}
++#[allow(clippy::too_many_arguments)]
++fn glGetActiveUniform(
++    env: &mut Environment,
++    program: GLuint,
++    index: GLuint,
++    bufsize: GLsizei,
++    length: MutPtr<GLsizei>,
++    size: MutPtr<GLint>,
++    type_: MutPtr<GLenum>,
++    name: MutPtr<GLchar>,
++) {
++    get_active(env, "glGetActiveUniform", program, index, bufsize, length, size, type_, name, true)
++}
++fn glGetAttachedShaders(
++    env: &mut Environment,
++    program: GLuint,
++    maxcount: GLsizei,
++    count_out: MutPtr<GLsizei>,
++    shaders: MutPtr<GLuint>,
++) {
++    with_ctx2(env, "glGetAttachedShaders", |mem| {
++        let mut buf = vec![0 as GLuint; maxcount.max(0) as usize];
++        let mut n: GLsizei = 0;
++        unsafe { gl::GetAttachedShaders(program, maxcount.max(0), &mut n, buf.as_mut_ptr()) };
++        for (i, s) in buf.iter().take(n.max(0) as usize).enumerate() {
++            mem.write(shaders + i as GuestUSize, *s);
++        }
++        if !count_out.is_null() {
++            mem.write(count_out, n);
++        }
++    })
++}
++
++// ---------------------------------------------------------------- uniforms
++
++fn glUniform1f(env: &mut Environment, location: GLint, x: GLfloat) {
++    with_ctx2(env, "glUniform1f", |_| unsafe { gl::Uniform1f(location, x) })
++}
++fn glUniform2f(env: &mut Environment, location: GLint, x: GLfloat, y: GLfloat) {
++    with_ctx2(env, "glUniform2f", |_| unsafe { gl::Uniform2f(location, x, y) })
++}
++fn glUniform3f(env: &mut Environment, location: GLint, x: GLfloat, y: GLfloat, z: GLfloat) {
++    with_ctx2(env, "glUniform3f", |_| unsafe { gl::Uniform3f(location, x, y, z) })
++}
++fn glUniform4f(env: &mut Environment, location: GLint, x: GLfloat, y: GLfloat, z: GLfloat, w: GLfloat) {
++    with_ctx2(env, "glUniform4f", |_| unsafe { gl::Uniform4f(location, x, y, z, w) })
++}
++fn glUniform1i(env: &mut Environment, location: GLint, x: GLint) {
++    with_ctx2(env, "glUniform1i", |_| unsafe { gl::Uniform1i(location, x) })
++}
++fn glUniform2i(env: &mut Environment, location: GLint, x: GLint, y: GLint) {
++    with_ctx2(env, "glUniform2i", |_| unsafe { gl::Uniform2i(location, x, y) })
++}
++fn glUniform3i(env: &mut Environment, location: GLint, x: GLint, y: GLint, z: GLint) {
++    with_ctx2(env, "glUniform3i", |_| unsafe { gl::Uniform3i(location, x, y, z) })
++}
++fn glUniform4i(env: &mut Environment, location: GLint, x: GLint, y: GLint, z: GLint, w: GLint) {
++    with_ctx2(env, "glUniform4i", |_| unsafe { gl::Uniform4i(location, x, y, z, w) })
++}
++
++macro_rules! uniform_v {
++    ($name:ident, $gl:ident, $t:ty, $n:expr) => {
++        fn $name(env: &mut Environment, location: GLint, count_: GLsizei, v: ConstPtr<$t>) {
++            with_ctx2(env, stringify!($name), |mem| {
++                let p = mem.ptr_at(v, count(count_) * $n);
++                unsafe { gl::$gl(location, count_, p) }
++            })
++        }
++    };
++}
++uniform_v!(glUniform1fv, Uniform1fv, GLfloat, 1);
++uniform_v!(glUniform2fv, Uniform2fv, GLfloat, 2);
++uniform_v!(glUniform3fv, Uniform3fv, GLfloat, 3);
++uniform_v!(glUniform4fv, Uniform4fv, GLfloat, 4);
++uniform_v!(glUniform1iv, Uniform1iv, GLint, 1);
++uniform_v!(glUniform2iv, Uniform2iv, GLint, 2);
++uniform_v!(glUniform3iv, Uniform3iv, GLint, 3);
++uniform_v!(glUniform4iv, Uniform4iv, GLint, 4);
++
++macro_rules! uniform_matrix {
++    ($name:ident, $gl:ident, $n:expr) => {
++        fn $name(
++            env: &mut Environment,
++            location: GLint,
++            count_: GLsizei,
++            transpose: GLboolean,
++            v: ConstPtr<GLfloat>,
++        ) {
++            with_ctx2(env, stringify!($name), |mem| {
++                let p = mem.ptr_at(v, count(count_) * $n);
++                unsafe { gl::$gl(location, count_, transpose, p) }
++            })
++        }
++    };
++}
++uniform_matrix!(glUniformMatrix2fv, UniformMatrix2fv, 4);
++uniform_matrix!(glUniformMatrix3fv, UniformMatrix3fv, 9);
++uniform_matrix!(glUniformMatrix4fv, UniformMatrix4fv, 16);
++
++fn glGetUniformfv(env: &mut Environment, program: GLuint, location: GLint, params: MutPtr<GLfloat>) {
++    with_ctx2(env, "glGetUniformfv", |mem| {
++        let mut v = [0.0 as GLfloat; 16];
++        unsafe { gl::GetUniformfv(program, location, v.as_mut_ptr()) };
++        // The size depends on the uniform's type; mat4 is the largest.
++        let n = uniform_size(program, location);
++        for (i, x) in v.iter().take(n).enumerate() {
++            mem.write(params + i as GuestUSize, *x);
++        }
++    })
++}
++fn glGetUniformiv(env: &mut Environment, program: GLuint, location: GLint, params: MutPtr<GLint>) {
++    with_ctx2(env, "glGetUniformiv", |mem| {
++        let mut v = [0 as GLint; 16];
++        unsafe { gl::GetUniformiv(program, location, v.as_mut_ptr()) };
++        let n = uniform_size(program, location);
++        for (i, x) in v.iter().take(n).enumerate() {
++            mem.write(params + i as GuestUSize, *x);
++        }
++    })
++}
++/// Number of components of the uniform at `location` (1 if unknown).
++fn uniform_size(program: GLuint, location: GLint) -> usize {
++    unsafe {
++        let mut n: GLint = 0;
++        gl::GetProgramiv(program, gl::ACTIVE_UNIFORMS, &mut n);
++        let mut name = [0u8; 256];
++        for i in 0..n.max(0) as GLuint {
++            let (mut len, mut size, mut ty): (GLsizei, GLint, GLenum) = (0, 0, 0);
++            gl::GetActiveUniform(program, i, 256, &mut len, &mut size, &mut ty, name.as_mut_ptr() as *mut GLchar);
++            if gl::GetUniformLocation(program, name.as_ptr() as *const GLchar) == location {
++                return match ty {
++                    gl::FLOAT_VEC2 | gl::INT_VEC2 | gl::BOOL_VEC2 => 2,
++                    gl::FLOAT_VEC3 | gl::INT_VEC3 | gl::BOOL_VEC3 => 3,
++                    gl::FLOAT_VEC4 | gl::INT_VEC4 | gl::BOOL_VEC4 | gl::FLOAT_MAT2 => 4,
++                    gl::FLOAT_MAT3 => 9,
++                    gl::FLOAT_MAT4 => 16,
++                    _ => 1,
++                };
++            }
++        }
++        1
++    }
++}
++
++// ---------------------------------------------------------------- attributes
++
++fn glVertexAttribPointer(
++    env: &mut Environment,
++    index: GLuint,
++    size: GLint,
++    type_: GLenum,
++    normalized: GLboolean,
++    stride: GLsizei,
++    pointer: ConstVoidPtr,
++) {
++    with_ctx2(env, "glVertexAttribPointer", |mem| unsafe {
++        // An offset into the bound GL_ARRAY_BUFFER, or a pointer into guest
++        // memory (client-side array), which is mapped contiguously in host
++        // memory and stays valid until the draw call.
++        let mut buffer: GLint = 0;
++        gl::GetIntegerv(gl::ARRAY_BUFFER_BINDING, &mut buffer);
++        let host: *const GLvoid = if buffer != 0 || pointer.is_null() {
++            pointer.to_bits() as usize as *const GLvoid
++        } else {
++            mem.unchecked_ptr_at(pointer.cast::<u8>(), 0).cast()
++        };
++        gl::VertexAttribPointer(index, size, type_, normalized, stride, host)
++    })
++}
++fn glGetVertexAttribPointerv(env: &mut Environment, index: GLuint, pname: GLenum, pointer: MutPtr<MutVoidPtr>) {
++    with_ctx2(env, "glGetVertexAttribPointerv", |mem| unsafe {
++        let mut host: *mut GLvoid = std::ptr::null_mut();
++        gl::GetVertexAttribPointerv(index, pname, &mut host);
++        let mut buffer: GLint = 0;
++        gl::GetVertexAttribiv(index, gl::VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, &mut buffer);
++        let guest: MutVoidPtr = if buffer != 0 || host.is_null() {
++            Ptr::from_bits(host as usize as u32)
++        } else {
++            mem.host_ptr_to_guest_ptr(host as *const GLvoid).cast_mut()
++        };
++        mem.write(pointer, guest);
++    })
++}
++fn glEnableVertexAttribArray(env: &mut Environment, index: GLuint) {
++    with_ctx2(env, "glEnableVertexAttribArray", |_| unsafe { gl::EnableVertexAttribArray(index) })
++}
++fn glDisableVertexAttribArray(env: &mut Environment, index: GLuint) {
++    with_ctx2(env, "glDisableVertexAttribArray", |_| unsafe { gl::DisableVertexAttribArray(index) })
++}
++fn glVertexAttrib1f(env: &mut Environment, index: GLuint, x: GLfloat) {
++    with_ctx2(env, "glVertexAttrib1f", |_| unsafe { gl::VertexAttrib1f(index, x) })
++}
++fn glVertexAttrib2f(env: &mut Environment, index: GLuint, x: GLfloat, y: GLfloat) {
++    with_ctx2(env, "glVertexAttrib2f", |_| unsafe { gl::VertexAttrib2f(index, x, y) })
++}
++fn glVertexAttrib3f(env: &mut Environment, index: GLuint, x: GLfloat, y: GLfloat, z: GLfloat) {
++    with_ctx2(env, "glVertexAttrib3f", |_| unsafe { gl::VertexAttrib3f(index, x, y, z) })
++}
++fn glVertexAttrib4f(env: &mut Environment, index: GLuint, x: GLfloat, y: GLfloat, z: GLfloat, w: GLfloat) {
++    with_ctx2(env, "glVertexAttrib4f", |_| unsafe { gl::VertexAttrib4f(index, x, y, z, w) })
++}
++macro_rules! vertex_attrib_v {
++    ($name:ident, $gl:ident, $n:expr) => {
++        fn $name(env: &mut Environment, index: GLuint, v: ConstPtr<GLfloat>) {
++            with_ctx2(env, stringify!($name), |mem| {
++                let p = mem.ptr_at(v, $n);
++                unsafe { gl::$gl(index, p) }
++            })
++        }
++    };
++}
++vertex_attrib_v!(glVertexAttrib1fv, VertexAttrib1fv, 1);
++vertex_attrib_v!(glVertexAttrib2fv, VertexAttrib2fv, 2);
++vertex_attrib_v!(glVertexAttrib3fv, VertexAttrib3fv, 3);
++vertex_attrib_v!(glVertexAttrib4fv, VertexAttrib4fv, 4);
++fn glGetVertexAttribfv(env: &mut Environment, index: GLuint, pname: GLenum, params: MutPtr<GLfloat>) {
++    with_ctx2(env, "glGetVertexAttribfv", |mem| {
++        let mut v = [0.0 as GLfloat; 4];
++        unsafe { gl::GetVertexAttribfv(index, pname, v.as_mut_ptr()) };
++        let n = if pname == gl::CURRENT_VERTEX_ATTRIB { 4 } else { 1 };
++        for (i, x) in v.iter().take(n).enumerate() {
++            mem.write(params + i as GuestUSize, *x);
++        }
++    })
++}
++fn glGetVertexAttribiv(env: &mut Environment, index: GLuint, pname: GLenum, params: MutPtr<GLint>) {
++    with_ctx2(env, "glGetVertexAttribiv", |mem| {
++        let mut v = [0 as GLint; 4];
++        unsafe { gl::GetVertexAttribiv(index, pname, v.as_mut_ptr()) };
++        let n = if pname == gl::CURRENT_VERTEX_ATTRIB { 4 } else { 1 };
++        for (i, x) in v.iter().take(n).enumerate() {
++            mem.write(params + i as GuestUSize, *x);
++        }
++    })
++}
++
++// ---------------------------------------------------------------- vertex arrays (OES_vertex_array_object)
++
++fn glGenVertexArraysOES(env: &mut Environment, n: GLsizei, arrays: MutPtr<GLuint>) {
++    with_ctx2(env, "glGenVertexArraysOES", |mem| {
++        let p = mem.ptr_at_mut(arrays, count(n));
++        unsafe { gl::GenVertexArraysOES(n, p) }
++    })
++}
++fn glDeleteVertexArraysOES(env: &mut Environment, n: GLsizei, arrays: ConstPtr<GLuint>) {
++    with_ctx2(env, "glDeleteVertexArraysOES", |mem| {
++        let p = mem.ptr_at(arrays, count(n));
++        unsafe { gl::DeleteVertexArraysOES(n, p) }
++    })
++}
++fn glBindVertexArrayOES(env: &mut Environment, array: GLuint) {
++    with_ctx2(env, "glBindVertexArrayOES", |_| unsafe { gl::BindVertexArrayOES(array) })
++}
++fn glIsVertexArrayOES(env: &mut Environment, array: GLuint) -> GLboolean {
++    with_ctx2(env, "glIsVertexArrayOES", |_| unsafe { gl::IsVertexArrayOES(array) })
++}
++
++// ---------------------------------------------------------------- blending and stencil
++
++fn glBlendColor(env: &mut Environment, r: GLclampf, g: GLclampf, b: GLclampf, a: GLclampf) {
++    with_ctx2(env, "glBlendColor", |_| unsafe { gl::BlendColor(r, g, b, a) })
++}
++fn glBlendEquation(env: &mut Environment, mode: GLenum) {
++    with_ctx2(env, "glBlendEquation", |_| unsafe { gl::BlendEquation(mode) })
++}
++fn glBlendEquationSeparate(env: &mut Environment, rgb: GLenum, alpha: GLenum) {
++    with_ctx2(env, "glBlendEquationSeparate", |_| unsafe { gl::BlendEquationSeparate(rgb, alpha) })
++}
++fn glBlendFuncSeparate(env: &mut Environment, srgb: GLenum, drgb: GLenum, salpha: GLenum, dalpha: GLenum) {
++    with_ctx2(env, "glBlendFuncSeparate", |_| unsafe {
++        gl::BlendFuncSeparate(srgb, drgb, salpha, dalpha)
++    })
++}
++fn glStencilFuncSeparate(env: &mut Environment, face: GLenum, func: GLenum, ref_: GLint, mask: GLuint) {
++    with_ctx2(env, "glStencilFuncSeparate", |_| unsafe {
++        gl::StencilFuncSeparate(face, func, ref_, mask)
++    })
++}
++fn glStencilMaskSeparate(env: &mut Environment, face: GLenum, mask: GLuint) {
++    with_ctx2(env, "glStencilMaskSeparate", |_| unsafe { gl::StencilMaskSeparate(face, mask) })
++}
++fn glStencilOpSeparate(env: &mut Environment, face: GLenum, sfail: GLenum, dpfail: GLenum, dppass: GLenum) {
++    with_ctx2(env, "glStencilOpSeparate", |_| unsafe {
++        gl::StencilOpSeparate(face, sfail, dpfail, dppass)
++    })
++}
++fn glGetTexParameteriv(env: &mut Environment, target: GLenum, pname: GLenum, params: MutPtr<GLint>) {
++    with_ctx2(env, "glGetTexParameteriv", |mem| {
++        let mut v: GLint = 0;
++        unsafe { gl::GetTexParameteriv(target, pname, &mut v) };
++        mem.write(params, v);
++    })
++}
++fn glGetTexParameterfv(env: &mut Environment, target: GLenum, pname: GLenum, params: MutPtr<GLfloat>) {
++    with_ctx2(env, "glGetTexParameterfv", |mem| {
++        let mut v: GLfloat = 0.0;
++        unsafe { gl::GetTexParameterfv(target, pname, &mut v) };
++        mem.write(params, v);
++    })
++}
++/// EXT_discard_framebuffer is only a performance hint: nothing to do.
++fn glDiscardFramebufferEXT(_env: &mut Environment, _target: GLenum, _n: GLsizei, _attachments: ConstPtr<GLenum>) {}
++
++pub const FUNCTIONS: FunctionExports = &[
++    export_c_func!(glCreateShader(_)),
++    export_c_func!(glShaderSource(_, _, _, _)),
++    export_c_func!(glCompileShader(_)),
++    export_c_func!(glGetShaderiv(_, _, _)),
++    export_c_func!(glGetShaderInfoLog(_, _, _, _)),
++    export_c_func!(glGetShaderSource(_, _, _, _)),
++    export_c_func!(glDeleteShader(_)),
++    export_c_func!(glIsShader(_)),
++    export_c_func!(glReleaseShaderCompiler()),
++    export_c_func!(glGetShaderPrecisionFormat(_, _, _, _)),
++    export_c_func!(glCreateProgram()),
++    export_c_func!(glAttachShader(_, _)),
++    export_c_func!(glDetachShader(_, _)),
++    export_c_func!(glLinkProgram(_)),
++    export_c_func!(glGetProgramiv(_, _, _)),
++    export_c_func!(glGetProgramInfoLog(_, _, _, _)),
++    export_c_func!(glUseProgram(_)),
++    export_c_func!(glDeleteProgram(_)),
++    export_c_func!(glIsProgram(_)),
++    export_c_func!(glValidateProgram(_)),
++    export_c_func!(glBindAttribLocation(_, _, _)),
++    export_c_func!(glGetAttribLocation(_, _)),
++    export_c_func!(glGetUniformLocation(_, _)),
++    export_c_func!(glGetActiveAttrib(_, _, _, _, _, _, _)),
++    export_c_func!(glGetActiveUniform(_, _, _, _, _, _, _)),
++    export_c_func!(glGetAttachedShaders(_, _, _, _)),
++    export_c_func!(glUniform1f(_, _)),
++    export_c_func!(glUniform2f(_, _, _)),
++    export_c_func!(glUniform3f(_, _, _, _)),
++    export_c_func!(glUniform4f(_, _, _, _, _)),
++    export_c_func!(glUniform1i(_, _)),
++    export_c_func!(glUniform2i(_, _, _)),
++    export_c_func!(glUniform3i(_, _, _, _)),
++    export_c_func!(glUniform4i(_, _, _, _, _)),
++    export_c_func!(glUniform1fv(_, _, _)),
++    export_c_func!(glUniform2fv(_, _, _)),
++    export_c_func!(glUniform3fv(_, _, _)),
++    export_c_func!(glUniform4fv(_, _, _)),
++    export_c_func!(glUniform1iv(_, _, _)),
++    export_c_func!(glUniform2iv(_, _, _)),
++    export_c_func!(glUniform3iv(_, _, _)),
++    export_c_func!(glUniform4iv(_, _, _)),
++    export_c_func!(glUniformMatrix2fv(_, _, _, _)),
++    export_c_func!(glUniformMatrix3fv(_, _, _, _)),
++    export_c_func!(glUniformMatrix4fv(_, _, _, _)),
++    export_c_func!(glGetUniformfv(_, _, _)),
++    export_c_func!(glGetUniformiv(_, _, _)),
++    export_c_func!(glVertexAttribPointer(_, _, _, _, _, _)),
++    export_c_func!(glGetVertexAttribPointerv(_, _, _)),
++    export_c_func!(glEnableVertexAttribArray(_)),
++    export_c_func!(glDisableVertexAttribArray(_)),
++    export_c_func!(glVertexAttrib1f(_, _)),
++    export_c_func!(glVertexAttrib2f(_, _, _)),
++    export_c_func!(glVertexAttrib3f(_, _, _, _)),
++    export_c_func!(glVertexAttrib4f(_, _, _, _, _)),
++    export_c_func!(glVertexAttrib1fv(_, _)),
++    export_c_func!(glVertexAttrib2fv(_, _)),
++    export_c_func!(glVertexAttrib3fv(_, _)),
++    export_c_func!(glVertexAttrib4fv(_, _)),
++    export_c_func!(glGetVertexAttribfv(_, _, _)),
++    export_c_func!(glGetVertexAttribiv(_, _, _)),
++    export_c_func!(glGenVertexArraysOES(_, _)),
++    export_c_func!(glDeleteVertexArraysOES(_, _)),
++    export_c_func!(glBindVertexArrayOES(_)),
++    export_c_func!(glIsVertexArrayOES(_)),
++    export_c_func!(glBlendColor(_, _, _, _)),
++    export_c_func!(glBlendEquation(_)),
++    export_c_func!(glBlendEquationSeparate(_, _)),
++    export_c_func!(glBlendFuncSeparate(_, _, _, _)),
++    export_c_func!(glStencilFuncSeparate(_, _, _, _)),
++    export_c_func!(glStencilMaskSeparate(_, _)),
++    export_c_func!(glStencilOpSeparate(_, _, _, _)),
++    export_c_func!(glGetTexParameteriv(_, _, _)),
++    export_c_func!(glGetTexParameterfv(_, _, _)),
++    export_c_func!(glDiscardFramebufferEXT(_, _, _)),
++];
 diff --git a/src/frameworks/opengles/gles_guest.rs b/src/frameworks/opengles/gles_guest.rs
-index 9c86ac4..0cc7f8d 100644
+index 9c86ac4f..4b30b445 100644
 --- a/src/frameworks/opengles/gles_guest.rs
 +++ b/src/frameworks/opengles/gles_guest.rs
 @@ -154,6 +154,7 @@ fn glGetError(env: &mut Environment) -> GLenum {
@@ -1273,7 +2287,41 @@ index 9c86ac4..0cc7f8d 100644
      with_ctx_and_mem(env, |gles, _mem| {
          unsafe { gles.Disable(cap) };
      });
-@@ -304,6 +306,10 @@ fn glAlphaFuncx(env: &mut Environment, func: GLenum, ref_: GLclampx) {
+@@ -264,6 +266,33 @@ fn glFlush(env: &mut Environment) {
+     with_ctx_and_mem(env, |gles, _mem| unsafe { gles.Flush() })
+ }
+ fn glGetString(env: &mut Environment, name: GLenum) -> ConstPtr<GLubyte> {
++    // PortBridge: OpenGL ES 2.0 contexts get the strings of the same device
++    // (iPhone 4 / PowerVR SGX 535) for that API, cached separately.
++    let es2 = env
++        .framework_state
++        .opengles
++        .current_ctx_for_thread(env.current_thread)
++        .is_some_and(|ctx| env.objc.borrow::<EAGLContextHostObject>(ctx).api == 2);
++    if es2 {
++        let key = name | 0x8000_0000;
++        if let Some(&str) = env.framework_state.opengles.strings_cache.get(&key) {
++            return str;
++        }
++        let s: &[u8] = match name {
++            gles11::VENDOR => b"Imagination Technologies",
++            gles11::RENDERER => b"PowerVR SGX 535",
++            gles11::VERSION => b"OpenGL ES 2.0 IMGSGX535-63.24",
++            0x8B8C /* SHADING_LANGUAGE_VERSION */ => b"OpenGL ES GLSL ES 1.00",
++            gles11::EXTENSIONS => b"GL_OES_depth24 GL_OES_element_index_uint GL_OES_fbo_render_mipmap GL_OES_mapbuffer GL_OES_packed_depth_stencil GL_OES_rgb8_rgba8 GL_OES_standard_derivatives GL_OES_texture_half_float GL_OES_texture_float GL_OES_vertex_array_object GL_EXT_discard_framebuffer GL_EXT_texture_filter_anisotropic GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 GL_APPLE_texture_max_level GL_IMG_texture_compression_pvrtc GL_IMG_read_format ",
++            _ => {
++                log!("PortBridge: glGetString({:#x}) unknown name on OpenGL ES 2.0", name);
++                return ConstPtr::null();
++            }
++        };
++        let new_str = env.mem.alloc_and_write_cstr(s).cast_const();
++        env.framework_state.opengles.strings_cache.insert(key, new_str);
++        return new_str;
++    }
+     let res = if let Some(&str) = env.framework_state.opengles.strings_cache.get(&name) {
+         str
+     } else {
+@@ -304,6 +333,10 @@ fn glAlphaFuncx(env: &mut Environment, func: GLenum, ref_: GLclampx) {
      with_ctx_and_mem(env, |gles, _mem| unsafe { gles.AlphaFuncx(func, ref_) })
  }
  fn glBlendFunc(env: &mut Environment, sfactor: GLenum, dfactor: GLenum) {
@@ -1284,7 +2332,7 @@ index 9c86ac4..0cc7f8d 100644
      with_ctx_and_mem(env, |gles, _mem| unsafe {
          gles.BlendFunc(sfactor, dfactor)
      })
-@@ -1061,6 +1067,23 @@ fn glTexImage2D(
+@@ -1061,6 +1094,23 @@ fn glTexImage2D(
              let size = image_size_estimate(pixel_count, format, type_);
              mem.ptr_at(pixels.cast::<u8>(), size).cast::<GLvoid>()
          };
@@ -1308,7 +2356,7 @@ index 9c86ac4..0cc7f8d 100644
          gles.TexImage2D(
              target,
              level,
-@@ -1167,6 +1190,10 @@ fn glTexEnvx(env: &mut Environment, target: GLenum, pname: GLenum, param: GLfixe
+@@ -1167,6 +1217,10 @@ fn glTexEnvx(env: &mut Environment, target: GLenum, pname: GLenum, param: GLfixe
      })
  }
  fn glTexEnvi(env: &mut Environment, target: GLenum, pname: GLenum, param: GLint) {
@@ -1319,8 +2367,116 @@ index 9c86ac4..0cc7f8d 100644
      with_ctx_and_mem(env, |gles, _mem| unsafe {
          gles.TexEnvi(target, pname, param)
      })
+@@ -1448,6 +1502,84 @@ fn glUnmapBufferOES(env: &mut Environment, target: GLenum) -> GLboolean {
+ /// This workaround is required so Doom 2 RPG renders correctly.
+ /// It prevents divisions by zero in levels where fog is used and both
+ /// values are set to 10000.
++// PortBridge: OpenGL ES 2.0 has the framebuffer functions in the core, without
++// the OES suffix (same behavior and enum values as OES_framebuffer_object).
++fn glGenFramebuffers(env: &mut Environment, n: GLsizei, framebuffers: MutPtr<GLuint>) {
++    glGenFramebuffersOES(env, n, framebuffers)
++}
++fn glGenRenderbuffers(env: &mut Environment, n: GLsizei, renderbuffers: MutPtr<GLuint>) {
++    glGenRenderbuffersOES(env, n, renderbuffers)
++}
++fn glIsFramebuffer(env: &mut Environment, framebuffer: GLuint) -> GLboolean {
++    glIsFramebufferOES(env, framebuffer)
++}
++fn glIsRenderbuffer(env: &mut Environment, renderbuffer: GLuint) -> GLboolean {
++    glIsRenderbufferOES(env, renderbuffer)
++}
++fn glBindFramebuffer(env: &mut Environment, target: GLenum, framebuffer: GLuint) {
++    glBindFramebufferOES(env, target, framebuffer)
++}
++fn glBindRenderbuffer(env: &mut Environment, target: GLenum, renderbuffer: GLuint) {
++    glBindRenderbufferOES(env, target, renderbuffer)
++}
++fn glRenderbufferStorage(
++    env: &mut Environment,
++    target: GLenum,
++    internalformat: GLenum,
++    width: GLsizei,
++    height: GLsizei,
++) {
++    glRenderbufferStorageOES(env, target, internalformat, width, height)
++}
++fn glFramebufferRenderbuffer(
++    env: &mut Environment,
++    target: GLenum,
++    attachment: GLenum,
++    renderbuffertarget: GLenum,
++    renderbuffer: GLuint,
++) {
++    glFramebufferRenderbufferOES(env, target, attachment, renderbuffertarget, renderbuffer)
++}
++fn glFramebufferTexture2D(
++    env: &mut Environment,
++    target: GLenum,
++    attachment: GLenum,
++    textarget: GLenum,
++    texture: GLuint,
++    level: i32,
++) {
++    glFramebufferTexture2DOES(env, target, attachment, textarget, texture, level)
++}
++fn glGetFramebufferAttachmentParameteriv(
++    env: &mut Environment,
++    target: GLenum,
++    attachment: GLenum,
++    pname: GLenum,
++    params: MutPtr<GLint>,
++) {
++    glGetFramebufferAttachmentParameterivOES(env, target, attachment, pname, params)
++}
++fn glGetRenderbufferParameteriv(
++    env: &mut Environment,
++    target: GLenum,
++    pname: GLenum,
++    params: MutPtr<GLint>,
++) {
++    glGetRenderbufferParameterivOES(env, target, pname, params)
++}
++fn glCheckFramebufferStatus(env: &mut Environment, target: GLenum) -> GLenum {
++    glCheckFramebufferStatusOES(env, target)
++}
++fn glDeleteFramebuffers(env: &mut Environment, n: GLsizei, framebuffers: ConstPtr<GLuint>) {
++    glDeleteFramebuffersOES(env, n, framebuffers)
++}
++fn glDeleteRenderbuffers(env: &mut Environment, n: GLsizei, renderbuffers: ConstPtr<GLuint>) {
++    glDeleteRenderbuffersOES(env, n, renderbuffers)
++}
++fn glGenerateMipmap(env: &mut Environment, target: GLenum) {
++    glGenerateMipmapOES(env, target)
++}
++
+ unsafe fn clamp_fog_state_values(gles: &mut dyn GLES) -> Option<(f32, f32)> {
+     let mut fogEnabled: GLboolean = 0;
+     gles.GetBooleanv(gles11::FOG, &mut fogEnabled);
+@@ -1472,6 +1604,22 @@ unsafe fn restore_fog_state_values(gles: &mut dyn GLES, from_backup: Option<(f32
+ }
+ 
+ pub const FUNCTIONS: FunctionExports = &[
++    // PortBridge: OpenGL ES 2.0 core names of the framebuffer functions
++    export_c_func!(glGenFramebuffers(_, _)),
++    export_c_func!(glGenRenderbuffers(_, _)),
++    export_c_func!(glIsFramebuffer(_)),
++    export_c_func!(glIsRenderbuffer(_)),
++    export_c_func!(glBindFramebuffer(_, _)),
++    export_c_func!(glBindRenderbuffer(_, _)),
++    export_c_func!(glRenderbufferStorage(_, _, _, _)),
++    export_c_func!(glFramebufferRenderbuffer(_, _, _, _)),
++    export_c_func!(glFramebufferTexture2D(_, _, _, _, _)),
++    export_c_func!(glGetFramebufferAttachmentParameteriv(_, _, _, _)),
++    export_c_func!(glGetRenderbufferParameteriv(_, _, _)),
++    export_c_func!(glCheckFramebufferStatus(_)),
++    export_c_func!(glDeleteFramebuffers(_, _)),
++    export_c_func!(glDeleteRenderbuffers(_, _)),
++    export_c_func!(glGenerateMipmap(_)),
+     // Generic state manipulation
+     export_c_func!(glGetError()),
+     export_c_func!(glEnable(_)),
 diff --git a/src/frameworks/uikit/ui_screen.rs b/src/frameworks/uikit/ui_screen.rs
-index 840d763..d11c51a 100644
+index 840d763a..d11c51a8 100644
 --- a/src/frameworks/uikit/ui_screen.rs
 +++ b/src/frameworks/uikit/ui_screen.rs
 @@ -11,6 +11,8 @@ use crate::objc::{id, msg, msg_class, objc_classes, ClassExports, TrivialHostObj
@@ -1382,7 +2538,7 @@ index 840d763..d11c51a 100644
  
  };
 diff --git a/src/frameworks/uikit/ui_view.rs b/src/frameworks/uikit/ui_view.rs
-index b4dc3af..c4e3fa3 100644
+index b4dc3af0..c4e3fa34 100644
 --- a/src/frameworks/uikit/ui_view.rs
 +++ b/src/frameworks/uikit/ui_view.rs
 @@ -87,6 +87,9 @@ pub(super) struct UIViewHostObject {
@@ -1543,7 +2699,7 @@ index b4dc3af..c4e3fa3 100644
  
  - (CGSize)sizeThatFits:(CGSize)size {
 diff --git a/src/frameworks/uikit/ui_view/ui_alert_view.rs b/src/frameworks/uikit/ui_view/ui_alert_view.rs
-index 7dc2539..d894dc1 100644
+index 7dc25397..d894dc1f 100644
 --- a/src/frameworks/uikit/ui_view/ui_alert_view.rs
 +++ b/src/frameworks/uikit/ui_view/ui_alert_view.rs
 @@ -6,6 +6,7 @@
@@ -1567,10 +2723,30 @@ index 7dc2539..d894dc1 100644
      log!("TODO: [(UIAlertView*){:?} show]", this);
  }
 diff --git a/src/frameworks/uikit/ui_view/ui_window.rs b/src/frameworks/uikit/ui_view/ui_window.rs
-index 1998df4..93073fa 100644
+index 1998df42..9c5afcb3 100644
 --- a/src/frameworks/uikit/ui_view/ui_window.rs
 +++ b/src/frameworks/uikit/ui_view/ui_window.rs
-@@ -64,6 +64,16 @@ pub const CLASSES: ClassExports = objc_classes! {
+@@ -22,7 +22,9 @@ use crate::frameworks::uikit::ui_device::{
+     UIDeviceOrientationLandscapeLeft, UIDeviceOrientationLandscapeRight,
+     UIDeviceOrientationPortraitUpsideDown,
+ };
+-use crate::objc::{id, msg, msg_class, msg_super, nil, objc_classes, ClassExports};
++use crate::objc::{
++    id, msg, msg_class, msg_super, nil, objc_classes, release, retain, ClassExports,
++};
+ 
+ #[derive(Default)]
+ pub struct State {
+@@ -33,6 +35,8 @@ pub struct State {
+     /// The most recent window which received `makeKeyAndVisible` message.
+     /// Non-retaining!
+     pub key_window: Option<id>,
++    /// PortBridge: `rootViewController` of each window (retained).
++    pub root_view_controllers: std::collections::HashMap<id, id>,
+ }
+ 
+ pub const CLASSES: ClassExports = objc_classes! {
+@@ -64,6 +68,16 @@ pub const CLASSES: ClassExports = objc_classes! {
  // NSCoding implementation
  - (id)initWithCoder:(id)coder {
      let this = msg_super![env; this initWithCoder:coder];
@@ -1587,8 +2763,64 @@ index 1998df4..93073fa 100644
      // Undocumented: windows seem to be hidden by default on iOS, unlike views.
      // Super call to bypass the overriden setter on this class, which would post
      // a notification.
+@@ -81,6 +95,9 @@ pub const CLASSES: ClassExports = objc_classes! {
+ }
+ 
+ - (())dealloc {
++    if let Some(vc) = env.framework_state.uikit.ui_view.ui_window.root_view_controllers.remove(&this) {
++        release(env, vc);
++    }
+     if let Some(key_window) = env.framework_state.uikit.ui_view.ui_window.key_window {
+         if key_window == this {
+             env.framework_state.uikit.ui_view.ui_window.key_window = None;
+@@ -130,6 +147,45 @@ pub const CLASSES: ClassExports = objc_classes! {
+     () = msg![env; this setHidden:false];
+ }
+ 
++// PortBridge: iOS 4 root view controller. The controller's view replaces
++// the previous root view, sized to the application frame (the whole screen
++// when the status bar is hidden). Without this the app's view was never in
++// the window: nothing was composited and an OpenGL ES view kept the size it
++// had in its nib (often 320x460, made with a simulated status bar).
++- (id)rootViewController {
++    env.framework_state.uikit.ui_view.ui_window.root_view_controllers.get(&this).copied().unwrap_or(nil)
++}
++- (())setRootViewController:(id)controller {
++    let old = env.framework_state.uikit.ui_view.ui_window.root_view_controllers.get(&this).copied();
++    if old == Some(controller) {
++        return;
++    }
++    if controller != nil {
++        retain(env, controller);
++    }
++    if let Some(old) = old {
++        let old_view: id = msg![env; old view];
++        if old_view != nil {
++            () = msg![env; old_view removeFromSuperview];
++        }
++        env.framework_state.uikit.ui_view.ui_window.root_view_controllers.remove(&this);
++        release(env, old);
++    }
++    if controller == nil {
++        return;
++    }
++    env.framework_state.uikit.ui_view.ui_window.root_view_controllers.insert(this, controller);
++    let view: id = msg![env; controller view];
++    if view != nil {
++        let screen: id = msg_class![env; UIScreen mainScreen];
++        let frame: CGRect = msg![env; screen applicationFrame];
++        () = msg![env; view setFrame:frame];
++        () = msg![env; controller viewWillAppear:false];
++        () = msg![env; this addSubview:view];
++        () = msg![env; controller viewDidAppear:false];
++    }
++}
++
+ // We only model the single main screen
+ - (id)screen {
+     msg_class![env; UIScreen mainScreen]
 diff --git a/src/frameworks/uikit/ui_view_controller.rs b/src/frameworks/uikit/ui_view_controller.rs
-index d0a73bc..e7c803a 100644
+index d0a73bc3..e7c803a7 100644
 --- a/src/frameworks/uikit/ui_view_controller.rs
 +++ b/src/frameworks/uikit/ui_view_controller.rs
 @@ -191,6 +191,19 @@ pub const CLASSES: ClassExports = objc_classes! {
@@ -1612,10 +2844,18 @@ index d0a73bc..e7c803a 100644
      log!("TODO: [(UIViewController*){:?} dismissModalViewControllerAnimated:{}]", this, animated); // TODO
  }
 diff --git a/src/gles.rs b/src/gles.rs
-index b222877..c090760 100644
+index b2228773..c192e0b0 100644
 --- a/src/gles.rs
 +++ b/src/gles.rs
-@@ -136,6 +136,16 @@ pub fn create_gles1_ctx_no_parent_stack(
+@@ -65,6 +65,7 @@
+ 
+ pub mod gles1_native;
+ pub mod gles1_on_gl2;
++pub mod gles2;
+ mod gles_generic;
+ pub mod present;
+ mod util;
+@@ -136,6 +137,16 @@ pub fn create_gles1_ctx_no_parent_stack(
      window: &mut crate::window::Window,
      options: &crate::options::Options,
  ) -> Box<dyn GLESContext> {
@@ -1632,15 +2872,108 @@ index b222877..c090760 100644
      assert!(window.on_main_stack());
      log!("Creating an OpenGL ES 1.1 context:");
      let list = if let Some(ref preference) = options.gles1_implementation {
-@@ -157,5 +167,5 @@ pub fn create_gles1_ctx_no_parent_stack(
+@@ -157,5 +168,49 @@ pub fn create_gles1_ctx_no_parent_stack(
              }
          }
      }
 -    gles1_ctx.expect("Couldn't create OpenGL ES 1.1 context!")
 +    gles1_ctx
++}
++
++/// PortBridge: create an OpenGL ES 2.0 context ([gles2]). Native ES 2.0 on
++/// Android (and wherever native ES 1.1 was asked for with `--gles1`), ES 2.0
++/// calls on desktop OpenGL elsewhere, so it can share objects with the
++/// OpenGL 2.1 context that presents frames. Returns [None] if neither works.
++pub fn try_create_gles2_ctx_no_parent_stack(
++    window: &mut crate::window::Window,
++    options: &crate::options::Options,
++) -> Option<Box<dyn GLESContext>> {
++    assert!(window.on_main_stack());
++    let native_first = cfg!(target_os = "android")
++        || matches!(options.gles1_implementation, Some(GLESImplementation::GLES1Native));
++    log!("Creating an OpenGL ES 2.0 context:");
++    let attempts: [(bool, &str); 2] = if native_first {
++        [(false, "native OpenGL ES 2.0"), (true, "OpenGL ES 2.0 on desktop OpenGL")]
++    } else {
++        [(true, "OpenGL ES 2.0 on desktop OpenGL"), (false, "native OpenGL ES 2.0")]
++    };
++    for (desktop, label) in attempts {
++        log!("Trying: {}", label);
++        let res = if desktop {
++            gles2::GLES2Context::new_on_desktop_gl(window)
++        } else {
++            <gles2::GLES2Context as GLESContext>::new(window)
++        };
++        match res {
++            Ok(ctx) => {
++                log!("=> Success!");
++                return Some(Box::new(ctx));
++            }
++            Err(err) => {
++                log!("=> Failed: {}.", err);
++            }
++        }
++    }
++    None
++}
++
++/// PortBridge: like [create_gles1_ctx], for OpenGL ES 2.0.
++pub fn create_gles2_ctx(env: &mut Environment) -> Option<Box<dyn GLESContext>> {
++    env.on_parent_stack_in_coroutine(|window, options| {
++        try_create_gles2_ctx_no_parent_stack(window, options)
++    })
  }
+diff --git a/src/gles/gl_bindings/build.rs b/src/gles/gl_bindings/build.rs
+index ef437919..92e85836 100644
+--- a/src/gles/gl_bindings/build.rs
++++ b/src/gles/gl_bindings/build.rs
+@@ -51,4 +51,32 @@ fn main() {
+     )
+     .write_bindings(GlobalGenerator, &mut file)
+     .unwrap();
++
++    // PortBridge: OpenGL ES 2.0, for apps that create an EAGLContext with
++    // kEAGLRenderingAPIOpenGLES2. Extensions are the ones iPhone OS exposes
++    // to ES 2.0 apps (the loader falls back to the unsuffixed names, so the
++    // same bindings work on desktop OpenGL).
++    let mut file = File::create(out_dir.join("gles20.rs")).unwrap();
++    Registry::new(
++        Api::Gles2,
++        (2, 0),
++        Profile::Core,
++        Fallbacks::None,
++        [
++            "GL_OES_vertex_array_object",
++            "GL_OES_rgb8_rgba8",
++            "GL_OES_depth24",
++            "GL_OES_packed_depth_stencil",
++            "GL_OES_mapbuffer",
++            "GL_OES_standard_derivatives",
++            "GL_OES_texture_float",
++            "GL_OES_texture_half_float",
++            "GL_EXT_texture_format_BGRA8888",
++            "GL_EXT_discard_framebuffer",
++            "GL_EXT_texture_filter_anisotropic",
++            "GL_IMG_texture_compression_pvrtc",
++        ],
++    )
++    .write_bindings(GlobalGenerator, &mut file)
++    .unwrap();
+ }
+diff --git a/src/gles/gl_bindings/lib.rs b/src/gles/gl_bindings/lib.rs
+index d0740a66..17a6a82f 100644
+--- a/src/gles/gl_bindings/lib.rs
++++ b/src/gles/gl_bindings/lib.rs
+@@ -18,3 +18,7 @@ pub mod gl21compat {
+ pub mod gles11 {
+     include!(concat!(env!("OUT_DIR"), "/gles11.rs"));
+ }
++#[allow(warnings)]
++pub mod gles20 {
++    include!(concat!(env!("OUT_DIR"), "/gles20.rs"));
++}
 diff --git a/src/gles/gles1_native.rs b/src/gles/gles1_native.rs
-index 8b0fd9d..6edb618 100644
+index 8b0fd9dd..6edb618b 100644
 --- a/src/gles/gles1_native.rs
 +++ b/src/gles/gles1_native.rs
 @@ -21,6 +21,46 @@ use crate::window::{GLContext, GLVersion, Window};
@@ -1766,8 +3099,744 @@ index 8b0fd9d..6edb618 100644
          gles11::TexSubImage2D(
              target, level, xoffset, yoffset, width, height, format, type_, pixels,
          )
+diff --git a/src/gles/gles2.rs b/src/gles/gles2.rs
+new file mode 100644
+index 00000000..a40f24b2
+--- /dev/null
++++ b/src/gles/gles2.rs
+@@ -0,0 +1,730 @@
++/*
++ * This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
++ */
++//! PortBridge: OpenGL ES 2.0 for apps that create their `EAGLContext` with
++//! `kEAGLRenderingAPIOpenGLES2`.
++//!
++//! The calls are passed through to the host driver:
++//! - native OpenGL ES 2.0 (Android, or `--gles1=gles1_native` elsewhere);
++//! - desktop OpenGL (compatibility profile with `ARB_ES2_compatibility`, which
++//!   every Mesa, NVIDIA and AMD driver has), so the context can share objects
++//!   with the OpenGL 2.1 context that presents the frames.
++//!
++//! [GLES] is implemented so the code shared with OpenGL ES 1.1 (buffers,
++//! textures, framebuffers, drawing, frame presentation) works unchanged. The
++//! fixed-function parts of that trait don't exist in ES 2.0: an ES 2.0 app
++//! never calls them, so they only log. Shaders, programs, uniforms and vertex
++//! attributes are exposed by [crate::frameworks::opengles] directly through
++//! [raw], which is valid while this context is current.
++
++use super::gles11_raw as gles11; // constants only
++use super::gles11_raw::types::*;
++use super::gles_generic::GLES;
++use super::util::{try_decode_pvrtc, PalettedTextureFormat};
++use super::GLESContext;
++use crate::window::{GLContext, GLVersion, Window};
++use std::collections::HashSet;
++use std::ffi::CStr;
++use std::marker::PhantomData;
++use std::sync::atomic::{AtomicBool, Ordering};
++use std::sync::Mutex;
++
++pub use touchHLE_gl_bindings::gles20 as raw;
++use touchHLE_gl_bindings::gles20 as gles20;
++
++/// Whether the ES 2.0 calls go to desktop OpenGL (see [shader_source_prefix]).
++static DESKTOP_GL: AtomicBool = AtomicBool::new(false);
++
++/// Desktop OpenGL compiles a shader without `#version` as GLSL 1.10, which
++/// doesn't know `precision` and other GLSL ES 1.00 syntax. `#version 100`
++/// selects GLSL ES 1.00 (ARB_ES2_compatibility). Native ES 2.0 needs nothing.
++pub fn shader_source_prefix() -> Option<&'static str> {
++    if DESKTOP_GL.load(Ordering::Relaxed) {
++        Some("#version 100\n")
++    } else {
++        None
++    }
++}
++
++fn es1_only(name: &'static str) {
++    static SEEN: Mutex<Option<HashSet<&'static str>>> = Mutex::new(None);
++    let mut seen = SEEN.lock().unwrap();
++    if seen.get_or_insert_with(HashSet::new).insert(name) {
++        log!(
++            "PortBridge: gl{} (OpenGL ES 1.1 only) called on an OpenGL ES 2.0 context; ignored",
++            name
++        );
++    }
++}
++
++/// Loads the ES 2.0 entry points. Desktop OpenGL has the extension functions
++/// without the suffix (glGenVertexArrays, glMapBuffer...).
++fn load(get: &mut dyn FnMut(&str) -> *const std::ffi::c_void) {
++    gles20::load_with(|name| {
++        let p = get(name);
++        if !p.is_null() {
++            return p;
++        }
++        for suffix in ["OES", "EXT"] {
++            if let Some(base) = name.strip_suffix(suffix) {
++                let p = get(base);
++                if !p.is_null() {
++                    return p;
++                }
++            }
++        }
++        p
++    });
++}
++
++pub struct GLES2Context {
++    gl_ctx: GLContext,
++    is_loaded: bool,
++    desktop: bool,
++}
++impl GLES2Context {
++    /// OpenGL ES 2.0 calls on a desktop OpenGL compatibility context.
++    pub fn new_on_desktop_gl(window: &mut Window) -> Result<Self, String> {
++        Ok(Self {
++            gl_ctx: window.create_gl_context(GLVersion::GL21Compat)?,
++            is_loaded: false,
++            desktop: true,
++        })
++    }
++
++    fn after_load(&mut self) {
++        if self.desktop {
++            DESKTOP_GL.store(true, Ordering::Relaxed);
++            unsafe {
++                // Always on in ES 2.0: gl_PointSize and gl_PointCoord.
++                gles20::Enable(0x8642); // GL_PROGRAM_POINT_SIZE
++                gles20::Enable(0x8861); // GL_POINT_SPRITE
++                while gles20::GetError() != 0 {}
++            }
++        }
++    }
++}
++impl GLESContext for GLES2Context {
++    fn description() -> &'static str {
++        "OpenGL ES 2.0 (PortBridge)"
++    }
++
++    fn new(window: &mut Window) -> Result<Self, String> {
++        Ok(Self {
++            gl_ctx: window.create_gl_context(GLVersion::GLES20)?,
++            is_loaded: false,
++            desktop: false,
++        })
++    }
++
++    fn make_current<'gl_ctx, 'win: 'gl_ctx>(
++        &'gl_ctx mut self,
++        window: &'win mut Window,
++    ) -> Box<dyn GLES + 'gl_ctx> {
++        if !(self.gl_ctx.is_current() && self.is_loaded) {
++            unsafe {
++                window.make_gl_context_current(&self.gl_ctx);
++            }
++            if !self.is_loaded {
++                load(&mut |s| window.gl_get_proc_address(s));
++                self.is_loaded = true;
++                self.after_load();
++            }
++        }
++        Box::new(GLES2 {
++            desktop: self.desktop,
++            _gl_lifetime: PhantomData,
++        })
++    }
++
++    unsafe fn make_current_unchecked_for_window<'gl_ctx>(
++        &'gl_ctx mut self,
++        make_current_fn: &mut dyn FnMut(&GLContext),
++        loader_fn: &mut dyn FnMut(&'static str) -> *const std::ffi::c_void,
++    ) -> Box<dyn GLES + 'gl_ctx> {
++        if !(self.gl_ctx.is_current() && self.is_loaded) {
++            make_current_fn(&self.gl_ctx);
++            if !self.is_loaded {
++                // The loader wants 'static names; the bindings only pass
++                // string literals, so leaking the fallback names is bounded.
++                load(&mut |s| loader_fn(Box::leak(s.to_owned().into_boxed_str())));
++                self.is_loaded = true;
++                self.after_load();
++            }
++        }
++        Box::new(GLES2 {
++            desktop: self.desktop,
++            _gl_lifetime: PhantomData,
++        })
++    }
++}
++
++pub struct GLES2<'gl_ctx> {
++    desktop: bool,
++    _gl_lifetime: PhantomData<&'gl_ctx ()>,
++}
++
++/// Fixed-function state an ES 1.1 code path might query (fog workaround in
++/// glDrawArrays/glDrawElements): reported as off instead of a GL error.
++fn es1_only_pname(pname: GLenum) -> bool {
++    matches!(
++        pname,
++        gles11::FOG | gles11::FOG_START | gles11::FOG_END | gles11::FOG_DENSITY | gles11::FOG_MODE
++    )
++}
++
++#[allow(non_snake_case)]
++impl GLES for GLES2<'_> {
++    unsafe fn driver_description(&self) -> String {
++        let s = |name| {
++            let p = gles20::GetString(name);
++            if p.is_null() {
++                String::from("?")
++            } else {
++                CStr::from_ptr(p as *const _).to_string_lossy().into_owned()
++            }
++        };
++        format!(
++            "{} / {} / {}{}",
++            s(gles20::VERSION),
++            s(gles20::VENDOR),
++            s(gles20::RENDERER),
++            if self.desktop { " (OpenGL ES 2.0 on desktop OpenGL)" } else { "" }
++        )
++    }
++    unsafe fn GetBooleanv(&mut self, pname: GLenum, params: *mut GLboolean) {
++        if es1_only_pname(pname) {
++            *params = 0;
++            return;
++        }
++        gles20::GetBooleanv(pname, params)
++    }
++    unsafe fn GetFloatv(&mut self, pname: GLenum, params: *mut GLfloat) {
++        if es1_only_pname(pname) {
++            *params = 0.0;
++            return;
++        }
++        gles20::GetFloatv(pname, params)
++    }
++    unsafe fn GetIntegerv(&mut self, pname: GLenum, params: *mut GLint) {
++        if es1_only_pname(pname) {
++            *params = 0;
++            return;
++        }
++        gles20::GetIntegerv(pname, params)
++    }
++    unsafe fn TexImage2D(
++        &mut self,
++        target: GLenum,
++        level: GLint,
++        mut internalformat: GLint,
++        width: GLsizei,
++        height: GLsizei,
++        border: GLint,
++        format: GLenum,
++        type_: GLenum,
++        pixels: *const GLvoid,
++    ) {
++        if format == gles11::BGRA_EXT {
++            // iPhone OS (APPLE_texture_format_BGRA8888) takes RGBA as the
++            // internal format. EXT_texture_format_BGRA8888 (Android) wants
++            // BGRA in both; desktop OpenGL wants RGBA.
++            internalformat = if self.desktop {
++                gles11::RGBA as GLint
++            } else {
++                gles11::BGRA_EXT as GLint
++            };
++        } else if self.desktop && internalformat == gles11::BGRA_EXT as GLint {
++            internalformat = gles11::RGBA as GLint;
++        }
++        gles20::TexImage2D(
++            target,
++            level,
++            internalformat,
++            width,
++            height,
++            border,
++            format,
++            type_,
++            pixels,
++        )
++    }
++    unsafe fn CompressedTexImage2D(
++        &mut self,
++        target: GLenum,
++        level: GLint,
++        internalformat: GLenum,
++        width: GLsizei,
++        height: GLsizei,
++        border: GLint,
++        image_size: GLsizei,
++        data: *const GLvoid,
++    ) {
++        let bytes = std::slice::from_raw_parts(data.cast::<u8>(), image_size as usize);
++        // PVRTC exists only on PowerVR/Apple GPUs: decoded in software.
++        if try_decode_pvrtc(
++            self,
++            target,
++            level,
++            internalformat,
++            width,
++            height,
++            border,
++            bytes,
++        ) {
++            return;
++        }
++        if PalettedTextureFormat::get_info(internalformat).is_some() {
++            log!("PortBridge: paletted texture {:#x} on OpenGL ES 2.0 is not supported", internalformat);
++            return;
++        }
++        gles20::CompressedTexImage2D(
++            target,
++            level,
++            internalformat,
++            width,
++            height,
++            border,
++            image_size,
++            data,
++        )
++    }
++
++    unsafe fn GetError(&mut self) -> GLenum {
++        gles20::GetError()
++    }
++    unsafe fn Enable(&mut self, cap: GLenum) {
++        gles20::Enable(cap)
++    }
++    unsafe fn IsEnabled(&mut self, cap: GLenum) -> GLboolean {
++        gles20::IsEnabled(cap)
++    }
++    unsafe fn Disable(&mut self, cap: GLenum) {
++        gles20::Disable(cap)
++    }
++    unsafe fn ClientActiveTexture(&mut self, texture: GLenum) {
++        let _ = texture; es1_only("ClientActiveTexture")
++    }
++    unsafe fn EnableClientState(&mut self, array: GLenum) {
++        let _ = array; es1_only("EnableClientState")
++    }
++    unsafe fn DisableClientState(&mut self, array: GLenum) {
++        let _ = array; es1_only("DisableClientState")
++    }
++    unsafe fn GetTexEnviv(&mut self, target: GLenum, pname: GLenum, params: *mut GLint) {
++        let _ = target; let _ = pname; let _ = params; es1_only("GetTexEnviv")
++    }
++    unsafe fn GetTexEnvfv(&mut self, target: GLenum, pname: GLenum, params: *mut GLfloat) {
++        let _ = target; let _ = pname; let _ = params; es1_only("GetTexEnvfv")
++    }
++    unsafe fn GetPointerv(&mut self, pname: GLenum, params: *mut *const GLvoid) {
++        let _ = pname; let _ = params; es1_only("GetPointerv")
++    }
++    unsafe fn Hint(&mut self, target: GLenum, mode: GLenum) {
++        gles20::Hint(target, mode)
++    }
++    unsafe fn Finish(&mut self) {
++        gles20::Finish()
++    }
++    unsafe fn Flush(&mut self) {
++        gles20::Flush()
++    }
++    unsafe fn GetString(&mut self, name: GLenum) -> *const GLubyte {
++        gles20::GetString(name)
++    }
++    unsafe fn AlphaFunc(&mut self, func: GLenum, ref_: GLclampf) {
++        let _ = func; let _ = ref_; es1_only("AlphaFunc")
++    }
++    unsafe fn AlphaFuncx(&mut self, func: GLenum, ref_: GLclampx) {
++        let _ = func; let _ = ref_; es1_only("AlphaFuncx")
++    }
++    unsafe fn BlendFunc(&mut self, sfactor: GLenum, dfactor: GLenum) {
++        gles20::BlendFunc(sfactor, dfactor)
++    }
++    unsafe fn BlendEquationOES(&mut self, mode: GLenum) {
++        gles20::BlendEquation(mode)
++    }
++    unsafe fn ColorMask(&mut self, red: GLboolean, green: GLboolean, blue: GLboolean, alpha: GLboolean) {
++        gles20::ColorMask(red, green, blue, alpha)
++    }
++    unsafe fn ClipPlanef(&mut self, plane: GLenum, equation: *const GLfloat) {
++        let _ = plane; let _ = equation; es1_only("ClipPlanef")
++    }
++    unsafe fn ClipPlanex(&mut self, plane: GLenum, equation: *const GLfixed) {
++        let _ = plane; let _ = equation; es1_only("ClipPlanex")
++    }
++    unsafe fn CullFace(&mut self, mode: GLenum) {
++        gles20::CullFace(mode)
++    }
++    unsafe fn DepthFunc(&mut self, func: GLenum) {
++        gles20::DepthFunc(func)
++    }
++    unsafe fn DepthMask(&mut self, flag: GLboolean) {
++        gles20::DepthMask(flag)
++    }
++    unsafe fn DepthRangef(&mut self, near: GLclampf, far: GLclampf) {
++        gles20::DepthRangef(near, far)
++    }
++    unsafe fn DepthRangex(&mut self, near: GLclampx, far: GLclampx) {
++        let _ = near; let _ = far; es1_only("DepthRangex")
++    }
++    unsafe fn FrontFace(&mut self, mode: GLenum) {
++        gles20::FrontFace(mode)
++    }
++    unsafe fn PolygonOffset(&mut self, factor: GLfloat, units: GLfloat) {
++        gles20::PolygonOffset(factor, units)
++    }
++    unsafe fn PolygonOffsetx(&mut self, factor: GLfixed, units: GLfixed) {
++        let _ = factor; let _ = units; es1_only("PolygonOffsetx")
++    }
++    unsafe fn SampleCoverage(&mut self, value: GLclampf, invert: GLboolean) {
++        gles20::SampleCoverage(value, invert)
++    }
++    unsafe fn SampleCoveragex(&mut self, value: GLclampx, invert: GLboolean) {
++        let _ = value; let _ = invert; es1_only("SampleCoveragex")
++    }
++    unsafe fn ShadeModel(&mut self, mode: GLenum) {
++        let _ = mode; es1_only("ShadeModel")
++    }
++    unsafe fn Scissor(&mut self, x: GLint, y: GLint, width: GLsizei, height: GLsizei) {
++        gles20::Scissor(x, y, width, height)
++    }
++    unsafe fn Viewport(&mut self, x: GLint, y: GLint, width: GLsizei, height: GLsizei) {
++        gles20::Viewport(x, y, width, height)
++    }
++    unsafe fn LineWidth(&mut self, val: GLfloat) {
++        gles20::LineWidth(val)
++    }
++    unsafe fn LineWidthx(&mut self, val: GLfixed) {
++        let _ = val; es1_only("LineWidthx")
++    }
++    unsafe fn StencilFunc(&mut self, func: GLenum, ref_: GLint, mask: GLuint) {
++        gles20::StencilFunc(func, ref_, mask)
++    }
++    unsafe fn StencilOp(&mut self, sfail: GLenum, dpfail: GLenum, dppass: GLenum) {
++        gles20::StencilOp(sfail, dpfail, dppass)
++    }
++    unsafe fn StencilMask(&mut self, mask: GLuint) {
++        gles20::StencilMask(mask)
++    }
++    unsafe fn LogicOp(&mut self, opcode: GLenum) {
++        let _ = opcode; es1_only("LogicOp")
++    }
++    unsafe fn PointSize(&mut self, size: GLfloat) {
++        let _ = size; es1_only("PointSize")
++    }
++    unsafe fn PointSizex(&mut self, size: GLfixed) {
++        let _ = size; es1_only("PointSizex")
++    }
++    unsafe fn PointParameterf(&mut self, pname: GLenum, param: GLfloat) {
++        let _ = pname; let _ = param; es1_only("PointParameterf")
++    }
++    unsafe fn PointParameterx(&mut self, pname: GLenum, param: GLfixed) {
++        let _ = pname; let _ = param; es1_only("PointParameterx")
++    }
++    unsafe fn PointParameterfv(&mut self, pname: GLenum, params: *const GLfloat) {
++        let _ = pname; let _ = params; es1_only("PointParameterfv")
++    }
++    unsafe fn PointParameterxv(&mut self, pname: GLenum, params: *const GLfixed) {
++        let _ = pname; let _ = params; es1_only("PointParameterxv")
++    }
++    unsafe fn Fogf(&mut self, pname: GLenum, param: GLfloat) {
++        let _ = pname; let _ = param; es1_only("Fogf")
++    }
++    unsafe fn Fogx(&mut self, pname: GLenum, param: GLfixed) {
++        let _ = pname; let _ = param; es1_only("Fogx")
++    }
++    unsafe fn Fogfv(&mut self, pname: GLenum, params: *const GLfloat) {
++        let _ = pname; let _ = params; es1_only("Fogfv")
++    }
++    unsafe fn Fogxv(&mut self, pname: GLenum, params: *const GLfixed) {
++        let _ = pname; let _ = params; es1_only("Fogxv")
++    }
++    unsafe fn Lightf(&mut self, light: GLenum, pname: GLenum, param: GLfloat) {
++        let _ = light; let _ = pname; let _ = param; es1_only("Lightf")
++    }
++    unsafe fn Lightx(&mut self, light: GLenum, pname: GLenum, param: GLfixed) {
++        let _ = light; let _ = pname; let _ = param; es1_only("Lightx")
++    }
++    unsafe fn Lightfv(&mut self, light: GLenum, pname: GLenum, params: *const GLfloat) {
++        let _ = light; let _ = pname; let _ = params; es1_only("Lightfv")
++    }
++    unsafe fn Lightxv(&mut self, light: GLenum, pname: GLenum, params: *const GLfixed) {
++        let _ = light; let _ = pname; let _ = params; es1_only("Lightxv")
++    }
++    unsafe fn LightModelf(&mut self, pname: GLenum, param: GLfloat) {
++        let _ = pname; let _ = param; es1_only("LightModelf")
++    }
++    unsafe fn LightModelx(&mut self, pname: GLenum, param: GLfixed) {
++        let _ = pname; let _ = param; es1_only("LightModelx")
++    }
++    unsafe fn LightModelfv(&mut self, pname: GLenum, params: *const GLfloat) {
++        let _ = pname; let _ = params; es1_only("LightModelfv")
++    }
++    unsafe fn LightModelxv(&mut self, pname: GLenum, params: *const GLfixed) {
++        let _ = pname; let _ = params; es1_only("LightModelxv")
++    }
++    unsafe fn Materialf(&mut self, face: GLenum, pname: GLenum, param: GLfloat) {
++        let _ = face; let _ = pname; let _ = param; es1_only("Materialf")
++    }
++    unsafe fn Materialx(&mut self, face: GLenum, pname: GLenum, param: GLfixed) {
++        let _ = face; let _ = pname; let _ = param; es1_only("Materialx")
++    }
++    unsafe fn Materialfv(&mut self, face: GLenum, pname: GLenum, params: *const GLfloat) {
++        let _ = face; let _ = pname; let _ = params; es1_only("Materialfv")
++    }
++    unsafe fn Materialxv(&mut self, face: GLenum, pname: GLenum, params: *const GLfixed) {
++        let _ = face; let _ = pname; let _ = params; es1_only("Materialxv")
++    }
++    unsafe fn IsBuffer(&mut self, buffer: GLuint) -> GLboolean {
++        gles20::IsBuffer(buffer)
++    }
++    unsafe fn GenBuffers(&mut self, n: GLsizei, buffers: *mut GLuint) {
++        gles20::GenBuffers(n, buffers)
++    }
++    unsafe fn DeleteBuffers(&mut self, n: GLsizei, buffers: *const GLuint) {
++        gles20::DeleteBuffers(n, buffers)
++    }
++    unsafe fn BindBuffer(&mut self, target: GLenum, buffer: GLuint) {
++        gles20::BindBuffer(target, buffer)
++    }
++    unsafe fn BufferData(&mut self, target: GLenum, size: GLsizeiptr, data: *const GLvoid, usage: GLenum) {
++        gles20::BufferData(target, size, data, usage)
++    }
++    unsafe fn BufferSubData(&mut self, target: GLenum, offset: GLintptr, size: GLsizeiptr, data: *const GLvoid) {
++        gles20::BufferSubData(target, offset, size, data)
++    }
++    unsafe fn Color4f(&mut self, red: GLfloat, green: GLfloat, blue: GLfloat, alpha: GLfloat) {
++        let _ = red; let _ = green; let _ = blue; let _ = alpha; es1_only("Color4f")
++    }
++    unsafe fn Color4x(&mut self, red: GLfixed, green: GLfixed, blue: GLfixed, alpha: GLfixed) {
++        let _ = red; let _ = green; let _ = blue; let _ = alpha; es1_only("Color4x")
++    }
++    unsafe fn Color4ub(&mut self, red: GLubyte, green: GLubyte, blue: GLubyte, alpha: GLubyte) {
++        let _ = red; let _ = green; let _ = blue; let _ = alpha; es1_only("Color4ub")
++    }
++    unsafe fn Normal3f(&mut self, nx: GLfloat, ny: GLfloat, nz: GLfloat) {
++        let _ = nx; let _ = ny; let _ = nz; es1_only("Normal3f")
++    }
++    unsafe fn Normal3x(&mut self, nx: GLfixed, ny: GLfixed, nz: GLfixed) {
++        let _ = nx; let _ = ny; let _ = nz; es1_only("Normal3x")
++    }
++    unsafe fn ColorPointer(&mut self, size: GLint, type_: GLenum, stride: GLsizei, pointer: *const GLvoid) {
++        let _ = size; let _ = type_; let _ = stride; let _ = pointer; es1_only("ColorPointer")
++    }
++    unsafe fn NormalPointer(&mut self, type_: GLenum, stride: GLsizei, pointer: *const GLvoid) {
++        let _ = type_; let _ = stride; let _ = pointer; es1_only("NormalPointer")
++    }
++    unsafe fn TexCoordPointer(&mut self, size: GLint, type_: GLenum, stride: GLsizei, pointer: *const GLvoid) {
++        let _ = size; let _ = type_; let _ = stride; let _ = pointer; es1_only("TexCoordPointer")
++    }
++    unsafe fn VertexPointer(&mut self, size: GLint, type_: GLenum, stride: GLsizei, pointer: *const GLvoid) {
++        let _ = size; let _ = type_; let _ = stride; let _ = pointer; es1_only("VertexPointer")
++    }
++    unsafe fn DrawArrays(&mut self, mode: GLenum, first: GLint, count: GLsizei) {
++        gles20::DrawArrays(mode, first, count)
++    }
++    unsafe fn DrawElements(&mut self, mode: GLenum, count: GLsizei, type_: GLenum, indices: *const GLvoid) {
++        gles20::DrawElements(mode, count, type_, indices)
++    }
++    unsafe fn Clear(&mut self, mask: GLbitfield) {
++        gles20::Clear(mask)
++    }
++    unsafe fn ClearColor(&mut self, red: GLclampf, green: GLclampf, blue: GLclampf, alpha: GLclampf) {
++        gles20::ClearColor(red, green, blue, alpha)
++    }
++    unsafe fn ClearColorx(&mut self, red: GLclampx, green: GLclampx, blue: GLclampx, alpha: GLclampx) {
++        let _ = red; let _ = green; let _ = blue; let _ = alpha; es1_only("ClearColorx")
++    }
++    unsafe fn ClearDepthf(&mut self, depth: GLclampf) {
++        gles20::ClearDepthf(depth)
++    }
++    unsafe fn ClearDepthx(&mut self, depth: GLclampx) {
++        let _ = depth; es1_only("ClearDepthx")
++    }
++    unsafe fn ClearStencil(&mut self, s: GLint) {
++        gles20::ClearStencil(s)
++    }
++    unsafe fn PixelStorei(&mut self, pname: GLenum, param: GLint) {
++        gles20::PixelStorei(pname, param)
++    }
++    unsafe fn ReadPixels(&mut self, x: GLint, y: GLint, width: GLsizei, height: GLsizei, format: GLenum, type_: GLenum, pixels: *mut GLvoid) {
++        gles20::ReadPixels(x, y, width, height, format, type_, pixels)
++    }
++    unsafe fn GenTextures(&mut self, n: GLsizei, textures: *mut GLuint) {
++        gles20::GenTextures(n, textures)
++    }
++    unsafe fn DeleteTextures(&mut self, n: GLsizei, textures: *const GLuint) {
++        gles20::DeleteTextures(n, textures)
++    }
++    unsafe fn ActiveTexture(&mut self, texture: GLenum) {
++        gles20::ActiveTexture(texture)
++    }
++    unsafe fn IsTexture(&mut self, texture: GLuint) -> GLboolean {
++        gles20::IsTexture(texture)
++    }
++    unsafe fn BindTexture(&mut self, target: GLenum, texture: GLuint) {
++        gles20::BindTexture(target, texture)
++    }
++    unsafe fn TexParameteri(&mut self, target: GLenum, pname: GLenum, param: GLint) {
++        gles20::TexParameteri(target, pname, param)
++    }
++    unsafe fn TexParameterf(&mut self, target: GLenum, pname: GLenum, param: GLfloat) {
++        gles20::TexParameterf(target, pname, param)
++    }
++    unsafe fn TexParameterx(&mut self, target: GLenum, pname: GLenum, param: GLfixed) {
++        let _ = target; let _ = pname; let _ = param; es1_only("TexParameterx")
++    }
++    unsafe fn TexParameteriv(&mut self, target: GLenum, pname: GLenum, params: *const GLint) {
++        gles20::TexParameteriv(target, pname, params)
++    }
++    unsafe fn TexParameterfv(&mut self, target: GLenum, pname: GLenum, params: *const GLfloat) {
++        gles20::TexParameterfv(target, pname, params)
++    }
++    unsafe fn TexParameterxv(&mut self, target: GLenum, pname: GLenum, params: *const GLfixed) {
++        let _ = target; let _ = pname; let _ = params; es1_only("TexParameterxv")
++    }
++    unsafe fn TexSubImage2D(&mut self, target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, width: GLsizei, height: GLsizei, format: GLenum, type_: GLenum, pixels: *const GLvoid) {
++        gles20::TexSubImage2D(target, level, xoffset, yoffset, width, height, format, type_, pixels)
++    }
++    unsafe fn CopyTexImage2D(&mut self, target: GLenum, level: GLint, internalformat: GLenum, x: GLint, y: GLint, width: GLsizei, height: GLsizei, border: GLint) {
++        gles20::CopyTexImage2D(target, level, internalformat, x, y, width, height, border)
++    }
++    unsafe fn CopyTexSubImage2D(&mut self, target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, x: GLint, y: GLint, width: GLsizei, height: GLsizei) {
++        gles20::CopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height)
++    }
++    unsafe fn TexEnvf(&mut self, target: GLenum, pname: GLenum, param: GLfloat) {
++        let _ = target; let _ = pname; let _ = param; es1_only("TexEnvf")
++    }
++    unsafe fn TexEnvx(&mut self, target: GLenum, pname: GLenum, param: GLfixed) {
++        let _ = target; let _ = pname; let _ = param; es1_only("TexEnvx")
++    }
++    unsafe fn TexEnvi(&mut self, target: GLenum, pname: GLenum, param: GLint) {
++        let _ = target; let _ = pname; let _ = param; es1_only("TexEnvi")
++    }
++    unsafe fn TexEnvfv(&mut self, target: GLenum, pname: GLenum, params: *const GLfloat) {
++        let _ = target; let _ = pname; let _ = params; es1_only("TexEnvfv")
++    }
++    unsafe fn TexEnvxv(&mut self, target: GLenum, pname: GLenum, params: *const GLfixed) {
++        let _ = target; let _ = pname; let _ = params; es1_only("TexEnvxv")
++    }
++    unsafe fn TexEnviv(&mut self, target: GLenum, pname: GLenum, params: *const GLint) {
++        let _ = target; let _ = pname; let _ = params; es1_only("TexEnviv")
++    }
++    unsafe fn MultiTexCoord4f(&mut self, target: GLenum, s: GLfloat, t: GLfloat, r: GLfloat, q: GLfloat) {
++        let _ = target; let _ = s; let _ = t; let _ = r; let _ = q; es1_only("MultiTexCoord4f")
++    }
++    unsafe fn MultiTexCoord4x(&mut self, target: GLenum, s: GLfixed, t: GLfixed, r: GLfixed, q: GLfixed) {
++        let _ = target; let _ = s; let _ = t; let _ = r; let _ = q; es1_only("MultiTexCoord4x")
++    }
++    unsafe fn MatrixMode(&mut self, mode: GLenum) {
++        let _ = mode; es1_only("MatrixMode")
++    }
++    unsafe fn LoadIdentity(&mut self) {
++        es1_only("LoadIdentity")
++    }
++    unsafe fn LoadMatrixf(&mut self, m: *const GLfloat) {
++        let _ = m; es1_only("LoadMatrixf")
++    }
++    unsafe fn LoadMatrixx(&mut self, m: *const GLfixed) {
++        let _ = m; es1_only("LoadMatrixx")
++    }
++    unsafe fn MultMatrixf(&mut self, m: *const GLfloat) {
++        let _ = m; es1_only("MultMatrixf")
++    }
++    unsafe fn MultMatrixx(&mut self, m: *const GLfixed) {
++        let _ = m; es1_only("MultMatrixx")
++    }
++    unsafe fn PushMatrix(&mut self) {
++        es1_only("PushMatrix")
++    }
++    unsafe fn PopMatrix(&mut self) {
++        es1_only("PopMatrix")
++    }
++    unsafe fn Orthof(&mut self, left: GLfloat, right: GLfloat, bottom: GLfloat, top: GLfloat, near: GLfloat, far: GLfloat) {
++        let _ = left; let _ = right; let _ = bottom; let _ = top; let _ = near; let _ = far; es1_only("Orthof")
++    }
++    unsafe fn Orthox(&mut self, left: GLfixed, right: GLfixed, bottom: GLfixed, top: GLfixed, near: GLfixed, far: GLfixed) {
++        let _ = left; let _ = right; let _ = bottom; let _ = top; let _ = near; let _ = far; es1_only("Orthox")
++    }
++    unsafe fn Frustumf(&mut self, left: GLfloat, right: GLfloat, bottom: GLfloat, top: GLfloat, near: GLfloat, far: GLfloat) {
++        let _ = left; let _ = right; let _ = bottom; let _ = top; let _ = near; let _ = far; es1_only("Frustumf")
++    }
++    unsafe fn Frustumx(&mut self, left: GLfixed, right: GLfixed, bottom: GLfixed, top: GLfixed, near: GLfixed, far: GLfixed) {
++        let _ = left; let _ = right; let _ = bottom; let _ = top; let _ = near; let _ = far; es1_only("Frustumx")
++    }
++    unsafe fn Rotatef(&mut self, angle: GLfloat, x: GLfloat, y: GLfloat, z: GLfloat) {
++        let _ = angle; let _ = x; let _ = y; let _ = z; es1_only("Rotatef")
++    }
++    unsafe fn Rotatex(&mut self, angle: GLfixed, x: GLfixed, y: GLfixed, z: GLfixed) {
++        let _ = angle; let _ = x; let _ = y; let _ = z; es1_only("Rotatex")
++    }
++    unsafe fn Scalef(&mut self, x: GLfloat, y: GLfloat, z: GLfloat) {
++        let _ = x; let _ = y; let _ = z; es1_only("Scalef")
++    }
++    unsafe fn Scalex(&mut self, x: GLfixed, y: GLfixed, z: GLfixed) {
++        let _ = x; let _ = y; let _ = z; es1_only("Scalex")
++    }
++    unsafe fn Translatef(&mut self, x: GLfloat, y: GLfloat, z: GLfloat) {
++        let _ = x; let _ = y; let _ = z; es1_only("Translatef")
++    }
++    unsafe fn Translatex(&mut self, x: GLfixed, y: GLfixed, z: GLfixed) {
++        let _ = x; let _ = y; let _ = z; es1_only("Translatex")
++    }
++    unsafe fn GenFramebuffersOES(&mut self, n: GLsizei, framebuffers: *mut GLuint) {
++        gles20::GenFramebuffers(n, framebuffers)
++    }
++    unsafe fn GenRenderbuffersOES(&mut self, n: GLsizei, renderbuffers: *mut GLuint) {
++        gles20::GenRenderbuffers(n, renderbuffers)
++    }
++    unsafe fn IsFramebufferOES(&mut self, framebuffer: GLuint) -> GLboolean {
++        gles20::IsFramebuffer(framebuffer)
++    }
++    unsafe fn IsRenderbufferOES(&mut self, renderbuffer: GLuint) -> GLboolean {
++        gles20::IsRenderbuffer(renderbuffer)
++    }
++    unsafe fn BindFramebufferOES(&mut self, target: GLenum, framebuffer: GLuint) {
++        gles20::BindFramebuffer(target, framebuffer)
++    }
++    unsafe fn BindRenderbufferOES(&mut self, target: GLenum, renderbuffer: GLuint) {
++        gles20::BindRenderbuffer(target, renderbuffer)
++    }
++    unsafe fn RenderbufferStorageOES(&mut self, target: GLenum, internalformat: GLenum, width: GLsizei, height: GLsizei) {
++        gles20::RenderbufferStorage(target, internalformat, width, height)
++    }
++    unsafe fn FramebufferRenderbufferOES(&mut self, target: GLenum, attachment: GLenum, renderbuffertarget: GLenum, renderbuffer: GLuint) {
++        gles20::FramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer)
++    }
++    unsafe fn FramebufferTexture2DOES(&mut self, target: GLenum, attachment: GLenum, textarget: GLenum, texture: GLuint, level: i32) {
++        gles20::FramebufferTexture2D(target, attachment, textarget, texture, level)
++    }
++    unsafe fn GetFramebufferAttachmentParameterivOES(&mut self, target: GLenum, attachment: GLenum, pname: GLenum, params: *mut GLint) {
++        gles20::GetFramebufferAttachmentParameteriv(target, attachment, pname, params)
++    }
++    unsafe fn GetRenderbufferParameterivOES(&mut self, target: GLenum, pname: GLenum, params: *mut GLint) {
++        gles20::GetRenderbufferParameteriv(target, pname, params)
++    }
++    unsafe fn CheckFramebufferStatusOES(&mut self, target: GLenum) -> GLenum {
++        gles20::CheckFramebufferStatus(target)
++    }
++    unsafe fn DeleteFramebuffersOES(&mut self, n: GLsizei, framebuffers: *const GLuint) {
++        gles20::DeleteFramebuffers(n, framebuffers)
++    }
++    unsafe fn DeleteRenderbuffersOES(&mut self, n: GLsizei, renderbuffers: *const GLuint) {
++        gles20::DeleteRenderbuffers(n, renderbuffers)
++    }
++    unsafe fn GenerateMipmapOES(&mut self, target: GLenum) {
++        gles20::GenerateMipmap(target)
++    }
++    unsafe fn GetBufferParameteriv(&mut self, target: GLenum, pname: GLenum, params: *mut GLint) {
++        gles20::GetBufferParameteriv(target, pname, params)
++    }
++    unsafe fn MapBufferOES(&mut self, target: GLenum, access: GLenum) -> *mut GLvoid {
++        gles20::MapBufferOES(target, access)
++    }
++    unsafe fn UnmapBufferOES(&mut self, target: GLenum) -> GLboolean {
++        gles20::UnmapBufferOES(target)
++    }
++}
 diff --git a/src/image.rs b/src/image.rs
-index 3afe2c2..360a3d6 100644
+index 3afe2c2d..360a3d67 100644
 --- a/src/image.rs
 +++ b/src/image.rs
 @@ -25,6 +25,9 @@ use touchHLE_stb_image_wrapper::*;
@@ -1827,7 +3896,7 @@ index 3afe2c2..360a3d6 100644
      /// alpha). Rows are in top-to-bottom order.
      pub fn pixels(&self) -> &[u8] {
 diff --git a/src/lib.rs b/src/lib.rs
-index fcfec3f..fca7b45 100644
+index fcfec3fb..fca7b45a 100644
 --- a/src/lib.rs
 +++ b/src/lib.rs
 @@ -48,6 +48,7 @@ mod mem;
@@ -1871,7 +3940,7 @@ index fcfec3f..fca7b45 100644
      }));
      let env = match res {
 diff --git a/src/objc.rs b/src/objc.rs
-index 065cd62..0d7dbb4 100644
+index 065cd620..0d7dbb4a 100644
 --- a/src/objc.rs
 +++ b/src/objc.rs
 @@ -27,6 +27,7 @@ mod classes;
@@ -1946,7 +4015,7 @@ index 065cd62..0d7dbb4 100644
 -    export_c_func!(_Block_object_dispose(_, _)),
  ];
 diff --git a/src/objc/messages.rs b/src/objc/messages.rs
-index 03a6f99..b503001 100644
+index 03a6f995..b503001c 100644
 --- a/src/objc/messages.rs
 +++ b/src/objc/messages.rs
 @@ -35,7 +35,11 @@ pub(super) struct ThreadInitializer {
@@ -2024,7 +4093,7 @@ index 03a6f99..b503001 100644
  pub(crate) fn objc_msgSend(env: &mut Environment, receiver: id, selector: SEL) {
 diff --git a/src/objc/portbridge_compat.rs b/src/objc/portbridge_compat.rs
 new file mode 100644
-index 0000000..bfb8d2c
+index 00000000..bfb8d2cf
 --- /dev/null
 +++ b/src/objc/portbridge_compat.rs
 @@ -0,0 +1,774 @@
@@ -2803,7 +4872,7 @@ index 0000000..bfb8d2c
 +    ),
 +];
 diff --git a/src/objc/selectors.rs b/src/objc/selectors.rs
-index 204754a..3723381 100644
+index 204754ae..3723381e 100644
 --- a/src/objc/selectors.rs
 +++ b/src/objc/selectors.rs
 @@ -67,6 +67,10 @@ impl SEL {
@@ -2818,7 +4887,7 @@ index 204754a..3723381 100644
  
  unsafe impl SafeRead for SEL {}
 diff --git a/src/options.rs b/src/options.rs
-index 7f13c7f..e9fc329 100644
+index 7f13c7f7..e9fc3295 100644
 --- a/src/options.rs
 +++ b/src/options.rs
 @@ -62,6 +62,8 @@ pub struct Options {
@@ -2849,7 +4918,7 @@ index 7f13c7f..e9fc329 100644
                  "Invalid value for --zero-stack-after-guest-to-host-call=".to_string()
 diff --git a/src/portbridge_haptics.rs b/src/portbridge_haptics.rs
 new file mode 100644
-index 0000000..fa24d07
+index 00000000..fa24d07a
 --- /dev/null
 +++ b/src/portbridge_haptics.rs
 @@ -0,0 +1,155 @@
@@ -3009,7 +5078,7 @@ index 0000000..fa24d07
 +    Some(env.mem.read(ptr))
 +}
 diff --git a/src/version/lib.rs b/src/version/lib.rs
-index ff5a09d..73fa275 100644
+index ff5a09d7..73fa2759 100644
 --- a/src/version/lib.rs
 +++ b/src/version/lib.rs
 @@ -13,6 +13,10 @@ pub const GITHUB_REF_NAME: Option<&str> = option_env!("GITHUB_REF_NAME");
@@ -3024,10 +5093,30 @@ index ff5a09d..73fa275 100644
          return "";
      }
 diff --git a/src/window.rs b/src/window.rs
-index d4eae99..be120db 100644
+index d4eae998..a503a0d2 100644
 --- a/src/window.rs
 +++ b/src/window.rs
-@@ -1266,6 +1266,17 @@ impl Window {
+@@ -179,6 +179,8 @@ pub enum GLVersion {
+     GLES11,
+     /// OpenGL 2.1 compatibility profile
+     GL21Compat,
++    /// PortBridge: OpenGL ES 2.0
++    GLES20,
+ }
+ 
+ pub struct GLContext(sdl2::video::GLContext);
+@@ -1156,6 +1158,10 @@ impl Window {
+                 attr.set_context_version(2, 1);
+                 attr.set_context_profile(sdl2::video::GLProfile::Compatibility);
+             }
++            GLVersion::GLES20 => {
++                attr.set_context_version(2, 0);
++                attr.set_context_profile(sdl2::video::GLProfile::GLES);
++            }
+         }
+ 
+         let gl_ctx = self.window.gl_create_context()?;
+@@ -1266,6 +1272,17 @@ impl Window {
      /// Swap front-buffer and back-buffer so the result of OpenGL rendering is
      /// presented.
      pub fn swap_window(&self) {
@@ -3044,3 +5133,4 @@ index d4eae99..be120db 100644
 +        }
          self.window.gl_swap_window();
      }
+ 

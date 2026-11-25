@@ -2,7 +2,7 @@
 
 Este módulo gera `hle-release-unsigned.apk`, o template que o conversor usa para
 apps iOS **sem engine conhecida**, cujo código é ARM de 32 bits (armv6/armv7):
-Objective-C/C++ com OpenGL ES 1.1, típicos de iPhone OS 2 a iOS 5.
+Objective-C/C++ com OpenGL ES 1.1 ou 2.0, típicos de iPhone OS 2 a iOS 6.
 
 Dentro do APK vai o [touchHLE](https://touchhle.org/) (emulador de alto nível do
 iOS, MPL-2.0): um JIT (dynarmic) traduz o código ARM32 para ARM64 e as APIs do iOS
@@ -51,6 +51,15 @@ que apps feitos com o SDK do iOS 5/6 importam (ARC, runtime de *blocks*, proteç
 pilha, `__divmodsi4`, introspecção `class_*`/`ivar_*`, subscripting e literais,
 `NSOrderedSet`, `presentViewController:…`). Detalhes em
 [docs/ROADMAP.md](../../docs/ROADMAP.md#fase-3-apps-nativos-com-touchhle--primeira-versão).
+
+O patch também acrescenta **OpenGL ES 2.0** (`EAGLContext initWithAPI:2`), que o
+touchHLE oficial não tem: shaders, programas, uniforms, atributos de vértice, VAO
+(`OES_vertex_array_object`) e os nomes core das funções de framebuffer. No Android as
+chamadas vão para o OpenGL ES 2.0 nativo do aparelho; no computador, para o OpenGL
+desktop (perfil de compatibilidade, com `#version 100` nos shaders), compartilhando
+objetos com o contexto que apresenta os quadros. Ainda no patch: `-[UIWindow
+setRootViewController:]` (sem ele a view do jogo nunca entrava na janela) e a
+apresentação direta de camadas GL giradas 180° (sem cópia para a RAM).
 
 O projeto touchHLE não aceita contribuições geradas com IA; por isso essas mudanças
 ficam só no PortBridge e não devem ser enviadas a ele.
@@ -119,13 +128,37 @@ estado GL do jogo (ver o estudo de caso do Ninja Striker em `docs/ROADMAP.md`).
 
 ## Checar um IPA antes
 
+O conversor verifica o executável sozinho (aparece no app antes de converter, no log
+da conversão e em `assets/portbridge.json` → `hle_check`). Para o relatório completo:
+
 ```bash
-python -m portbridge hle-check Jogo.ipa
+java -jar portbridge-converter.jar --check Jogo.ipa
 ```
 
-Compara o que o executável importa e chama com `portbridge/data/touchhle_api.json`
-(gerado por `tools/gen_touchhle_api.py` a partir do touchHLE com o patch). É uma
-estimativa estática: o app não é executado.
+Ele lê o Mach-O de 32 bits (funções e constantes importadas com a dylib de origem,
+classes Objective-C, seletores enviados e os métodos que o próprio app implementa) e
+cruza com `converter/src/main/resources/touchhle_api.txt`, a lista do que o touchHLE
+**com o patch do PortBridge** implementa. O que falta sai em quatro grupos:
+
+- **núcleo** (OpenGL ES, Core Animation, OpenAL, Audio Toolbox, Core Graphics): falha
+  quase certa e visível;
+- **outros**: só atrapalham se o jogo usar o recurso (no `--lenient` viram 0/nil);
+- **opcionais** (Game Center, loja, rede, anúncios, ligação fraca): ignorados;
+- **métodos** que nenhuma classe do runtime nem do app implementa.
+
+É análise estática: mostra o que o executável importa, não o que ele usa ao rodar (o
+SunFlowers importa câmera, rede e tabelas que o jogo nunca abre). Para o SunFlowers o
+resultado bate item por item com o `--dump=linking-info` do touchHLE (funções, classes
+e seletores sem implementação).
+
+A lista é gerada do código-fonte (com o patch aplicado) e conferida com
+`touchHLE --dump=symbols`:
+
+```bash
+sh tools/touchhle_patches.sh apply
+python3 tools/gen_touchhle_api.py           # grava touchhle_api.txt
+python3 tools/gen_touchhle_api.py --check   # o CI falha se estiver desatualizada
+```
 
 ## Licença
 

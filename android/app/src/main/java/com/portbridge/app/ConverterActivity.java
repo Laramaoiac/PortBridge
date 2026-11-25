@@ -198,8 +198,16 @@ public class ConverterActivity extends Activity {
                 support = ok ? "⚠️ Emulação do iOS (touchHLE): compatibilidade depende do jogo"
                              : "🚧 App nativo ARM 32 bits: precisa do runtime de emulação, ainda não incluído nesta versão";
                 break;
+            case WEB:
+                ok = hasTemplate(Ipa.Runtime.WEB);
+                support = "✅ App web (" + info.engine + "): roda num WebView com a ponte do PortBridge";
+                break;
             default: support = "❌ Ainda não pode ser portado: " + info.reason;
         }
+        if (info.hle != null && info.hle.verdict == com.portbridge.converter.HleCheck.Verdict.GOOD) {
+            support += "\n✅ " + info.hle.summary();
+        }
+        for (String w : info.warnings) support += "\n⚠️ " + w;
         details.setText("Versão " + info.version + " · " + info.bundleId + "\n"
                 + "Engine: " + info.engine + " · " + String.join(", ", info.archs)
                 + (info.minimumOs.isEmpty() ? "" : " · iOS " + info.minimumOs + "+") + "\n"
@@ -222,7 +230,7 @@ public class ConverterActivity extends Activity {
         new Thread(() -> {
             try {
                 Map<Ipa.Runtime, File> templates = new EnumMap<>(Ipa.Runtime.class);
-                for (Ipa.Runtime rt : new Ipa.Runtime[] {Ipa.Runtime.CLICKTEAM, Ipa.Runtime.HLE}) {
+                for (Ipa.Runtime rt : new Ipa.Runtime[] {Ipa.Runtime.CLICKTEAM, Ipa.Runtime.HLE, Ipa.Runtime.WEB}) {
                     if (!hasTemplate(rt)) continue;
                     File t = new File(getCacheDir(), "template-" + rt.name().toLowerCase() + ".apk");
                     templates.put(rt, Converter.copyToFile(getAssets().open("templates/" + rt.name().toLowerCase() + ".apk"), t));

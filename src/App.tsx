@@ -23,6 +23,7 @@ import { QuickGuidedWizard } from './components/QuickGuidedWizard';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { NativePortBridgePanel } from './components/NativePortBridgePanel';
 import { UniversalStudioPanel } from './components/UniversalStudioPanel';
+import { WebRouteConverterPanel } from './components/WebRouteConverterPanel';
 import { TranslationPtBrPanel } from './components/TranslationPtBrPanel';
 import type { TranslationPack } from './core/i18n/translationPipeline.ts';
 import {
@@ -41,6 +42,7 @@ type ActiveSection =
   | 'simulator'
   | 'native'
   | 'studio'
+  | 'web'
   | 'i18n'
   | 'saves'
   | 'converter'
@@ -559,6 +561,17 @@ export default function App() {
             </button>
             <button
               type="button"
+              onClick={() => setActiveSection('web')}
+              className={`h-14 inline-flex items-center border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                activeSection === 'web'
+                  ? 'text-white border-[#FF7A1A]'
+                  : 'border-transparent hover:text-white'
+              }`}
+            >
+              Rota web
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveSection('i18n')}
               className={`h-14 inline-flex items-center border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeSection === 'i18n'
@@ -692,6 +705,9 @@ export default function App() {
 
         {/* VIEW 2C: UNIVERSAL IPA DECONSTRUCTOR & 5-TARGET ANDROID STUDIO */}
         {activeSection === 'studio' && <UniversalStudioPanel />}
+
+        {/* VIEW 2C-2: ROTA WEB (Cordova/Capacitor/RPG Maker/Construct -> APK no navegador) */}
+        {activeSection === 'web' && <WebRouteConverterPanel />}
 
         {/* VIEW 2D: NON-DESTRUCTIVE PT-BR TRANSLATION ENGINE */}
         {activeSection === 'i18n' && (
